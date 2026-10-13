@@ -1,0 +1,910 @@
+/* ==========================================================================
+   Modales y tarjetas de decisión de las asignaciones
+   --------------------------------------------------------------------------
+   Los componentes vienen de react-bootstrap (Modal, Form, Button), que trae la
+   accesibilidad del diálogo: foco atrapado, `role="dialog"`,
+   `aria-modal="true"`, cierre con Escape y `data-bs-*` para el fondo. Aquí sólo
+   se les da el aspecto del sistema: mismos tokens, mismas medidas y mismos
+   objetivos de 44px que el resto de la aplicación.
+   ========================================================================== */
+
+.modal-content {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.modal-header {
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-title {
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  color: var(--ink);
+}
+
+.modal-title small {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+
+.modal-body {
+  padding: var(--space-5);
+}
+
+.modal-footer {
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--line);
+}
+
+/* El `btn-close` de Bootstrap se reemplaza por el del sistema de diseño. */
+.modal-header .btn-close {
+  display: none;
+}
+
+/* El modal ancho no debe pegarse a los bordes en pantallas pequeñas. */
+.modal-dialog {
+  margin: var(--space-4) auto;
+}
+
+/* --------------------------------------------------------------------------
+   Modales con mucho contenido (los tres períodos)
+   --------------------------------------------------------------------------
+   Sin esto, en una pantalla de portátil el botón de guardar queda por debajo
+   del pliegue y hay que desplazar la página entera para encontrarlo. Aquí el
+   cuerpo es el único que se desplaza: el encabezado y el pie —donde está la
+   acción principal— quedan siempre visibles.
+   -------------------------------------------------------------------------- */
+
+.modal-dialog:has(.modal-body) {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 2 * var(--space-4));
+}
+
+.modal-dialog:has(.modal-body) .modal-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+}
+
+.modal-header,
+.modal-footer {
+  flex: none;
+}
+
+.modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* La barra de desplazamiento dentro del modal, discreta y con el ancho del
+   sistema (no la barra por defecto del navegador). */
+.modal-body::-webkit-scrollbar {
+  width: 10px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background-color: var(--line-strong);
+  border: 3px solid var(--surface);
+  border-radius: var(--radius-pill);
+}
+
+/* ==========================================================================
+   Variantes de react-bootstrap con la paleta del sistema
+   --------------------------------------------------------------------------
+   Bootstrap trae su propio azul (#0d6efd) para `.btn-primary`. Se remapea a los
+   tokens de marca para que un botón de react-bootstrap y uno del proyecto sean
+   indistinguibles. Se define aquí una sola vez en lugar de repetir el color en
+   cada uso.
+   ========================================================================== */
+
+.btn-primary {
+  --bs-btn-bg: var(--brand-700);
+  --bs-btn-border-color: var(--brand-700);
+  --bs-btn-hover-bg: var(--brand-600);
+  --bs-btn-hover-border-color: var(--brand-600);
+  --bs-btn-active-bg: var(--brand-800);
+  --bs-btn-active-border-color: var(--brand-800);
+  --bs-btn-disabled-bg: var(--brand-700);
+  --bs-btn-disabled-border-color: var(--brand-700);
+}
+
+.btn-danger {
+  --bs-btn-bg: var(--danger);
+  --bs-btn-border-color: var(--danger);
+  --bs-btn-hover-bg: #8f1a24;
+  --bs-btn-hover-border-color: #8f1a24;
+  --bs-btn-active-bg: #7c1620;
+  --bs-btn-active-border-color: #7c1620;
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: var(--ink-muted);
+  --bs-btn-border-color: var(--line-strong);
+  --bs-btn-hover-color: var(--brand-700);
+  --bs-btn-hover-bg: var(--brand-050);
+  --bs-btn-hover-border-color: var(--brand-700);
+  --bs-btn-active-color: var(--brand-700);
+  --bs-btn-active-bg: var(--brand-100);
+  --bs-btn-active-border-color: var(--brand-700);
+}
+
+.btn-outline-danger {
+  --bs-btn-color: var(--danger);
+  --bs-btn-border-color: var(--danger);
+  --bs-btn-hover-bg: var(--danger);
+  --bs-btn-hover-border-color: var(--danger);
+}
+
+/* --------------------------------------------------------------------------
+   Formularios dentro del modal
+   -------------------------------------------------------------------------- */
+
+.form-label {
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.form-label .opcional {
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+
+.form-control,
+.form-select {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  font-size: var(--text-base);
+  color: var(--ink);
+  background-color: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+}
+
+.form-control::placeholder {
+  color: #8c9aa8;
+}
+
+.form-control:hover,
+.form-select:hover {
+  border-color: var(--brand-600);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--brand-700);
+  box-shadow: none;
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  color: var(--ink-muted);
+  background-color: var(--brand-050);
+}
+
+textarea.form-control {
+  padding: var(--space-3) var(--space-4);
+  min-height: 96px;
+  line-height: var(--leading-normal);
+  resize: vertical;
+}
+
+.form-control.is-invalid,
+.form-select.is-invalid {
+  border-color: var(--danger);
+  /* Bootstrap añade un icono de fondo al estado inválido: se retira porque el
+     error se comunica con texto e icono propios, no sólo con color. */
+  background-image: none;
+}
+
+.form-control.is-invalid:focus,
+.form-select.is-invalid:focus {
+  outline-color: var(--danger);
+  box-shadow: none;
+}
+
+.invalid-feedback {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--danger);
+}
+
+.form-text {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Períodos de vacaciones
+   --------------------------------------------------------------------------
+   Los tres períodos van en UNA fila de columnas —con el total como cuarta
+   columna— para aprovechar el ancho del modal. Antes iban apilados: cada uno
+   ocupaba una franja entera y con tres el pie del modal quedaba fuera de la
+   pantalla.
+
+   `auto-fit` con `minmax` hace el trabajo responsivo sin media queries: en un
+   modal ancho caben las cuatro columnas; cuando no caben, bajan solas a dos y
+   luego a una.
+   -------------------------------------------------------------------------- */
+
+.periodos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.periodo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+/* La columna del período es `display:flex`, así que los controles y el aviso de
+   error no deben estirarse a lo alto de la fila. */
+.periodo .form-control {
+  width: 100%;
+}
+
+.periodo--error {
+  border-color: var(--danger);
+  background-color: var(--danger-bg);
+}
+
+.periodo__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.periodo__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.periodo__title svg {
+  color: var(--brand-700);
+}
+
+.periodo__dias {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+/* Al vaciar un período el enlace se deshabilita: no hay nada que vaciar. */
+.periodo__vaciar {
+  align-self: flex-start;
+  padding: 0;
+  margin-top: auto;
+  font-size: var(--text-xs);
+  text-decoration: none;
+}
+
+.periodo__vaciar:disabled {
+  color: var(--line-strong);
+  text-decoration: none;
+}
+
+/* Las etiquetas «Desde» y «Hasta» son cortas a propósito: en una columna de
+   200px, «Fecha de inicio» obligaría a que el campo de fecha se comprimiera. */
+.periodo .form-label {
+  margin-bottom: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+/* --------------------------------------------------------------------------
+   Resumen del cálculo (cuarta columna)
+   -------------------------------------------------------------------------- */
+
+.resumen-calculo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background-color: var(--brand-050);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.resumen-calculo__etiqueta {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.resumen-calculo__total {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.resumen-calculo__valor {
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--brand-700);
+}
+
+.resumen-calculo__unidad {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.resumen-calculo__detalle {
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.resumen-calculo__nota {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Campo calculado
+   --------------------------------------------------------------------------
+   Un valor que no se escribe: lo produce una operación. Se distingue del campo
+   de al lado a propósito (fondo, no caja de texto) para que nadie intente
+   teclearlo, y muestra la operación completa para que el número no aparezca sin
+   explicación.
+   -------------------------------------------------------------------------- */
+
+.campo-calculado {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--brand-050);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.campo-calculado__etiqueta {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.campo-calculado__valor {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--brand-700);
+}
+
+.campo-calculado__operacion {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+/* Los mismos tonos que la celda de la tabla: el modal y la tabla no pueden
+   contar historias distintas sobre el mismo número. */
+.campo-calculado--danger {
+  background-color: var(--danger-bg);
+  border-color: var(--danger);
+}
+
+.campo-calculado--danger .campo-calculado__valor {
+  color: var(--danger);
+}
+
+.campo-calculado--warn {
+  background-color: var(--warn-bg);
+  border-color: var(--warn);
+}
+
+.campo-calculado--warn .campo-calculado__valor {
+  color: var(--warn);
+}
+
+.campo-calculado--ok {
+  background-color: var(--ok-bg);
+  border-color: var(--ok);
+}
+
+.campo-calculado--ok .campo-calculado__valor {
+  color: var(--ok);
+}
+
+/* Ingreso y observaciones: dos columnas bajo la fila de períodos. */
+
+.bloque-cierre {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-5);
+  padding: var(--space-4);
+  margin-top: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+/* --------------------------------------------------------------------------
+   Ficha del empleado (modal de "ver empleado")
+   -------------------------------------------------------------------------- */
+
+.ficha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+@media (min-width: 576px) {
+  .ficha {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.ficha__campo {
+  min-width: 0;
+}
+
+.ficha__etiqueta {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ficha__valor {
+  margin-top: var(--space-1);
+  font-size: var(--text-base);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.periodo-tabla td,
+.periodo-tabla th {
+  white-space: nowrap;
+}
+
+.periodo-tabla tbody tr td:first-child {
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.nota {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  border: 1px solid;
+  border-radius: var(--radius-md);
+}
+
+.nota svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.nota--warn {
+  color: var(--warn);
+  background-color: var(--warn-bg);
+  border-color: var(--warn);
+}
+
+.nota--info {
+  color: var(--info);
+  background-color: var(--info-bg);
+  border-color: var(--info);
+}
+
+.nota--danger {
+  color: var(--danger);
+  background-color: var(--danger-bg);
+  border-color: var(--danger);
+}
+
+/* --------------------------------------------------------------------------
+   Acciones de la tabla
+   -------------------------------------------------------------------------- */
+
+/* --------------------------------------------------------------------------
+   Menú de acciones de la tabla (tres puntos)
+   --------------------------------------------------------------------------
+   Se implementa con un Popover y no con un Dropdown: el Dropdown aplica sus
+   propios modificadores de Popper (`flip` a `left-end`/`left-start` y el
+   `margin-top` de Bootstrap) que competían entre sí y dejaban el menú
+   descentrado y, en algunas filas, del lado contrario. El Popover usa
+   `preventOverflow` y `strategy: fixed` por defecto, que es lo que hace falta
+   porque el contenedor de la tabla tiene `overflow-x: auto`.
+
+   El disparador es cuadrado y de tamaño fijo: si midiera lo que mide su
+   contenido, la celda cambiaría de alto al abrir el menú.
+   -------------------------------------------------------------------------- */
+
+.acciones__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: var(--ink-muted);
+  background-color: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+.acciones__toggle:hover,
+.acciones__toggle:focus-visible,
+.acciones__toggle[aria-expanded='true'] {
+  color: var(--brand-700);
+  background-color: var(--brand-050);
+  border-color: var(--brand-700);
+}
+
+.acciones__toggle[aria-expanded='true'] {
+  background-color: var(--brand-100);
+}
+
+/* El popover que hace de menú: sólo el cuerpo, sin encabezado. */
+.acciones__popover {
+  min-width: 244px;
+  max-width: none;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-overlay);
+}
+
+/* La flecha del popover sobra aquí: el menú va pegado al botón y la flecha sólo
+   añade ruido de posición. */
+.acciones__popover .popover-arrow {
+  display: none;
+}
+
+.acciones__popover .popover-body,
+.acciones__cuerpo {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2);
+  color: var(--ink);
+}
+
+.acciones__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  text-align: left;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+.acciones__item svg {
+  flex: none;
+  color: var(--ink-muted);
+  transition: color var(--motion-fast) var(--ease-out);
+}
+
+.acciones__item:hover,
+.acciones__item:focus-visible {
+  color: var(--brand-700);
+  background-color: var(--brand-050);
+}
+
+.acciones__item:hover svg,
+.acciones__item:focus-visible svg {
+  color: var(--brand-700);
+}
+
+.acciones__item:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* La opción destructiva se distingue del resto del menú. */
+.acciones__item--peligro {
+  color: var(--danger);
+}
+
+.acciones__item--peligro svg {
+  color: var(--danger);
+}
+
+.acciones__item--peligro:hover,
+.acciones__item--peligro:focus-visible {
+  color: var(--surface);
+  background-color: var(--danger);
+}
+
+.acciones__item--peligro:hover svg,
+.acciones__item--peligro:focus-visible svg {
+  color: var(--surface);
+}
+
+/* Una opción que no aplica (desactivarse a uno mismo, por ejemplo) se ve
+   apagada pero sigue siendo enfocable: el `title` explica por qué. */
+.acciones__item:disabled {
+  color: var(--line-strong);
+  cursor: not-allowed;
+}
+
+.acciones__item:disabled svg {
+  color: var(--line-strong);
+}
+
+.acciones__item:disabled:hover {
+  background-color: transparent;
+  color: var(--line-strong);
+}
+
+.acciones__separador {
+  margin: var(--space-2) var(--space-1);
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+/* La columna de acciones no necesita el mismo aire lateral que el resto. */
+table.data td:last-child,
+table.data th:last-child {
+  width: 72px;
+  padding-right: var(--space-3);
+  padding-left: var(--space-3);
+}
+
+/* --------------------------------------------------------------------------
+   Grupo de decisión (aprobar / rechazar)
+   -------------------------------------------------------------------------- */
+
+.decision {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.decision__opcion {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--ink-muted);
+  background-color: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+.decision__opcion:hover {
+  border-color: var(--brand-600);
+  color: var(--brand-700);
+}
+
+.decision__opcion[aria-pressed='true'][data-decision='aprobada'] {
+  color: var(--ok);
+  background-color: var(--ok-bg);
+  border-color: var(--ok);
+}
+
+.decision__opcion[aria-pressed='true'][data-decision='rechazada'] {
+  color: var(--danger);
+  background-color: var(--danger-bg);
+  border-color: var(--danger);
+}
+
+/* --------------------------------------------------------------------------
+   Administración de usuarios
+   -------------------------------------------------------------------------- */
+
+.usuario-celda {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  white-space: nowrap;
+}
+
+.usuario-avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--brand-900);
+  background-color: var(--brand-100);
+  border-radius: var(--radius-pill);
+}
+
+/* La fila propia se distingue: evita borrarse a uno mismo por descuido. */
+.usuario-avatar[data-propio='si'] {
+  background-color: #5eead4;
+}
+
+/* Una cuenta desactivada se atenúa: se nota de un vistazo en la tabla. */
+table.data tbody tr[data-inactivo='si'] td {
+  color: var(--ink-muted);
+}
+
+table.data tbody tr[data-inactivo='si'] .usuario-avatar {
+  background-color: var(--line);
+  color: var(--ink-muted);
+}
+
+.usuario-celda .chip {
+  margin-left: var(--space-2);
+}
+
+/* En la tabla de usuarios las acciones vuelven a ser botones con texto: son
+   pocas y conviene que se lean de un vistazo, no que se escondan en un menú. */
+.acciones .btn.text-danger {
+  color: var(--danger);
+}
+
+.acciones .btn.text-danger:hover:not(:disabled) {
+  color: var(--surface);
+  background-color: var(--danger);
+  border-color: var(--danger);
+}
+
+.acciones .btn:disabled {
+  color: var(--line-strong);
+  border-color: var(--line);
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------
+   Semáforo de «Días a usar»
+   --------------------------------------------------------------------------
+   Tres tonos sobre el mismo valor: menos de −3 en rojo, de −3 a 10 en amarillo,
+   más de 10 en verde. El color nunca es la única señal: la celda lleva también
+   la etiqueta para lectores de pantalla y un `title` con la operación.
+   -------------------------------------------------------------------------- */
+
+.dias-usar {
+  display: inline-block;
+  min-width: 68px;
+  padding: 2px var(--space-3);
+  font-weight: 600;
+  text-align: right;
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+}
+
+.dias-usar--danger {
+  color: var(--danger);
+  background-color: var(--danger-bg);
+  border-color: var(--danger);
+}
+
+.dias-usar--warn {
+  color: var(--warn);
+  background-color: var(--warn-bg);
+  border-color: var(--warn);
+}
+
+.dias-usar--ok {
+  color: var(--ok);
+  background-color: var(--ok-bg);
+  border-color: var(--ok);
+}
+
+.dias-usar--neutral {
+  color: var(--ink-muted);
+  background-color: var(--brand-050);
+  border-color: var(--line-strong);
+}
+
+/* Un colaborador sin fechas programadas se atenúa: la fila sigue ahí para
+   poder asignárselas, pero se distingue de las que ya tienen trabajo hecho. */
+table.data tbody tr[data-sin-asignacion='si'] td:not(:last-child) {
+  color: var(--ink-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Filtros de notificaciones
+   -------------------------------------------------------------------------- */
+
+.filtros-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.filtros-chips__boton {
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.filtros-chips__boton[aria-pressed='true'] {
+  color: var(--surface);
+  background-color: var(--brand-700);
+  border-color: var(--brand-700);
+}
+
+/* ==========================================================================
+   Popover del motivo de rechazo
+   ========================================================================== */
+
+.popover {
+  max-width: 320px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-overlay);
+}
+
+.popover-header {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background-color: var(--brand-050);
+  border-bottom: 1px solid var(--line);
+}
+
+.popover-body {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+/* ==========================================================================
+   Diálogos de sweetalert2 usados por esta vista
+   ========================================================================== */
+
+.swal2-popup.gv-swal {
+  font-family: var(--font-sans);
+}

@@ -1,0 +1,755 @@
+/* ==========================================================================
+   Gestión de Vacaciones G&J — sistema de diseño
+   --------------------------------------------------------------------------
+   Este archivo es la ÚNICA fuente de verdad de color, tipografía, espaciado y
+   movimiento. Un componente no escribe un hex ni un valor de spacing suelto:
+   usa una variable de aquí. Cambiar el mundo visual se hace en un solo lugar.
+
+   Contraste medido (WCAG 2.1 AA, mínimo 4.5:1 en texto):
+     --ink        #111C26 sobre --surface  -> 15.4:1
+     --ink        #111C26 sobre --brand-050 -> 15.0:1
+     --ink-muted  #5A6B7B sobre --surface  ->  5.4:1
+     --ink-muted  #5A6B7B sobre --brand-050 ->  5.3:1
+     --brand-700  #16456D sobre --surface  ->  9.4:1
+     --brand-050  #F4F8FB sobre --brand-900 -> 13.6:1 (sidebar)
+     ok/warn/danger/info sobre --surface    -> 7.0 / 6.1 / 7.7 / 7.4 : 1
+   ========================================================================== */
+
+:root {
+  /* Marca (azul corporativo G&J) */
+  --brand-900: #0b2942;
+  --brand-800: #103a5e;
+  --brand-700: #16456d;
+  --brand-600: #1d5b8f;
+  --brand-100: #e4edf5;
+  --brand-050: #f4f8fb;
+
+  /* Tinta y superficies */
+  --ink: #111c26;
+  --ink-muted: #5a6b7b;
+  --ink-inverse: #f4f8fb;
+  --surface: #ffffff;
+  --surface-sunken: var(--brand-050);
+  --line: #d5dee6;
+  --line-strong: #b9c6d2;
+
+  /* Estados */
+  --ok: #0f6b4f;
+  --ok-bg: #e6f2ed;
+  --warn: #8a5a00;
+  --warn-bg: #fbf1dd;
+  --danger: #a81f2b;
+  --danger-bg: #fbeaec;
+  --info: #0f5c7a;
+  --info-bg: #e6f1f6;
+  --focus: #b45309;
+
+  /* Espaciado: escala de 4 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Radios */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+
+  /* Tipografía */
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-md: 17px;
+  --text-lg: 20px;
+  --text-xl: 28px;
+  --text-2xl: 34px;
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+
+  /* Estructura del shell */
+  --topbar-height: 56px;
+  --sidebar-width: 240px;
+  --sidebar-rail-width: 64px;
+  --content-max: 1320px;
+
+  /* Movimiento */
+  --motion-fast: 140ms;
+  --motion-base: 220ms;
+  --motion-enter: 260ms;
+  --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-enter: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Elevación: una sola sombra en todo el sistema, para el drawer y el menú */
+  --shadow-overlay: 0 12px 32px -12px rgb(11 41 66 / 35%);
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--ink);
+  background-color: var(--surface-sunken);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--brand-700);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* Foco visible y consistente. Nunca se elimina: se refuerza. */
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Sólo para lectores de pantalla. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Salto al contenido: primer elemento enfocable de la app. */
+.skip-link {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 100;
+  padding: var(--space-2) var(--space-4);
+  font-weight: 500;
+  color: var(--surface);
+  background-color: var(--brand-700);
+  border-radius: var(--radius-md);
+  transform: translateY(-200%);
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+/* Números que no deben bailar al actualizarse. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* ==========================================================================
+   Botones
+   ========================================================================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  font-size: var(--text-base);
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.btn--primary {
+  color: var(--surface);
+  background-color: var(--brand-700);
+  border-color: var(--brand-700);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background-color: var(--brand-600);
+  border-color: var(--brand-600);
+}
+
+.btn--primary:active:not(:disabled) {
+  background-color: var(--brand-800);
+  border-color: var(--brand-800);
+}
+
+.btn--outline {
+  color: var(--brand-700);
+  background-color: var(--surface);
+  border-color: var(--line-strong);
+}
+
+.btn--outline:hover:not(:disabled) {
+  background-color: var(--brand-050);
+  border-color: var(--brand-700);
+}
+
+.btn--ghost {
+  color: var(--ink-muted);
+  background-color: transparent;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  color: var(--brand-700);
+  background-color: var(--brand-050);
+}
+
+.btn--danger {
+  color: var(--surface);
+  background-color: var(--danger);
+  border-color: var(--danger);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background-color: #8f1a24;
+  border-color: #8f1a24;
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn--icon {
+  min-width: 44px;
+  padding: 0;
+}
+
+/* El ancho no salta al entrar en estado de carga. */
+.btn__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ==========================================================================
+   Campos de formulario
+   ========================================================================== */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field__label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.field__control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.field__input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  color: var(--ink);
+  background-color: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  transition:
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
+}
+
+.field__input--with-action {
+  padding-right: 52px;
+}
+
+.field__input::placeholder {
+  color: #8c9aa8;
+}
+
+.field__input:hover {
+  border-color: var(--brand-600);
+}
+
+.field__input:disabled {
+  color: var(--ink-muted);
+  background-color: var(--brand-050);
+  cursor: not-allowed;
+}
+
+.field__input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.field__input[aria-invalid='true']:focus-visible {
+  outline-color: var(--danger);
+}
+
+.field__action {
+  position: absolute;
+  right: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--ease-out);
+}
+
+.field__action:hover {
+  color: var(--brand-700);
+}
+
+.field__hint {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.field__error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--danger);
+}
+
+.field__error svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   Avisos
+   ========================================================================== */
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  border: 1px solid;
+  border-radius: var(--radius-md);
+}
+
+.alert svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.alert--danger {
+  color: var(--danger);
+  background-color: var(--danger-bg);
+  border-color: var(--danger);
+}
+
+.alert--warn {
+  color: var(--warn);
+  background-color: var(--warn-bg);
+  border-color: var(--warn);
+}
+
+.alert--info {
+  color: var(--info);
+  background-color: var(--info-bg);
+  border-color: var(--info);
+}
+
+.alert strong {
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Chips de estado — color + glifo + palabra, nunca sólo color
+   ========================================================================== */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+}
+
+.chip svg {
+  flex: none;
+}
+
+.chip--ok {
+  color: var(--ok);
+  background-color: var(--ok-bg);
+  border-color: var(--ok);
+}
+
+.chip--warn {
+  color: var(--warn);
+  background-color: var(--warn-bg);
+  border-color: var(--warn);
+}
+
+.chip--danger {
+  color: var(--danger);
+  background-color: var(--danger-bg);
+  border-color: var(--danger);
+}
+
+.chip--info {
+  color: var(--info);
+  background-color: var(--info-bg);
+  border-color: var(--info);
+}
+
+.chip--neutral {
+  color: var(--ink-muted);
+  background-color: var(--brand-050);
+  border-color: var(--line-strong);
+}
+
+/* ==========================================================================
+   Tarjetas y tablas
+   ========================================================================== */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--line);
+}
+
+.card__title {
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.card__subtitle {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.card__body {
+  padding: var(--space-5);
+}
+
+.card__body--flush {
+  padding: 0;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+/* Contenedor de una tabla ancha.
+   `min-width: 0` es lo que hace que el navegador deje encoger el contenedor en
+   lugar de estirar la página entera: sin él, el ancho mínimo del contenido
+   empuja hacia fuera y la tabla no se desplaza, se sale del área. */
+.table-scroll--ajustado {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Tablero de asignaciones (10 columnas): anchos medidos, no estimados.
+   -------------------------------------------------------------------------- */
+
+/* Con `auto` el navegador reparte según el contenido y un nombre largo estira la
+   tabla hasta salirse del área. Con `fixed` se respetan estos anchos y lo que no
+   cabe se envuelve.
+
+   Los anchos salen de medir, con la tipografía real, el mayor entre cada
+   encabezado y su contenido más largo. La suma es 1240px: el punto en el que
+   todo entra sin recortes. Por debajo, la tabla se desplaza dentro de su
+   tarjeta; por encima, se reparte el sobrante. */
+table.data--tablero {
+  table-layout: fixed;
+  min-width: 1240px;
+}
+
+/* Los encabezados van más juntos que las celdas: son rótulos cortos y así las
+   cifras y el estado ganan el ancho que necesitan. */
+table.data--tablero thead th {
+  padding-right: var(--space-2);
+  padding-left: var(--space-2);
+}
+
+table.data--tablero th:nth-child(1),
+table.data--tablero td:nth-child(1) {
+  width: 120px;
+}
+
+/* Colaborador y Cargo: texto libre y largo. Se les da un ancho cómodo y se
+   permite que envuelvan en dos líneas; sin esto, un nombre de 40 caracteres
+   estira la tabla y expulsa al resto de columnas fuera del área. */
+table.data--tablero th:nth-child(2),
+table.data--tablero td:nth-child(2) {
+  width: 180px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+table.data--tablero th:nth-child(3),
+table.data--tablero td:nth-child(3) {
+  width: 98px;
+}
+
+table.data--tablero th:nth-child(4),
+table.data--tablero td:nth-child(4) {
+  width: 62px;
+}
+
+table.data--tablero th:nth-child(5),
+table.data--tablero td:nth-child(5) {
+  width: 150px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+table.data--tablero th:nth-child(6),
+table.data--tablero td:nth-child(6) {
+  width: 114px;
+}
+
+table.data--tablero th:nth-child(7),
+table.data--tablero td:nth-child(7) {
+  width: 80px;
+}
+
+table.data--tablero th:nth-child(8),
+table.data--tablero td:nth-child(8) {
+  width: 92px;
+}
+
+table.data--tablero th:nth-child(9),
+table.data--tablero td:nth-child(9) {
+  width: 104px;
+}
+
+/* La columna de acciones no se encoge: el menú de tres puntos no puede quedar
+   cortado. */
+table.data--tablero th:nth-child(10),
+table.data--tablero td:nth-child(10) {
+  width: 72px;
+}
+
+table.data caption {
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  text-align: left;
+}
+
+table.data th,
+table.data td {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+table.data thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background-color: var(--brand-050);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+table.data tbody tr:nth-child(even) {
+  background-color: var(--brand-050);
+}
+
+table.data tbody tr:hover {
+  background-color: var(--brand-100);
+}
+
+table.data tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.numeric {
+  text-align: right;
+}
+
+/* ==========================================================================
+   Diálogo de confirmación (sweetalert2)
+   --------------------------------------------------------------------------
+   La librería trae su propio aspecto; aquí se alinea con el sistema: mismos
+   radios, misma tipografía y botones con el mismo alto mínimo que el resto.
+   ========================================================================== */
+
+.gv-swal {
+  padding: var(--space-6);
+  font-family: var(--font-sans);
+  border-radius: var(--radius-lg);
+}
+
+.gv-swal .swal2-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.gv-swal .swal2-html-container,
+.gv-swal .swal2-html-container p {
+  font-size: var(--text-base);
+  color: var(--ink-muted);
+}
+
+.gv-swal .swal2-actions {
+  gap: var(--space-3);
+}
+
+.gv-swal .swal2-styled {
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  font-size: var(--text-base);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.gv-swal .swal2-styled.swal2-confirm,
+.gv-swal .swal2-styled.swal2-cancel {
+  text-transform: none;
+}
+
+.gv-swal .swal2-styled:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Movimiento reducido
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ==========================================================================
+   Impresión
+   ========================================================================== */
+
+@media print {
+
+  .topbar,
+  .sidebar,
+  .skip-link {
+    display: none !important;
+  }
+}

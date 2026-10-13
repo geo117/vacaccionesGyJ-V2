@@ -1,0 +1,39 @@
+# Credenciales: NUNCA se versionan.
+# `backend/.env` contiene el usuario y la contraseña de SQL Server, el peper de
+# sesión y las claves de configuración del servidor.
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Entornos virtuales de Python
+backend/.venv/
+backend/venv/
+backend/__pycache__/
+*.py[cod]
+
+# Dependencias
+node_modules/
+
+# Artefactos de compilación
+frontend/dist/
+frontend/dist-ssr/
+build/
+
+# Registros y temporales
+*.log
+logs/
+.DS_Store
+Thumbs.db
+
+# Editores
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Verificación visual local (capturas y servidores temporales)
+frontend/.verify/

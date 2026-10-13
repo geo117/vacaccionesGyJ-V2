@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Gestión de Vacaciones G&amp;J">
+  <rect width="64" height="64" rx="12" fill="#0B2942" />
+  <path d="M32 13c-8.8 0-16 7.2-16 16v22h32V29c0-8.8-7.2-16-16-16Z" fill="#16456D" />
+  <path d="M32 20a9 9 0 0 0-9 9h18a9 9 0 0 0-9-9Z" fill="#E4EDF5" />
+  <circle cx="32" cy="24" r="4.4" fill="#D97706" />
+  <path d="M16 51h32" stroke="#5EEAD4" stroke-width="3" stroke-linecap="round" />
+</svg>
