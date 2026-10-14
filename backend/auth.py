@@ -51,7 +51,8 @@ class Session:
     last_seen_at: float
     origin: str = ""
     # UNES con la que la persona entró. Se digita en el login y **no** se guarda
-    # en `Usuarios`: vive sólo mientras dure la sesión.
+    # en `Usuarios`: vive sólo mientras dure la sesión. Queda vacía para Talento
+    # Humano, que entra sin UNES y ve la plantilla completa.
     unes: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -152,7 +153,12 @@ class SessionStore:
 
 @dataclass
 class LoginOutcome:
-    status: str  # ok | invalid | rate_limited
+    # ok | invalid | rate_limited | unes_required
+    #
+    # `unes_required` es un caso propio: las credenciales eran correctas pero la
+    # cuenta **no** es de Talento Humano y no se digitó la UNES. No se crea
+    # sesión y el navegador vuelve a pedir ese campo.
+    status: str
     token: str | None = None
     user: User | None = None
     retry_after: int = 0
@@ -183,7 +189,14 @@ class AuthService:
     def login(
         self, raw_email: object, raw_password: object, origin: str, unes: str = ""
     ) -> LoginOutcome:
-        """Intenta iniciar sesion. Lanza ``ValidationError`` si la entrada es invalida."""
+        """Intenta iniciar sesion. Lanza ``ValidationError`` si la entrada es invalida.
+
+        La UNES es opcional **sólo para Talento Humano**: su tablero es la
+        plantilla completa de la empresa y no necesita una unidad. Para el resto
+        de cargos es obligatoria, porque su listado se filtra por ella. Cuál de
+        las dos cosas aplica se decide con el cargo que está en la base, no con
+        nada que mande el navegador.
+        """
         email = normalize_email(raw_email)
         password = validate_password(raw_password)
 
@@ -212,6 +225,14 @@ class AuthService:
             # Humano, que es el canal correcto.
             logger.info("Inicio de sesión rechazado: la cuenta está desactivada.")
             return LoginOutcome(status="invalid")
+
+        if not unes and not user.es_talento_humano:
+            # Credenciales correctas, pero el listado de esta persona se filtra
+            # por UNES y no la digitó. No se crea sesión: la interfaz vuelve a
+            # pedir el campo. Se reinicia el limitador porque no hubo un intento
+            # de adivinar la contraseña.
+            self._limiter.reset(key)
+            return LoginOutcome(status="unes_required", user=user)
 
         rehashed = False
         if needs_rehash(stored_hash):

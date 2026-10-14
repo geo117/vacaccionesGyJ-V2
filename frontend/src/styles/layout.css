@@ -478,6 +478,7 @@
     padding-right: var(--space-6);
     padding-left: var(--space-6);
     margin-left: var(--sidebar-rail-width);
+    transition: margin-left var(--motion-base) var(--ease-out);
   }
 
   /* A partir de 768px el sidebar es un riel de iconos con su ancho fijo. */
@@ -488,52 +489,72 @@
     transform: translateX(0);
   }
 
+  /* La hamburguesa lo oculta y devuelve su ancho al contenido. */
+  .shell[data-nav='oculto'] .sidebar {
+    transform: translateX(-100%);
+  }
+
+  .shell[data-nav='oculto'] .shell__content {
+    margin-left: 0;
+  }
+
   .sidebar__heading,
   .sidebar__label,
-  .sidebar__foot,
-  .sidebar__badge {
+  .sidebar__foot {
     display: none;
+  }
+
+  /* En el riel el contador no cabe al lado del icono: se superpone. */
+  .sidebar__badge {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    padding: 0 5px;
+    margin-left: 0;
+    line-height: 18px;
   }
 
   .sidebar__link {
     justify-content: center;
     padding: 0;
   }
+
+  /* El fondo oscurecido sólo tiene sentido cuando el sidebar es un panel
+     deslizante: en pantalla ancha taparía el contenido sin motivo. */
+  .scrim {
+    display: none;
+  }
 }
 
 @media (min-width: 1200px) {
 
-  /* En pantalla ancha el sidebar muestra las etiquetas y arranca expandido. */
-  .shell[data-nav='rail'] .sidebar,
-  .shell[data-nav='expanded'] .sidebar {
+  /* En pantalla ancha y con el menú visible, el sidebar muestra las etiquetas. */
+  .shell[data-nav='abierto'] .sidebar {
     width: var(--sidebar-width);
     padding-right: var(--space-3);
     padding-left: var(--space-3);
   }
 
-  .shell[data-nav='rail'] .sidebar__heading,
-  .shell[data-nav='rail'] .sidebar__label,
-  .shell[data-nav='rail'] .sidebar__foot,
-  .shell[data-nav='rail'] .sidebar__badge,
-  .shell[data-nav='expanded'] .sidebar__heading,
-  .shell[data-nav='expanded'] .sidebar__label,
-  .shell[data-nav='expanded'] .sidebar__foot,
-  .shell[data-nav='expanded'] .sidebar__badge {
+  .shell[data-nav='abierto'] .sidebar__heading,
+  .shell[data-nav='abierto'] .sidebar__foot {
     display: block;
   }
 
-  .shell[data-nav='rail'] .sidebar__label,
-  .shell[data-nav='expanded'] .sidebar__label {
+  .shell[data-nav='abierto'] .sidebar__label {
     display: inline;
   }
 
-  .shell[data-nav='rail'] .shell__content,
-  .shell[data-nav='expanded'] .shell__content {
+  .shell[data-nav='abierto'] .sidebar__badge {
+    position: static;
+    padding: 1px var(--space-2);
+    margin-left: auto;
+  }
+
+  .shell[data-nav='abierto'] .shell__content {
     margin-left: var(--sidebar-width);
   }
 
-  .shell[data-nav='rail'] .sidebar__link,
-  .shell[data-nav='expanded'] .sidebar__link {
+  .shell[data-nav='abierto'] .sidebar__link {
     justify-content: flex-start;
     padding: 0 var(--space-3);
   }
@@ -541,32 +562,9 @@
 
 /* Estado del drawer en móvil: sólo aplica por debajo de 768px. */
 @media (max-width: 767.98px) {
-  .shell[data-nav='open'] .sidebar {
+  .shell[data-nav='abierto'] .sidebar {
     transform: translateX(0);
     box-shadow: var(--shadow-overlay);
-  }
-
-  /* El control de colapsar no tiene sentido cuando el sidebar es un drawer. */
-  .topbar__collapse {
-    display: none;
-  }
-}
-
-@media (min-width: 768px) {
-  .topbar__burger {
-    display: none;
-  }
-}
-
-@media (min-width: 1200px) {
-
-  .shell[data-nav='rail'] .topbar__collapse svg,
-  .shell[data-nav='expanded'] .topbar__collapse svg {
-    transition: transform var(--motion-base) var(--ease-out);
-  }
-
-  .shell[data-nav='rail'] .topbar__collapse svg {
-    transform: rotate(180deg);
   }
 }
 
@@ -768,6 +766,28 @@
 
 .toolbar__field--grow {
   flex: 1;
+}
+
+/* Paginador de tabla */
+
+.tabla-paginador {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--line);
+}
+
+.tabla-paginador__info {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.tabla-paginador__controles {
+  margin: 0;
 }
 
 /* Estado vacío */

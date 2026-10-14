@@ -19,6 +19,7 @@ import './styles/modal.css'
 
 import App from './App.jsx'
 import AuthProvider from './auth/AuthProvider'
+import NotificacionesProvider from './notifications/NotificacionesProvider'
 
 const container = document.getElementById('root')
 if (!container) {
@@ -29,7 +30,9 @@ createRoot(container).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <App />
+        <NotificacionesProvider>
+          <App />
+        </NotificacionesProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,

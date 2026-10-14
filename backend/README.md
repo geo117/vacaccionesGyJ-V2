@@ -106,7 +106,7 @@ CREATE TABLE dbo.notificaciones (
     msj_notificacion TEXT NOT NULL,
     fecha_registro DATETIME DEFAULT GETDATE(),
     fecha_update DATETIME DEFAULT GETDATE(),
-    usuario_id INT NULL   -- destinatario; relaciona con dbo.Usuarios
+    usuario_id INT NULL   -- quién hizo la acción; relaciona con dbo.Usuarios
 );
 ```
 
@@ -157,16 +157,17 @@ la interfaz.
 |---|---|---|---|
 | `GET` | `/api` | Público | Índice del servicio |
 | `GET` | `/api/health` | Público | Estado de la API y de las tres tablas |
-| `POST` | `/api/auth/login` | Público | Valida credenciales y emite el token |
+| `POST` | `/api/auth/login` | Público | Valida credenciales y emite el token. La UNES es opcional para Talento Humano |
 | `POST` | `/api/auth/logout` | Sesión | Revoca el token actual |
 | `GET` | `/api/auth/session` | Sesión | Confirma la sesión y devuelve el usuario con su cargo |
 | `GET` | `/api/resumen` | Sesión | Totales y consolidado por empleado |
-| `GET` | `/api/asignaciones` | Sesión | Lista las asignaciones |
+| `GET` | `/api/asignaciones` | Sesión | Colaboradores de la UNES de la sesión; **toda la plantilla** para Talento Humano |
 | `GET` | `/api/asignaciones/{id}` | Sesión | Una asignación |
 | `POST` | `/api/asignaciones` | Sesión | Registra una asignación nueva |
 | `PUT` | `/api/asignaciones/{id}/periodos` | Sesión | Programa los tres períodos |
 | `POST` | `/api/asignaciones/{id}/decision` | **Talento Humano** | Aprueba o rechaza |
-| `GET` | `/api/notificaciones` | Sesión | Avisos visibles para el cargo |
+| `GET` | `/api/notificaciones` | Sesión | Bandeja del cargo: Talento Humano ve todas; el resto, ninguna |
+| `GET` | `/api/notificaciones/mias` | Sesión | Avisos generados por quien consulta (`usuario_id`) |
 | `GET` | `/api/usuarios` | **Talento Humano** | Usuarios registrados, con su estado |
 | `POST` | `/api/usuarios` | **Talento Humano** | Crea un usuario |
 | `PUT` | `/api/usuarios/{id}` | **Talento Humano** | Edita nombre, correo, cargo y/o contraseña |
@@ -217,6 +218,14 @@ Dos advertencias que conviene tener presentes:
 La UNES se **digita en el login** y no se guarda en `dbo.Usuarios`: vive en la
 sesión. Se aceptan `109` y `2-109`.
 
+**Talento Humano entra sin UNES.** Su tablero es la plantilla completa de la
+empresa (`EmployeeDirectory.listar_todos`), así que el campo es opcional para ese
+cargo: si las credenciales son correctas y no se envió UNES, la sesión se emite
+con `unes` vacío. Para cualquier otro cargo la UNES es obligatoria, porque su
+listado se filtra por ella; si falta, el login responde `400 UNES_REQUERIDA`
+**después** de comprobar la contraseña, no antes. Cuál de las dos cosas aplica lo
+decide el `cargo` que está en la base, nunca un valor de la petición.
+
 El filtro se aplica en el `WHERE` de SQL, comparando los **tres últimos dígitos**
 de `IDCia_CO`, y acota **las dos** cosas: los colaboradores de la vista y las
 asignaciones huérfanas (las de alguien que ya no está en la plantilla). Filtrar
@@ -224,6 +233,7 @@ sólo lo primero dejaría ver movimientos de otras UNES por esa puerta.
 
 No es cosmético: es una regla de acceso. Un usuario no debe recibir por la API
 la plantilla de otras UNES, así que el filtro no puede hacerse en el navegador.
+Talento Humano es la excepción declarada: su cargo ya implica verlo todo.
 
 ## Los días a usar
 
@@ -256,15 +266,21 @@ interfaz lo dice en lugar de calcular sobre cero.
 ## Notificaciones
 
 `dbo.notificaciones` tiene `id`, `unes`, `msj_notificacion`, `usuario_id`,
-`fecha_registro` y `fecha_update`. `usuario_id` relaciona con `dbo.Usuarios` y es
-**el destinatario del aviso**.
+`fecha_registro` y `fecha_update`. `usuario_id` relaciona con `dbo.Usuarios` y
+guarda **el id de quien hizo la acción**: es lo que permite saber quién asignó las
+fechas, quién aprobó y quién rechazó, y contar sus avisos pendientes.
 
 Quién ve qué:
 
 | Aviso | Quién lo ve |
 |---|---|
-| Asignación de fechas, aprobación, rechazo | **Sólo Talento Humano** (bandeja general) |
-| Modificación de fechas, aprobación, rechazo del propio interesado | El usuario de esas fechas, por `usuario_id` |
+| Asignación de fechas, aprobación, rechazo | **Sólo Talento Humano** (bandeja general, todas) |
+| Los que uno mismo generó | Quien los generó, por `usuario_id` (`/api/notificaciones/mias`) |
+
+La tabla **no tiene columna de «leída»**: el conteo de pendientes que muestra el
+sidebar lo lleva el navegador (ids ya vistos, por usuario). No es una verdad del
+servidor y no se pretende que lo sea; la alternativa sería añadir una columna,
+que es una decisión de esquema aparte.
 
 El texto del aviso lo compone **el servidor**, nunca el cliente: si el navegador
 mandara el mensaje, cualquiera podría escribir el aviso que quisiera en la
@@ -323,16 +339,16 @@ suma. Si se confiara en el número del navegador, cualquiera podría guardar
 
 ### Las notificaciones las redacta el servidor
 
-`dbo.notificaciones` no tiene columna de destinatario, así que el aviso se
-etiqueta con la UNES de la asignación y el filtro por cargo se aplica en el
-`WHERE` de la consulta, nunca en el navegador. Talento Humano ve todas; los demás
-ven las de su cargo y las dirigidas a Talento Humano.
+El aviso se etiqueta con la UNES de la asignación y guarda en `usuario_id` el id
+de **quien hizo la acción**. El filtro por cargo se aplica en el `WHERE` de la
+consulta, nunca en el navegador: Talento Humano ve la bandeja completa y cada
+quien puede pedir las que generó (`/api/notificaciones/mias`).
 
 ### `POST /api/auth/login`
 
 ```jsonc
-// Petición
-{ "correo": "nombre@gyj.com.co", "password": "…" }
+// Petición — la UNES es opcional: Talento Humano entra sin ella
+{ "correo": "nombre@gyj.com.co", "password": "…", "unes": "109" }
 
 // 200
 {
@@ -346,7 +362,8 @@ ven las de su cargo y las dirigidas a Talento Humano.
     "correo": "…",
     "cargo": "talento humano",
     "esTalentoHumano": true,
-    "puedeAprobar": true
+    "puedeAprobar": true,
+    "unes": ""
   }
 }
 ```
@@ -360,10 +377,16 @@ escrito para la persona y **no** distingue si la cuenta existe:
 | `PASSWORD_INVALID` | 400 | Contraseña vacía, corta o con caracteres de control |
 | `PASSWORD_WHITESPACE` | 400 | La contraseña empieza o termina con espacio |
 | `PASSWORD_TOO_LONG` | 400 | Supera los 128 caracteres |
+| `UNES_INVALIDA` | 400 | La UNES trae algo distinto de tres dígitos (`109`, `2-109`) |
+| `UNES_REQUERIDA` | 400 | Credenciales correctas de un cargo que **no** es Talento Humano y falta la UNES |
 | `INVALID_CREDENTIALS` | 401 | Correo inexistente, contraseña incorrecta o cuenta sin acceso |
 | `TOO_MANY_ATTEMPTS` | 429 | Se superó el límite; incluye `Retry-After` |
 | `DATABASE_UNAVAILABLE` | 503 | SQL Server no responde |
 | `INTERNAL_ERROR` | 500 | Fallo inesperado; el detalle queda solo en el log |
+
+`UNES_REQUERIDA` sólo se responde **después** de verificar las credenciales: quien
+no las tenga sigue viendo `INVALID_CREDENTIALS`, así que el error no sirve para
+averiguar qué correos existen.
 
 ### Rutas autenticadas
 

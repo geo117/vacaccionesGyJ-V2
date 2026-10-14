@@ -114,27 +114,52 @@ llamará directo a esa URL y el origen del frontend debe estar en
 | Ruta | Acceso | Contenido |
 |---|---|---|
 | `/` | — | Redirige a `/app/resumen` |
-| `/login` | Público | Correo, **UNES** y contraseña |
+| `/login` | Público | Correo y contraseña; **UNES** sólo si el cargo la necesita |
 | `/app/resumen` | Sesión | Indicadores y consolidado de **todos** los empleados |
-| `/app/asignaciones` | Sesión | Plantilla de la UNES con búsqueda, filtros y las tres operaciones |
-| `/app/notificaciones` | Sesión | Avisos de Talento Humano y los dirigidos a uno mismo |
+| `/app/asignaciones` | Sesión | Plantilla de la UNES —**toda la empresa** para Talento Humano— con búsqueda, filtros, paginación y las tres operaciones |
+| `/app/notificaciones` | Sesión | Bandeja del cargo y los avisos que uno mismo generó |
 | `/app/administracion` | **Talento Humano** | Usuarios: crear, editar, activar/desactivar y eliminar |
 | `*` | — | Vista de "no encontrada" |
 
 ## El campo UNES del login
 
 Va **a la izquierda de la contraseña**: son tres dígitos y no necesita el ancho
-completo. El campo filtra a dígitos mientras se escribe y exige tres.
+completo. El campo filtra a dígitos mientras se escribe y exige tres **si se
+escribe algo**.
+
+Es **opcional**: Talento Humano entra sólo con correo y contraseña, porque su
+tablero es la plantilla completa y no hay unidad que elegir. Para los demás
+cargos el servidor responde `400 UNES_REQUERIDA` tras comprobar las credenciales
+—nunca antes, para no delatar qué correos existen— y el formulario señala el
+campo sin borrar lo ya escrito.
 
 La UNES **no se guarda en la base**: viaja en el login, el servidor la mete en la
 sesión y la usa para filtrar. Se acepta `109` y `2-109`.
 
+## El sidebar
+
+Se muestra y se oculta con la **hamburguesa de la esquina superior izquierda**, a
+cualquier ancho de pantalla. En móvil entra como panel deslizante que se cierra con
+Escape o tocando fuera, y el foco vuelve al botón que lo abrió; en pantalla ancha,
+ocultarlo devuelve el ancho al contenido. Todo el comportamiento está en CSS: el
+contenedor lleva `data-nav="abierto" | "oculto"` y los media queries deciden qué
+significa en cada tamaño. No hay estilos en línea que peleen con ellos.
+
 ## La tabla de asignaciones
 
-Una fila por **colaborador de la UNES**, no por asignación: los que todavía no
-tienen fechas programadas aparecen igual (atenuados), porque son justamente a
-quienes hay que programárselas. Sobre ellos, «Asignar fechas» abre el modal de
-creación **con sus datos ya precargados** desde la vista de la empresa.
+Una fila por **colaborador**, no por asignación: los que todavía no tienen fechas
+programadas aparecen igual (atenuados), porque son justamente a quienes hay que
+programárselas. Sobre ellos, «Asignar fechas» abre el modal de creación **con sus
+datos ya precargados** desde la vista de la empresa.
+
+La tabla muestra la plantilla de la UNES de la sesión; Talento Humano, que entra
+sin UNES, recibe **toda la plantilla** y por eso tiene disponible el filtro de
+UNES en la barra.
+
+Se pagina **de a 20 registros** con el `Pagination` de react-bootstrap, debajo de
+la tabla: primera, anterior, números, siguiente y última. La búsqueda y los
+filtros se aplican **antes** de paginar, así que el total que se anuncia es el de
+los filtros y cambiar cualquiera de ellos vuelve a la primera página.
 
 | Columna | De dónde sale |
 |---|---|
@@ -156,6 +181,15 @@ el texto para lectores de pantalla.
 tiene), de −3 a 10 en amarillo, más de 10 en verde (le quedan días). Siempre con
 un decimal. El color nunca es la única señal: la celda lleva la etiqueta para
 lectores de pantalla y un `title` con la operación completa.
+
+De ese mismo umbral sale «**Aplica licencia**» en la ficha del colaborador: por
+debajo del rojo el exceso se paga como **licencia no remunerada**; en cualquier
+otro caso, «No aplica» en verde. La regla se consulta a `semaforoDiasAUsar` en
+lugar de repetir el −3, de modo que el color de la tabla y este veredicto no
+puedan contradecirse. En la misma ficha, «Aprobado por» / «Rechazado por» sale
+del estado de la asignación —y del nombre que la base ya guarda— y una
+asignación pendiente dice «Pendiente de aprobación» en lugar de atribuirle la
+decisión a alguien.
 
 El mismo cálculo aparece en los dos modales con los mismos tonos, así que el
 número se mueve mientras se escriben los períodos:
@@ -185,8 +219,9 @@ responde 403 en los endpoints de administración.
 | Opción «Administración» en el sidebar | sí | oculta |
 | Ruta `/app/administracion` | carga | muestra «Esta sección es de Talento Humano» |
 | Opción «Aprobar / rechazar» en el menú de asignaciones | sí | oculta |
+| Tablero de asignaciones | toda la plantilla | sólo su UNES |
 | Bandeja general de notificaciones | todo | vacía |
-| Avisos dirigidos a uno mismo (`usuario_id`) | sí | sí |
+| Avisos que uno mismo generó (`usuario_id`) | sí | sí |
 | Aviso «tu cargo sólo consulta» | no | sí |
 | Opción «Desactivar» sobre su propia cuenta | no (deshabilitada) | — |
 
@@ -210,17 +245,25 @@ también las rechaza:
 ## Notificaciones
 
 Los avisos **los redacta y guarda el servidor** al programar fechas, aprobar o
-rechazar. El navegador no los inventa: si el cliente mandara el texto, cualquiera
-podría escribir el aviso que quisiera en la bandeja de los demás.
+rechazar, y en `usuario_id` queda el id de **quien hizo la acción**.
 
-`dbo.notificaciones` no tiene columna de «leída», así que la vista **no ofrece
-marcarlas**: sería un estado que se pierde al recargar y que la base no respalda.
-Lo que sí ofrece es filtrarlas por tipo (asignación, aprobación, rechazo), que se
-deduce del texto que redactó el servidor.
+El contador que aparece en la opción «Notificaciones» del sidebar es el número de
+avisos que la persona **todavía no ha revisado**, y se apaga al abrir la bandeja.
+Lo lleva `src/notifications/`: la lista de avisos es el mismo dato para el contador
+y para la pantalla —si cada uno pidiera su copia, el número y el contenido podrían
+discrepar— y los ids ya vistos se guardan en `localStorage`, con una clave por
+usuario.
+
+`dbo.notificaciones` **no tiene columna de «leída»**, y por eso el estado de
+revisión vive en el navegador: no se simula una verdad del servidor. La
+consecuencia, dicha en voz alta, es que en otro equipo los avisos vuelven a contar
+como pendientes. Lo que sí es del servidor es el filtrado por cargo, en el `WHERE`
+de la consulta. Dentro de la bandeja sólo se pueden filtrar por tipo (asignación,
+aprobación, rechazo), que se deduce del texto que redactó el servidor.
 
 ## Cómo funciona la autenticación
 
-1. `POST /api/auth/login` con correo y contraseña.
+1. `POST /api/auth/login` con correo y contraseña —y la UNES si el cargo la pide—.
 2. El backend responde un token opaco; se guarda en **`sessionStorage`** (muere
    al cerrar la pestaña, a diferencia de `localStorage`).
 3. Viaja en el encabezado `Authorization: Bearer <token>`, nunca en una cookie:
@@ -267,6 +310,10 @@ src/
 │   └── NuevaAsignacionModal.jsx  Alta de una asignación
 ├── hooks/useAsignaciones.js      Carga y escritura contre la API
 ├── layout/AppShell.jsx           Barra superior + sidebar + contenido
+├── notifications/
+│   ├── NotificacionesProvider.jsx Estado compartido y conteo de pendientes
+│   ├── context.js                El contexto (módulo aparte, por Fast Refresh)
+│   └── useNotificaciones.js      Hook de acceso con error explícito
 ├── pages/                        Login, Resumen, Asignaciones,
 │                                 Notificaciones, Administración, 404
 ├── services/

@@ -6,22 +6,26 @@
  * el texto, cualquiera podría escribir el aviso que quisiera en la bandeja de
  * los demás.
  *
- * Qué ve cada quien lo decide el backend en el `WHERE` de la consulta:
- *  - Talento Humano ve todas.
- *  - Los demás ven las de su cargo y las dirigidas a Talento Humano.
+ * La lista no se pide aquí: sale del contexto compartido de notificaciones, que
+ * es el mismo dato que alimenta el contador del sidebar. Si cada uno pidiera su
+ * propia copia, el número del menú y lo que se ve al abrirlo podrían discrepar.
  *
- * La tabla `dbo.notificaciones` no tiene columna de "leída", así que no se
- * ofrece marcarlas: sería un estado que se pierde al recargar y que la base no
- * respalda.
+ * Qué ve cada quien lo decide el backend en el `WHERE` de la consulta:
+ *  - Talento Humano ve todas (bandeja general).
+ *  - Los demás ven las que ellos mismos generaron (`usuario_id`).
+ *
+ * La tabla `dbo.notificaciones` no tiene columna de "leída". Entrar aquí marca
+ * los avisos como vistos en el navegador —es lo que apaga el contador— y así se
+ * dice en pantalla; no se simula un estado que la base no respalda.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Alert from 'react-bootstrap/Alert'
 import Button from 'react-bootstrap/Button'
 import EmptyState from '../components/EmptyState'
 import Icon from '../components/Icon'
-import { ApiError, notificacionesApi } from '../services/api'
 import { useAuth } from '../auth/useAuth'
+import { useNotificaciones } from '../notifications/useNotificaciones'
 import { formatDateTime } from '../utils/fechas'
 
 /** Deduce el tono del aviso a partir de lo que dice el servidor. */
@@ -41,77 +45,14 @@ const ETIQUETA_TONO = {
 
 export default function NotificacionesPage() {
   const { esTalentoHumano } = useAuth()
-  const [avisos, setAvisos] = useState([])
-  const [mios, setMios] = useState([])
-  const [cargando, setCargando] = useState(true)
-  const [errorCarga, setErrorCarga] = useState(null)
+  const { avisos, idsMios, cargando, errorCarga, recargar, marcarVistas } = useNotificaciones()
   const [filtro, setFiltro] = useState('todas')
 
-  /**
-   * Dos fuentes distintas, a propósito:
-   *
-   *  - `listar()` es la bandeja general. Los avisos de asignación, aprobación y
-   *    rechazo son **sólo para Talento Humano**; para los demás cargos el
-   *    servidor devuelve una lista vacía.
-   *  - `mias()` son los avisos dirigidos a esta persona (`usuario_id`). Ahí
-   *    llegan los que Talento Humano genera al modificar sus fechas, aprobarlas
-   *    o rechazarlas.
-   *
-   * Se piden las dos en paralelo y se juntan sin repetir.
-   */
-  const traerAvisos = useCallback(async () => {
-    try {
-      const [generales, personales] = await Promise.all([
-        notificacionesApi.listar(),
-        notificacionesApi.mias(),
-      ])
-      const porId = new Map()
-      for (const aviso of [...(generales.notificaciones ?? []), ...(personales.notificaciones ?? [])]) {
-        porId.set(aviso.id, aviso)
-      }
-      const lista = [...porId.values()].sort(
-        (a, b) => String(b.fechaRegistro ?? '').localeCompare(String(a.fechaRegistro ?? '')),
-      )
-      return { avisos: lista, mios: personales.notificaciones ?? [], error: null }
-    } catch (error) {
-      return {
-        avisos: null,
-        mios: [],
-        error:
-          error instanceof ApiError
-            ? error.message
-            : 'No pudimos cargar las notificaciones.',
-      }
-    }
-  }, [])
-
-  const recargar = useCallback(async () => {
-    const { avisos: lista, mios: personales, error } = await traerAvisos()
-    if (lista) {
-      setAvisos(lista)
-      setMios(personales)
-    }
-    setErrorCarga(error)
-    setCargando(false)
-  }, [traerAvisos])
-
+  /* Abrir la bandeja es revisar: se apaga el contador del sidebar. Se hace
+     cuando la carga terminó, para no marcar como vistas unas que no llegaron. */
   useEffect(() => {
-    let vigente = true
-    traerAvisos().then(({ avisos: lista, mios: personales, error }) => {
-      if (!vigente) return
-      if (lista) {
-        setAvisos(lista)
-        setMios(personales)
-      }
-      setErrorCarga(error)
-      setCargando(false)
-    })
-    return () => {
-      vigente = false
-    }
-  }, [traerAvisos])
-
-  const idsMios = useMemo(() => new Set(mios.map((a) => a.id)), [mios])
+    if (!cargando) marcarVistas()
+  }, [cargando, marcarVistas])
 
   const filtrados = useMemo(
     () => (filtro === 'todas' ? avisos : avisos.filter((a) => tonoDelAviso(a.mensaje) === filtro)),
@@ -211,7 +152,7 @@ export default function NotificacionesPage() {
                           <span className="chip chip--neutral">{aviso.unes}</span>
                         ) : null}
                         {idsMios.has(aviso.id) ? (
-                          <span className="chip chip--info">Para ti</span>
+                          <span className="chip chip--info">Generado por ti</span>
                         ) : null}
                       </p>
                       <p className="feed__text">{aviso.mensaje}</p>
@@ -242,7 +183,7 @@ export default function NotificacionesPage() {
                   : avisos.length === 0
                     ? esTalentoHumano
                       ? 'Cada vez que se programen fechas, se apruebe o se rechace una asignación, el aviso aparecerá aquí.'
-                      : 'Aquí verás los avisos que Talento Humano genere al modificar tus fechas, aprobarlas o rechazarlas.'
+                      : 'Aquí aparecerán los avisos que generes al programar las fechas de vacaciones.'
                     : 'Prueba con otro filtro para ver el resto de los avisos.'
               }
               action={
@@ -259,7 +200,8 @@ export default function NotificacionesPage() {
 
       <p className="field__hint" style={{ marginTop: 'var(--space-4)' }}>
         <Icon name="info" size={14} /> Los avisos los genera el servidor en{' '}
-        <code>dbo.notificaciones</code> y se filtran según tu cargo.
+        <code>dbo.notificaciones</code> y se filtran según tu cargo. Al abrir esta bandeja se
+        apaga el contador del menú.
       </p>
     </>
   )

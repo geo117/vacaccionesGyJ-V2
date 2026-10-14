@@ -2,13 +2,19 @@
  * Estructura de la aplicación autenticada: barra superior + sidebar izquierdo.
  *
  * Detalles que hacen que se sienta sólida:
- *  - El estado del sidebar se controla con un único atributo (`data-nav`) en el
- *    contenedor, y TODO el comportamiento responsive vive en CSS. No hay
- *    estilos en línea que peleen con los media queries.
+ *  - El sidebar se muestra u oculta con **una sola hamburguesa**, en la esquina
+ *    superior izquierda de la barra, a cualquier ancho de pantalla. El estado
+ *    vive en un único atributo (`data-nav`) del contenedor y TODO el
+ *    comportamiento responsive está en CSS: no hay estilos en línea que peleen
+ *    con los media queries.
+ *  - En móvil entra como panel deslizante con fondo oscurecido que se cierra con
+ *    Escape o al tocar fuera, y el foco vuelve al botón que lo abrió. En pantalla
+ *    ancha, ocultar el menú devuelve el ancho al contenido.
  *  - El sidebar es un `<nav>` con encabezado propio; el ítem activo se marca
  *    con `aria-current="page"` (lo pone `NavLink`) además del color.
- *  - En móvil entra como panel deslizante con fondo oscurecido que se cierra con
- *    Escape o al tocar fuera, y el foco vuelve al botón que lo abrió.
+ *  - El contador de notificaciones pendientes sale del contexto compartido, el
+ *    mismo que usa la bandeja: el número del menú y lo que se ve al abrirlo no
+ *    pueden discrepar.
  *  - El contenido arranca con `id="contenido"` para que el enlace de salto
  *    funcione desde el primer tabulador.
  */
@@ -18,12 +24,21 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import { useAuth } from '../auth/useAuth'
 import Icon from '../components/Icon'
+import { useNotificaciones } from '../notifications/useNotificaciones'
 import { navItemsPara } from '../services/navigation'
 
-/** Modo inicial del sidebar según el ancho de la ventana. */
-function initialNavMode() {
-  if (typeof window === 'undefined') return 'rail'
-  return window.matchMedia('(min-width: 1200px)').matches ? 'expanded' : 'rail'
+/** Debajo de este ancho el sidebar es un panel deslizante, no una columna. */
+const CONSULTA_MOVIL = '(max-width: 767.98px)'
+
+/** Estado inicial del sidebar: visible en pantalla ancha, oculto en móvil. */
+function initialNavAbierto() {
+  if (typeof window === 'undefined') return true
+  return !window.matchMedia(CONSULTA_MOVIL).matches
+}
+
+function enMovil() {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia(CONSULTA_MOVIL).matches
 }
 
 function initials(nombre) {
@@ -35,12 +50,19 @@ function initials(nombre) {
     .join('')
 }
 
+/** El contador se muestra corto; a partir de 100 no aporta precisión. */
+function textoBadge(total) {
+  return total > 99 ? '99+' : String(total)
+}
+
 export default function AppShell() {
   const { user, logout, esTalentoHumano } = useAuth()
+  const { pendientes } = useNotificaciones()
   const location = useLocation()
   const navigate = useNavigate()
 
-  const [navMode, setNavMode] = useState(initialNavMode)
+  const [navAbierto, setNavAbierto] = useState(initialNavAbierto)
+  /* Mientras el usuario no decida, el ancho de la ventana manda. */
   const [userTouchedNav, setUserTouchedNav] = useState(false)
   const burgerRef = useRef(null)
 
@@ -56,39 +78,37 @@ export default function AppShell() {
      decidió algo en esta pantalla. */
   useEffect(() => {
     if (userTouchedNav) return undefined
-    const query = window.matchMedia('(min-width: 1200px)')
-    const handle = (event) => setNavMode(event.matches ? 'expanded' : 'rail')
+    const query = window.matchMedia(CONSULTA_MOVIL)
+    const handle = (event) => setNavAbierto(!event.matches)
     query.addEventListener('change', handle)
     return () => query.removeEventListener('change', handle)
   }, [userTouchedNav])
 
-  const isDrawerOpen = navMode === 'open'
-
-  const closeDrawer = useCallback((restoreFocus = false) => {
-    setNavMode('rail')
+  const cerrarNav = useCallback((restoreFocus = false) => {
+    setNavAbierto(false)
     if (restoreFocus) burgerRef.current?.focus()
   }, [])
 
-  /* Escape cierra el panel; el foco vuelve al botón que lo abrió. */
+  /* Escape cierra el panel deslizante; el foco vuelve al botón que lo abrió. */
   useEffect(() => {
-    if (!isDrawerOpen) return undefined
+    if (!navAbierto || !enMovil()) return undefined
     function handleKeyDown(event) {
       if (event.key === 'Escape') {
         event.stopPropagation()
-        closeDrawer(true)
+        cerrarNav(true)
       }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isDrawerOpen, closeDrawer])
+  }, [navAbierto, cerrarNav])
 
-  /* Al navegar desde el panel, se cierra solo. */
-  const lastPath = useRef(location.pathname)
-  useEffect(() => {
-    if (lastPath.current === location.pathname) return
-    lastPath.current = location.pathname
-    setNavMode((mode) => (mode === 'open' ? 'rail' : mode))
-  }, [location.pathname])
+  /* Al navegar desde el panel, se cierra solo. Se hace al pulsar el enlace —y no
+     con un efecto sobre la ruta— porque el cierre sólo tiene sentido en móvil y
+     ahí es donde está el panel abierto; en pantalla ancha el menú se queda como
+     esté, que no es un diálogo que haya que cerrar. */
+  const handleNavClick = useCallback(() => {
+    if (enMovil()) setNavAbierto(false)
+  }, [])
 
   const handleLogout = useCallback(async () => {
     const confirmation = await Swal.fire({
@@ -113,16 +133,11 @@ export default function AppShell() {
 
   const toggleNav = useCallback(() => {
     setUserTouchedNav(true)
-    setNavMode((mode) => (mode === 'open' ? 'rail' : mode === 'expanded' ? 'rail' : 'expanded'))
-  }, [])
-
-  const openDrawer = useCallback(() => {
-    setUserTouchedNav(true)
-    setNavMode('open')
+    setNavAbierto((abierto) => !abierto)
   }, [])
 
   return (
-    <div className="shell" data-nav={navMode}>
+    <div className="shell" data-nav={navAbierto ? 'abierto' : 'oculto'}>
       <a className="skip-link" href="#contenido">
         Saltar al contenido
       </a>
@@ -131,26 +146,13 @@ export default function AppShell() {
         <button
           type="button"
           className="topbar__burger"
-          onClick={isDrawerOpen ? () => closeDrawer(true) : openDrawer}
-          aria-label={isDrawerOpen ? 'Cerrar el menú de navegación' : 'Abrir el menú de navegación'}
-          aria-expanded={isDrawerOpen}
+          onClick={toggleNav}
+          aria-label={navAbierto ? 'Ocultar el menú de navegación' : 'Mostrar el menú de navegación'}
+          aria-expanded={navAbierto}
           aria-controls="menu-lateral"
           ref={burgerRef}
         >
           <Icon name="menu" size={22} />
-        </button>
-
-        <button
-          type="button"
-          className="topbar__burger topbar__collapse"
-          onClick={toggleNav}
-          aria-label={
-            navMode === 'expanded' ? 'Contraer el menú lateral' : 'Expandir el menú lateral'
-          }
-          aria-expanded={navMode === 'expanded'}
-          aria-controls="menu-lateral"
-        >
-          <Icon name="colapsar" size={22} />
         </button>
 
         <div className="topbar__identity">
@@ -183,12 +185,12 @@ export default function AppShell() {
         </button>
       </header>
 
-      {isDrawerOpen ? (
+      {navAbierto ? (
         <button
           type="button"
           className="scrim"
           aria-label="Cerrar el menú de navegación"
-          onClick={() => closeDrawer(true)}
+          onClick={() => cerrarNav(true)}
         />
       ) : null}
 
@@ -196,23 +198,32 @@ export default function AppShell() {
         <p className="sidebar__heading">Menú</p>
 
         <div className="sidebar__nav">
-          {items.map((item) => (
-            <NavLink
-              key={item.id}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) => `sidebar__link${isActive ? ' is-active' : ''}`}
-              title={item.label}
-            >
-              <Icon name={item.icon} size={20} />
-              <span className="sidebar__label">{item.label}</span>
-              {item.badge ? (
-                <span className="sidebar__badge tabular" aria-hidden="true">
-                  {item.badge}
-                </span>
-              ) : null}
-            </NavLink>
-          ))}
+          {items.map((item) => {
+            const badge = item.id === 'notificaciones' ? pendientes : item.badge
+            return (
+              <NavLink
+                key={item.id}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) => `sidebar__link${isActive ? ' is-active' : ''}`}
+                title={item.label}
+                onClick={handleNavClick}
+              >
+                <Icon name={item.icon} size={20} />
+                <span className="sidebar__label">{item.label}</span>
+                {badge ? (
+                  <span className="sidebar__badge tabular" aria-hidden="true">
+                    {textoBadge(badge)}
+                  </span>
+                ) : null}
+                {item.id === 'notificaciones' && pendientes > 0 ? (
+                  <span className="visually-hidden">
+                    {`${pendientes} ${pendientes === 1 ? 'aviso pendiente' : 'avisos pendientes'} por revisar`}
+                  </span>
+                ) : null}
+              </NavLink>
+            )
+          })}
         </div>
 
         <div className="sidebar__foot">
@@ -220,6 +231,9 @@ export default function AppShell() {
           <p className="sidebar__foot-line">
             {user?.cargo ? `Cargo: ${user.cargo}` : 'Sesión validada contra la base institucional.'}
           </p>
+          {esTalentoHumano ? (
+            <p className="sidebar__foot-line">Plantilla completa de la empresa</p>
+          ) : null}
           <p className="sidebar__foot-line">Versión 2.0</p>
         </div>
       </nav>

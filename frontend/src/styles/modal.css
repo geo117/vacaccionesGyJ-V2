@@ -488,6 +488,16 @@ textarea.form-control {
   overflow-wrap: anywhere;
 }
 
+/* «Aplica licencia» se deduce del saldo: el color acompaña al veredicto, pero
+   el texto es el que informa (el color nunca es la única señal). */
+.ficha__valor--ok {
+  color: var(--ok);
+}
+
+.ficha__valor--danger {
+  color: var(--danger);
+}
+
 .periodo-tabla td,
 .periodo-tabla th {
   white-space: nowrap;

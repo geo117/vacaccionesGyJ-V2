@@ -14,6 +14,10 @@ la vista real que ese sufijo es inequívoco: ningún sufijo apunta a dos
 El filtro se aplica en el ``WHERE`` de SQL y no en Python: traer 1081 filas para
 descartar la mayoría no escala, y además el filtro es una regla de acceso —un
 usuario no debería recibir por la API la plantilla de otras UNES—.
+
+Talento Humano es la excepción: entra sin digitar UNES y su tablero es la
+plantilla completa (:meth:`EmployeeDirectory.listar_todos`). El permiso lo
+decide el servidor con el cargo de la sesión, nunca la petición.
 """
 
 from __future__ import annotations
@@ -190,6 +194,18 @@ class EmployeeDirectory:
 
         sql = f"{_SELECT} WHERE {_FILTRO_UNES} {_ORDER}"
         filas = database.query_named(sql, (unes,), limit=limite)
+        return [_fila_a_colaborador(fila) for fila in filas]
+
+    def listar_todos(self, *, limite: int = 5000) -> list[Colaborador]:
+        """Toda la plantilla, sin filtrar por UNES, ordenada por nombre.
+
+        Talento Humano entra sin digitar una UNES: su tablero es la plantilla
+        completa de la empresa, no la de una unidad concreta. El límite es un
+        techo de seguridad —la vista tiene del orden de mil filas— y no un
+        filtro de negocio.
+        """
+        database = self._exigir_conexion()
+        filas = database.query_named(f"{_SELECT} {_ORDER}", limit=limite)
         return [_fila_a_colaborador(fila) for fila in filas]
 
     def buscar(self, unes: str, identificacion: str) -> Colaborador | None:

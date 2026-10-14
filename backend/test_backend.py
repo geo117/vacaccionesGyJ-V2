@@ -93,13 +93,26 @@ def main() -> int:
 
     # ------------------------------------------------------------------
     print("\n================ LOGIN ================")
-    # La UNES se digita al entrar y viaja en el cuerpo; es obligatoria.
+    # Talento Humano entra sólo con correo y contraseña: su tablero es la
+    # plantilla completa de la empresa y no necesita una UNES.
     respuesta = client.post(
         "/api/auth/login", json={"correo": th_correo, "password": PASSWORD_TH}
     )
-    check("el login exige la UNES", respuesta.status_code == 400, str(respuesta.status_code))
-    check("código UNES_REQUERIDA", (respuesta.get_json() or {}).get("code") == "UNES_REQUERIDA")
+    cuerpo = respuesta.get_json() or {}
+    check("Talento Humano entra sin UNES", respuesta.status_code == 200, str(respuesta.status_code))
+    usuario_sin_unes = cuerpo.get("usuario") or {}
+    check(
+        "la sesión de Talento Humano queda sin UNES",
+        usuario_sin_unes.get("unes") == "",
+        str(usuario_sin_unes.get("unes")),
+    )
+    token_th = cuerpo.get("token")
+    if not token_th:
+        print("Sin token de Talento Humano no se puede continuar.")
+        return 1
+    auth_th = {"Authorization": f"Bearer {token_th}"}
 
+    # Una UNES escrita con formato inválido se rechaza antes de tocar la base.
     respuesta = client.post(
         "/api/auth/login",
         json={"correo": th_correo, "password": PASSWORD_TH, "unes": "abc"},
@@ -107,6 +120,7 @@ def main() -> int:
     check("rechaza una UNES con formato inválido", respuesta.status_code == 400, str(respuesta.status_code))
     check("código UNES_INVALIDA", (respuesta.get_json() or {}).get("code") == "UNES_INVALIDA")
 
+    # Si la escribe, se conserva en la sesión.
     respuesta = client.post(
         "/api/auth/login",
         json={"correo": th_correo, "password": PASSWORD_TH, "unes": UNES_PRUEBA},
@@ -119,11 +133,6 @@ def main() -> int:
     check("la sesión dice que puede aprobar", usuario.get("puedeAprobar") is True)
     check("la sesión conserva la UNES digitada", usuario.get("unes") == UNES_PRUEBA, str(usuario.get("unes")))
     check("la respuesta NO trae password_hash", "password_hash" not in respuesta.get_data(as_text=True))
-    token_th = cuerpo.get("token")
-    if not token_th:
-        print("Sin token de Talento Humano no se puede continuar.")
-        return 1
-    auth_th = {"Authorization": f"Bearer {token_th}"}
 
     respuesta = client.get("/api/auth/session", headers=auth_th)
     check(
@@ -185,6 +194,20 @@ def main() -> int:
 
     # ------------------------------------------------------------------
     print("\n================ CONTROL DE ROL ================")
+    # Un cargo distinto a Talento Humano sí necesita la UNES: su listado se
+    # filtra por ella. Las credenciales son correctas, así que el error no es
+    # "credenciales incorrectas" sino que falta el dato.
+    respuesta = client.post(
+        "/api/auth/login",
+        json={"correo": otro_correo, "password": PASSWORD_OTRO},
+    )
+    check("otro cargo sin UNES no entra", respuesta.status_code == 400, str(respuesta.status_code))
+    check(
+        "código UNES_REQUERIDA",
+        (respuesta.get_json() or {}).get("code") == "UNES_REQUERIDA",
+        str(respuesta.get_data(as_text=True)[:120]),
+    )
+
     respuesta = client.post(
         "/api/auth/login",
         json={"correo": otro_correo, "password": PASSWORD_OTRO, "unes": UNES_PRUEBA},
@@ -338,15 +361,22 @@ def main() -> int:
     check("hay aviso de asignación de fechas", "asignó las fechas" in mensajes)
     check("hay aviso de rechazo con motivo", "rechazó" in mensajes and "Fechas superpuestas" in mensajes)
     check("hay aviso de aprobación", "aprobó" in mensajes)
+    # usuario_id guarda el id de quien hizo la acción (Talento Humano), no el del
+    # colaborador afectado.
     check(
-        "las notificaciones guardan el usuario relacionado",
-        any(f["usuario_id"] is not None for f in filas),
-        str([f["usuario_id"] for f in filas[:3]]),
+        "las notificaciones guardan el id del usuario que actuó",
+        all(f["usuario_id"] == th_id for f in filas[:4]),
+        str([(f["usuario_id"], th_id) for f in filas[:4]]),
     )
 
     respuesta = client.get("/api/notificaciones", headers=auth_th)
     avisos_th = (respuesta.get_json() or {}).get("notificaciones", [])
     check("Talento Humano ve las notificaciones", respuesta.status_code == 200 and len(avisos_th) > 0, str(len(avisos_th)))
+    check(
+        "el aviso es de quien lo generó",
+        all(a["usuarioId"] == th_id for a in avisos_th[:4]),
+        str([a["usuarioId"] for a in avisos_th[:4]]),
+    )
 
     # Regla del negocio: los avisos de asignación, aprobación y rechazo son sólo
     # para Talento Humano. Para otro cargo la bandeja general llega vacía.
@@ -355,20 +385,27 @@ def main() -> int:
     check("otro cargo recibe la bandeja general", respuesta.status_code == 200, str(respuesta.status_code))
     check("la bandeja general del otro cargo llega vacía", avisos_otro == [], str(len(avisos_otro)))
 
-    # Pero sí ve los avisos dirigidos a él (los que Talento Humano genera al
-    # modificar sus fechas): es la notificación al usuario de esas fechas.
+    # Y en "mías" ve los avisos que él mismo generó, no los de Talento Humano.
     respuesta = client.get("/api/notificaciones/mias", headers=auth_otro)
     mios = (respuesta.get_json() or {}).get("notificaciones", [])
-    check("el afectado ve sus avisos personales", len(mios) >= 3, str(len(mios)))
     check(
-        "los avisos personales son suyos",
+        "sólo aparecen los avisos propios",
         all(a["usuarioId"] == otro_id for a in mios),
         str({a["usuarioId"] for a in mios}),
     )
-    texto_mios = " || ".join(a["mensaje"] for a in mios)
-    check("le llegó el aviso de asignación", "asignó las fechas" in texto_mios)
-    check("le llegó el aviso de rechazo", "rechazó" in texto_mios)
-    check("le llegó el aviso de aprobación", "aprobó" in texto_mios)
+
+    respuesta = client.get("/api/notificaciones/mias", headers=auth_th)
+    mios_th = (respuesta.get_json() or {}).get("notificaciones", [])
+    check("Talento Humano ve sus avisos personales", len(mios_th) >= 3, str(len(mios_th)))
+    check(
+        "los avisos personales de Talento Humano son suyos",
+        all(a["usuarioId"] == th_id for a in mios_th),
+        str({a["usuarioId"] for a in mios_th}),
+    )
+    texto_mios = " || ".join(a["mensaje"] for a in mios_th)
+    check("está el aviso de asignación", "asignó las fechas" in texto_mios)
+    check("está el aviso de rechazo", "rechazó" in texto_mios)
+    check("está el aviso de aprobación", "aprobó" in texto_mios)
 
     # ------------------------------------------------------------------
     print("\n================ RESUMEN ================")
@@ -388,7 +425,9 @@ def main() -> int:
 
     # ------------------------------------------------------------------
     print("\n================ TABLERO POR UNES ================")
-    respuesta = client.get("/api/asignaciones", headers=auth_th)
+    # Un cargo distinto a Talento Humano entra con una UNES y sólo ve esa
+    # plantilla: el filtro es una regla de acceso y lo aplica el servidor.
+    respuesta = client.get("/api/asignaciones", headers=auth_otro)
     tablero = respuesta.get_json() or {}
     check("el tablero responde", respuesta.status_code == 200, str(respuesta.status_code))
     check("respeta la UNES de la sesión", tablero.get("unes") == UNES_PRUEBA, str(tablero.get("unes")))
@@ -489,6 +528,29 @@ def main() -> int:
     else:
         print(f"  (la vista corporativa no respondió; origen={tablero.get('origen')})")
         check("sin vista, se degrada al listado local", tablero.get("origen") == "local")
+
+    # ------------------------------------------------------------------
+    print("\n================ TABLERO DE TALENTO HUMANO ================")
+    # Talento Humano entra sin UNES: su tablero es la plantilla completa de la
+    # empresa, no la de una unidad concreta.
+    respuesta = client.get("/api/asignaciones", headers=auth_th)
+    tablero_th = respuesta.get_json() or {}
+    check("el tablero de Talento Humano responde", respuesta.status_code == 200, str(respuesta.status_code))
+    check("Talento Humano no queda atado a una UNES", tablero_th.get("unes") == "", str(tablero_th.get("unes")))
+
+    if tablero_th.get("origen") == "vista":
+        filas_th = tablero_th.get("asignaciones") or []
+        unes_th = {str(f.get("unes", "")).strip() for f in filas_th}
+        check("Talento Humano ve más de una UNES", len(unes_th) > 1, str(len(unes_th)))
+        check("Talento Humano ve la plantilla completa", len(filas_th) > 50, str(len(filas_th)))
+        check(
+            "incluye la asignación de prueba (de otra UNES)",
+            any(f.get("id") == asignacion_id for f in filas_th),
+            str(asignacion_id),
+        )
+    else:
+        print(f"  (la vista corporativa no respondió; origen={tablero_th.get('origen')})")
+        check("sin vista, Talento Humano se degrada al listado local", tablero_th.get("origen") == "local")
 
     # ------------------------------------------------------------------
     print("\n================ ACTIVAR / DESACTIVAR ================")

@@ -5,6 +5,11 @@
  *  - Se envía una sola petición por envío; el botón queda `aria-busy` y
  *    deshabilitado mientras viaja, de modo que no se pueda martillar el
  *    endpoint ni crear varias sesiones con un doble clic.
+ *  - El correo y la contraseña se validan siempre. La **UNES es opcional**:
+ *    Talento Humano entra sólo con correo y contraseña y su tablero es la
+ *    plantilla completa de la empresa. Para los demás cargos el servidor
+ *    responde `UNES_REQUERIDA` tras comprobar las credenciales y es entonces
+ *    cuando el campo se exige, sin delatar de antemano qué correos existen.
  *  - Un único mensaje para todos los fallos de credenciales. La respuesta del
  *    servidor ya es indistinguible entre "correo no existe", "contraseña
  *    incorrecta" y "cuenta sin acceso"; la interfaz no reintroduce la
@@ -13,7 +18,8 @@
  *    información del usuario; el catálogo de cuentas no lo es.
  *  - Tras un fallo se limpia la contraseña y el foco vuelve al primer campo con
  *    problema: no se deja la credencial escrita en pantalla ni al usuario
- *    perdido.
+ *    perdido. La excepción es `UNES_REQUERIDA`: ahí las credenciales ya eran
+ *    correctas y sólo falta la UNES, así que se conserva lo escrito.
  *  - La contraseña se muestra sólo si el usuario lo pide, con un control real de
  *    tipo `button` y su estado en `aria-pressed`.
  */
@@ -96,8 +102,9 @@ export default function LoginPage() {
     }
 
     if (!unes.trim()) {
-      setUnesError('Escribe la UNES con la que vas a trabajar.')
-      firstInvalid = firstInvalid ?? unesRef
+      // Talento Humano entra sin UNES. Si el cargo no lo permite, el servidor
+      // responde UNES_REQUERIDA y aquí se muestra el campo como pendiente.
+      setUnesError(null)
     } else if (!/^\d{3}$/.test(unes.trim())) {
       setUnesError('La UNES son tres dígitos, sin puntos ni guiones.')
       firstInvalid = firstInvalid ?? unesRef
@@ -133,10 +140,19 @@ export default function LoginPage() {
     try {
       const usuario = await login(correo.trim().toLowerCase(), password, unes.trim())
       setPassword('')
+      // Login correcto: se entra a la vista de inicio (o a la que se pedía).
       navigate(redirectTo, { replace: true, state: { usuario } })
     } catch (error) {
       const code = error instanceof ApiError ? error.code : 'INTERNAL_ERROR'
       const message = MESSAGES[code] ?? error?.message ?? MESSAGES.INTERNAL_ERROR
+
+      if (code === 'UNES_REQUERIDA') {
+        // Las credenciales eran correctas: sólo falta la UNES. No se borra la
+        // contraseña ni se pinta el error general; se señala el campo.
+        setUnesError(message)
+        unesRef.current?.focus()
+        return
+      }
 
       // La contraseña no se queda escrita después de un fallo.
       setPassword('')
@@ -208,7 +224,8 @@ export default function LoginPage() {
 
           <h1 className="login__title">Inicia sesión</h1>
           <p className="login__lead">
-            Usa tu correo corporativo y tu contraseña institucional para entrar.
+            Usa tu correo corporativo y tu contraseña institucional para entrar. Si tu perfil no es
+            de Talento Humano, escribe además tu UNES.
           </p>
 
           {notice ? (
@@ -273,14 +290,13 @@ export default function LoginPage() {
                   }
                 }}
                 error={unesError}
-                hint="Sin puntos ni guiones."
+                hint="Solo si tu perfil no es Talento Humano."
                 inputMode="numeric"
                 autoComplete="off"
                 placeholder="109"
                 disabled={submitting}
                 inputRef={unesRef}
                 maxLength={3}
-                required
               />
 
               <Field

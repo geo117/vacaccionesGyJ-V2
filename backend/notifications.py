@@ -11,8 +11,9 @@ La regla del negocio es explícita:
 * **Los avisos de asignación de fechas, aprobación y rechazo los ve únicamente
   Talento Humano.** Son las tres acciones que existen hoy, así que en la
   práctica Talento Humano ve todo y los demás cargos no ven ninguno.
-* **Al modificar, Talento Humano notifica al usuario dueño de esas fechas.**
-  Ese aviso va dirigido a esa persona concreta; ``usuario_id` lo identifica.
+* **``usuario_id`` guarda el id del usuario que hizo la acción** (quien asigna
+  las fechas, aprueba o rechaza), como pide el negocio. Es el dato con el que
+  cada quien puede contar sus avisos pendientes.
 
 El filtro se aplica en el ``WHERE`` de SQL y no en el navegador: si se filtrara
 en el cliente, cualquiera podría leer de más mirando la respuesta de la API.
@@ -78,7 +79,7 @@ class NotificationRepository:
         return [fila_a_dict(f) for f in self._database.query_named(_SELECT_TODAS)]
 
     def listar_por_usuario(self, usuario_id: int) -> list[dict[str, Any]]:
-        """Avisos dirigidos a una persona concreta."""
+        """Avisos generados por una persona concreta (``usuario_id``)."""
         filas = self._database.query_named(
             f"{_SELECT} WHERE usuario_id = ? ORDER BY fecha_registro DESC, id DESC",
             (usuario_id,),
@@ -124,9 +125,9 @@ class NotificationService:
 
         Los avisos de asignación, aprobación y rechazo son **sólo para Talento
         Humano**. Para el resto de cargos devuelve la lista vacía: no hay hoy
-        ningún tipo de aviso que les corresponda ver en esta bandeja (los avisos
-        que Talento Humano genera al modificar van dirigidos a una persona, y se
-        consultan por ``usuario_id``, no en esta bandeja general).
+        ningún tipo de aviso que les corresponda ver en esta bandeja general (los
+        que generaron se consultan por ``usuario_id``, que guarda quién hizo la
+        acción).
 
         La comprobación se hace con el cargo de la sesión, no con nada que
         llegue en la petición.
@@ -136,22 +137,16 @@ class NotificationService:
         return self._repository.listar()
 
     def listar_para_usuario(self, usuario_id: int) -> list[dict[str, Any]]:
-        """Avisos dirigidos a una persona concreta."""
+        """Avisos generados por una persona concreta (``usuario_id``)."""
         return self._repository.listar_por_usuario(usuario_id)
 
     # -- escritura ----------------------------------------------------------
 
-    def avisar_asignacion(
-        self,
-        asignacion: dict[str, Any],
-        autor: Any,
-        *,
-        usuario_destino: int | None = None,
-    ) -> None:
+    def avisar_asignacion(self, asignacion: dict[str, Any], autor: Any) -> None:
         """Avisa que se programaron (o cambiaron) las fechas de alguien.
 
-        Se guarda el ``usuario_id`` de quien hizo la asignación, como pide el
-        negocio, y el aviso queda dirigido al usuario dueño de esas fechas.
+        ``usuario_id`` guarda el id de **quien hizo la asignación**, como pide el
+        negocio: es lo que permite contar sus avisos pendientes.
         """
         mensaje = (
             f"{autor.nombre} asignó las fechas de vacaciones de "
@@ -161,16 +156,10 @@ class NotificationService:
         self._registrar(
             mensaje,
             unes=str(asignacion.get("unes") or UNES_TALENTO_HUMANO),
-            usuario_id=usuario_destino,
+            usuario_id=int(autor.id),
         )
 
-    def avisar_decision(
-        self,
-        asignacion: dict[str, Any],
-        autor: Any,
-        *,
-        usuario_destino: int | None = None,
-    ) -> None:
+    def avisar_decision(self, asignacion: dict[str, Any], autor: Any) -> None:
         """Avisa la aprobación o el rechazo, y deja constancia de quién lo hizo."""
         if asignacion["estado"] == "aprobada":
             mensaje = (
@@ -187,7 +176,7 @@ class NotificationService:
         self._registrar(
             mensaje,
             unes=str(asignacion.get("unes") or UNES_TALENTO_HUMANO),
-            usuario_id=usuario_destino,
+            usuario_id=int(autor.id),
         )
 
     def _registrar(self, mensaje: str, *, unes: str, usuario_id: int | None) -> None:

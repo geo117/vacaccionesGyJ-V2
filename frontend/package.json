@@ -8,7 +8,7 @@
     "start": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test tests/periodos.test.mjs tests/tablero.test.mjs",
+    "test": "node --test tests/periodos.test.mjs tests/tablero.test.mjs tests/notificaciones.test.mjs tests/ficha.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -156,6 +156,10 @@ export const authApi = {
    * La UNES se digita en el formulario y viaja en el cuerpo: el servidor la
    * guarda en la sesión (no en la tabla de usuarios) y la usa para filtrar los
    * listados de esa UNES.
+   *
+   * Es **opcional**: Talento Humano entra sólo con correo y contraseña y su
+   * tablero es la plantilla completa. Si el cargo la necesita y no se envió, el
+   * servidor responde 400 con `UNES_REQUERIDA` y la vista vuelve a pedirla.
    */
   login(correo, password, unes) {
     return request('/api/auth/login', {

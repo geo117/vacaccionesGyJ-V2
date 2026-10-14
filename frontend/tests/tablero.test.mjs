@@ -66,3 +66,46 @@ test('la tabla lleva el contenedor con desplazamiento propio', async () => {
   )
   assert.ok(fuente.includes('data--tablero'), 'la tabla debe llevar la clase de anchos por columna')
 })
+
+test('el botón de motivo va debajo del estado, no al lado', async () => {
+  const fuente = await readFile(RUTA, 'utf8')
+
+  // En fila, el chip y el botón juntos (unos 180px) desbordaban la columna
+  // «Estado» y se montaban encima del dato de «Corte». Apilados, el ancho que
+  // necesita la celda es el del más ancho de los dos.
+  const celda = fuente.match(
+    /<div className="d-flex flex-column align-items-start gap-2">[\s\S]*?<\/div>/,
+  )
+  assert.ok(celda, 'el estado y el botón de motivo deben apilarse en columna')
+  assert.ok(celda[0].includes('<StatusChip estado={fila.estado} />'), 'falta el chip de estado')
+  assert.ok(celda[0].includes('Motivo'), 'falta el botón de motivo dentro del mismo bloque')
+  assert.ok(
+    celda[0].indexOf('<StatusChip') < celda[0].indexOf('Motivo'),
+    'el motivo va después del estado, es decir, debajo',
+  )
+})
+
+test('la tabla se pagina de a 20 con los controles de react-bootstrap', async () => {
+  const fuente = await readFile(RUTA, 'utf8')
+
+  assert.ok(
+    fuente.includes("from 'react-bootstrap/Pagination'"),
+    'el paginador debe ser el componente Pagination de react-bootstrap',
+  )
+  assert.ok(fuente.includes('const POR_PAGINA = 20'), 'la página debe ser de 20 registros')
+  assert.ok(
+    fuente.includes('filtradas.slice('),
+    'se pagina sobre lo ya filtrado, no sobre la lista completa',
+  )
+
+  // Los cuatro controles que pidió el negocio: ir al comienzo, retroceder,
+  // avanzar e ir al final.
+  for (const control of ['Pagination.First', 'Pagination.Prev', 'Pagination.Next', 'Pagination.Last']) {
+    assert.ok(fuente.includes(`<${control}`), `falta el control ${control}`)
+  }
+
+  assert.ok(
+    fuente.indexOf('className="tabla-paginador"') > fuente.indexOf('</Table>'),
+    'el paginador va debajo de la tabla, no encima',
+  )
+})

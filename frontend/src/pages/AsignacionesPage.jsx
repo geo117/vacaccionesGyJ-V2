@@ -1,10 +1,12 @@
 /**
  * Asignaciones de vacaciones.
  *
- * La tabla es **la plantilla de la UNES**: una fila por colaborador de la vista
- * corporativa `PBI_Colaborador_Vacaciones`, con la asignación que tenga (o
- * ninguna). Los que todavía no tienen fechas aparecen igual, porque son
- * justamente a quienes hay que programárselas.
+ * La tabla es **la plantilla que corresponde a la sesión**: una fila por
+ * colaborador de la vista corporativa `PBI_Colaborador_Vacaciones`, con la
+ * asignación que tenga (o ninguna). Talento Humano entra sin UNES y ve toda la
+ * plantilla de la empresa; los demás cargos, sólo la de su UNES. Los que todavía
+ * no tienen fechas aparecen igual, porque son justamente a quienes hay que
+ * programárselas.
  *
  * Columnas y de dónde sale cada dato:
  *   Desc. Unes     ← DescCO
@@ -17,9 +19,13 @@
  *   Días asignados ← el total de los períodos programados
  *   Días a usar    ← días asignados − días a corte, con semáforo
  *
- * El filtro por UNES lo aplica el **servidor** con la UNES de la sesión: aquí no
- * llega la plantilla de otras UNES, así que no hay nada que filtrar en el
- * navegador.
+ * El filtro por UNES lo aplica el **servidor** con la UNES de la sesión: a quien
+ * entra con una UNES no le llega la plantilla de otras, así que no hay nada que
+ * filtrar en el navegador. Talento Humano sí recibe todo y por eso tiene el
+ * filtro de UNES en la barra.
+ *
+ * La tabla se pagina **de a 20 registros**. La búsqueda y los filtros se aplican
+ * antes de paginar: el total que se ve es el de los filtros, no el de la vista.
  *
  * Si la vista corporativa no responde, el servidor degrada al listado local de
  * asignaciones y lo dice en `origen`; la pantalla lo avisa.
@@ -30,6 +36,7 @@ import Alert from 'react-bootstrap/Alert'
 import Button from 'react-bootstrap/Button'
 import Form from 'react-bootstrap/Form'
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger'
+import Pagination from 'react-bootstrap/Pagination'
 import Popover from 'react-bootstrap/Popover'
 import Table from 'react-bootstrap/Table'
 import Swal from 'sweetalert2'
@@ -42,9 +49,13 @@ import NuevaAsignacionModal from '../components/NuevaAsignacionModal'
 import StatusChip from '../components/StatusChip'
 import { useAuth } from '../auth/useAuth'
 import useAsignaciones, { mensajeDeError } from '../hooks/useAsignaciones'
+import { useNotificaciones } from '../notifications/useNotificaciones'
 import { NUMERO } from '../utils/fechas'
 import { semaforoDiasAUsar } from '../utils/periodos'
 import { buildAssignmentsCsv, buildReportFilename, downloadCsv } from '../utils/reporte'
+
+/** Filas por página de la tabla. */
+const POR_PAGINA = 20
 
 const ESTADOS = [
   { value: 'todas', label: 'Todos los estados' },
@@ -103,6 +114,28 @@ function construirCuerpoMotivo(motivo, fila) {
   return contenedor
 }
 
+/**
+ * Números de página a mostrar: siempre el primero, el último y los vecinos del
+ * actual. Los huecos se representan con un valor de texto, no con un número, para
+ * que nadie confunda la elipsis con una página.
+ */
+function ventanaDePaginas(actual, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, indice) => indice + 1)
+
+  const candidatas = [1, total, actual - 1, actual, actual + 1]
+    .filter((numero) => numero >= 1 && numero <= total)
+    .sort((a, b) => a - b)
+
+  const salida = []
+  let anterior = 0
+  for (const numero of candidatas) {
+    if (anterior && numero - anterior > 1) salida.push(`hueco-${numero}`)
+    salida.push(numero)
+    anterior = numero
+  }
+  return salida
+}
+
 export default function AsignacionesPage() {
   const searchId = useId()
   const stateId = useId()
@@ -119,10 +152,14 @@ export default function AsignacionesPage() {
     registrarDecision,
     crearAsignacion,
   } = useAsignaciones()
+  /* El contador del sidebar y esta bandeja comparten estado: tras una acción que
+     genera un aviso, se refresca para que el número del menú lo refleje. */
+  const { recargar: recargarNotificaciones } = useNotificaciones()
 
   const [query, setQuery] = useState('')
   const [estado, setEstado] = useState('todas')
   const [filtroUnes, setFiltroUnes] = useState('todas')
+  const [pagina, setPagina] = useState(1)
 
   const [empleadoAbierto, setEmpleadoAbierto] = useState(null)
   const [fechasAbiertas, setFechasAbiertas] = useState(null)
@@ -157,6 +194,44 @@ export default function AsignacionesPage() {
 
   const hayFiltros = query.trim() !== '' || estado !== 'todas' || filtroUnes !== 'todas'
 
+  /* Paginación sobre lo ya filtrado: la búsqueda y los filtros mandan; la página
+     sólo recorta lo que se ve. */
+  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / POR_PAGINA))
+  const paginaActual = Math.min(pagina, totalPaginas)
+  const visibles = useMemo(
+    () => filtradas.slice((paginaActual - 1) * POR_PAGINA, paginaActual * POR_PAGINA),
+    [filtradas, paginaActual],
+  )
+  const primerVisible = filtradas.length === 0 ? 0 : (paginaActual - 1) * POR_PAGINA + 1
+  const ultimoVisible = Math.min(paginaActual * POR_PAGINA, filtradas.length)
+
+  const paginas = useMemo(
+    () => ventanaDePaginas(paginaActual, totalPaginas),
+    [paginaActual, totalPaginas],
+  )
+
+  /* Cambiar la búsqueda o un filtro devuelve a la primera página: quedarse en la
+     cinco de una lista de dos no muestra nada. Se reinicia al cambiar el filtro y
+     no con un efecto sobre su valor, que provocaría un render de más. */
+  function irAPagina(destino) {
+    setPagina(Math.min(Math.max(1, destino), totalPaginas))
+  }
+
+  function cambiarQuery(valor) {
+    setQuery(valor)
+    setPagina(1)
+  }
+
+  function cambiarEstado(valor) {
+    setEstado(valor)
+    setPagina(1)
+  }
+
+  function cambiarFiltroUnes(valor) {
+    setFiltroUnes(valor)
+    setPagina(1)
+  }
+
   const resumen = useMemo(() => {
     const conAsignacion = filtradas.filter((f) => !f.sinAsignacion)
     return {
@@ -171,6 +246,7 @@ export default function AsignacionesPage() {
     setQuery('')
     setEstado('todas')
     setFiltroUnes('todas')
+    setPagina(1)
   }
 
   /* -- Reporte ------------------------------------------------------------- */
@@ -263,6 +339,9 @@ export default function AsignacionesPage() {
         timerProgressBar: true,
       })
       await recargar()
+      // El aviso acaba de registrarse en el servidor: se refresca el contador
+      // del sidebar para que lo refleje sin recargar la página.
+      await recargarNotificaciones()
     } catch (error) {
       await Swal.fire({
         ...SWAL_BASE,
@@ -291,6 +370,7 @@ export default function AsignacionesPage() {
         timerProgressBar: true,
       })
       await recargar()
+      await recargarNotificaciones()
     } catch (error) {
       await Swal.fire({
         ...SWAL_BASE,
@@ -338,6 +418,7 @@ export default function AsignacionesPage() {
         timerProgressBar: true,
       })
       await recargar()
+      await recargarNotificaciones()
     } catch (error) {
       await Swal.fire({
         ...SWAL_BASE,
@@ -359,7 +440,7 @@ export default function AsignacionesPage() {
           <p className="page__lead">
             {unes
               ? `Colaboradores de la UNES ${unes} con sus días de vacaciones.`
-              : 'Colaboradores con sus días de vacaciones.'}{' '}
+              : 'Toda la plantilla de la empresa con sus días de vacaciones.'}{' '}
             {puedeAprobar ? 'Registra aquí la decisión de Talento Humano.' : ''}
           </p>
         </div>
@@ -419,7 +500,7 @@ export default function AsignacionesPage() {
         <header className="card__header">
           <div>
             <h2 className="card__title" id="tabla-titulo">
-              Plantilla de la UNES
+              {unes ? 'Plantilla de la UNES' : 'Plantilla de la empresa'}
             </h2>
             <p className="card__subtitle">
               {cargando
@@ -439,7 +520,7 @@ export default function AsignacionesPage() {
                   id={searchId}
                   type="search"
                   value={query}
-                  onChange={(event) => setQuery(event.target.value)}
+                  onChange={(event) => cambiarQuery(event.target.value)}
                   placeholder="Nombre, identificación, cargo o radicado"
                   autoComplete="off"
                 />
@@ -462,7 +543,7 @@ export default function AsignacionesPage() {
               <Form.Select
                 id={stateId}
                 value={estado}
-                onChange={(event) => setEstado(event.target.value)}
+                onChange={(event) => cambiarEstado(event.target.value)}
               >
                 {ESTADOS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -478,7 +559,7 @@ export default function AsignacionesPage() {
                 <Form.Select
                   id={unesId}
                   value={filtroUnes}
-                  onChange={(event) => setFiltroUnes(event.target.value)}
+                  onChange={(event) => cambiarFiltroUnes(event.target.value)}
                 >
                   <option value="todas">Todas las UNES</option>
                   {unesDisponibles.map((option) => (
@@ -494,190 +575,245 @@ export default function AsignacionesPage() {
 
         <div className="card__body card__body--flush">
           {filtradas.length > 0 ? (
-            /* El contenedor lleva el desplazamiento horizontal y `min-width: 0`
-               para que la tabla se desplace dentro de la tarjeta en lugar de
-               estirar la página entera. */
-            <div className="table-scroll table-scroll--ajustado">
-              <Table className="data data--tablero" borderless>
-                <caption className="visually-hidden">
-                  Colaboradores de la UNES con su descripción, identificación, cargo, estado de la
-                  asignación, días a corte, días asignados y días a usar.
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Desc. Unes</th>
-                    <th scope="col">Colaborador</th>
-                    <th scope="col">Identificación</th>
-                    <th scope="col">UNES</th>
-                    <th scope="col">Cargo</th>
-                    <th scope="col">Estado</th>
-                    <th scope="col" className="numeric" title="Días a corte">
-                      Corte
-                    </th>
-                    <th scope="col" className="numeric" title="Días asignados">
-                      Asignados
-                    </th>
-                    <th scope="col" className="numeric" title="Días a usar">
-                      A usar
-                    </th>
-                    <th scope="col">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtradas.map((fila) => (
-                    <tr
-                      key={`${fila.identificacion}-${fila.id ?? 'sin'}`}
-                      data-sin-asignacion={fila.sinAsignacion ? 'si' : undefined}
-                    >
-                      <td title={fila.descUnes || undefined}>{fila.descUnes || '—'}</td>
-                      <td title={fila.empleado || undefined}>{fila.empleado}</td>
-                      <td className="tabular">{fila.identificacion || '—'}</td>
-                      <td>{fila.unes || '—'}</td>
-                      <td title={fila.cargo || undefined}>{fila.cargo || '—'}</td>
-                      <td>
-                        <div className="d-flex align-items-center gap-2">
-                          <StatusChip estado={fila.estado} />
-                          {fila.motivoRechazo ? (
-                            <OverlayTrigger
-                              trigger={['hover', 'focus']}
-                              placement="left"
-                              overlay={
-                                <Popover id={`motivo-${fila.identificacion}`}>
-                                  <Popover.Header as="h3">Motivo del rechazo</Popover.Header>
-                                  <Popover.Body>{fila.motivoRechazo}</Popover.Body>
-                                </Popover>
-                              }
-                            >
-                              <button
-                                type="button"
-                                className="chip chip--danger"
-                                aria-label={`Ver el motivo del rechazo de ${fila.empleado}`}
+            <>
+              {/* El contenedor lleva el desplazamiento horizontal y `min-width: 0`
+                  para que la tabla se desplace dentro de la tarjeta en lugar de
+                  estirar la página entera. */}
+              <div className="table-scroll table-scroll--ajustado">
+                <Table className="data data--tablero" borderless>
+                  <caption className="visually-hidden">
+                    Colaboradores de la UNES con su descripción, identificación, cargo, estado de la
+                    asignación, días a corte, días asignados y días a usar.
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Desc. Unes</th>
+                      <th scope="col">Colaborador</th>
+                      <th scope="col">Identificación</th>
+                      <th scope="col">UNES</th>
+                      <th scope="col">Cargo</th>
+                      <th scope="col">Estado</th>
+                      <th scope="col" className="numeric" title="Días a corte">
+                        Corte
+                      </th>
+                      <th scope="col" className="numeric" title="Días asignados">
+                        Asignados
+                      </th>
+                      <th scope="col" className="numeric" title="Días a usar">
+                        A usar
+                      </th>
+                      <th scope="col">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibles.map((fila) => (
+                      <tr
+                        key={`${fila.identificacion}-${fila.id ?? 'sin'}`}
+                        data-sin-asignacion={fila.sinAsignacion ? 'si' : undefined}
+                      >
+                        <td title={fila.descUnes || undefined}>{fila.descUnes || '—'}</td>
+                        <td title={fila.empleado || undefined}>{fila.empleado}</td>
+                        <td className="tabular">{fila.identificacion || '—'}</td>
+                        <td>{fila.unes || '—'}</td>
+                        <td title={fila.cargo || undefined}>{fila.cargo || '—'}</td>
+                        <td>
+                          {/* En columna, no en fila: el botón «Motivo» al lado del
+                              chip desbordaba la columna y se montaba encima del
+                              dato de «Corte». Apilado, cada cosa ocupa su sitio. */}
+                          <div className="d-flex flex-column align-items-start gap-2">
+                            <StatusChip estado={fila.estado} />
+                            {fila.motivoRechazo ? (
+                              <OverlayTrigger
+                                trigger={['hover', 'focus']}
+                                placement="left"
+                                overlay={
+                                  <Popover id={`motivo-${fila.identificacion}`}>
+                                    <Popover.Header as="h3">Motivo del rechazo</Popover.Header>
+                                    <Popover.Body>{fila.motivoRechazo}</Popover.Body>
+                                  </Popover>
+                                }
                               >
-                                <Icon name="info" size={14} />
-                                Motivo
-                              </button>
-                            </OverlayTrigger>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td className="numeric tabular">{UN_DECIMAL.format(fila.diasACorte ?? 0)}</td>
-                      <td className="numeric tabular">
-                        {UN_DECIMAL.format(fila.diasAsignados ?? 0)}
-                      </td>
-                      <td className="numeric">
-                        <CeldaDiasAUsar
-                          valor={fila.diasAUsar ?? 0}
-                          asignados={fila.diasAsignados ?? 0}
-                          corte={fila.diasACorte ?? 0}
-                        />
-                      </td>
-                      <td>
-                        {/* Menú de tres puntos. Se arma con `OverlayTrigger` +
-                          `Popover`: el `Dropdown` de react-bootstrap aplica
-                          modificadores de Popper que competían entre sí y
-                          dejaban el menú descentrado dentro de una tabla con
-                          desplazamiento horizontal. */}
-                        <OverlayTrigger
-                          trigger="click"
-                          placement="left-start"
-                          rootClose
-                          show={menuAbierto === fila.identificacion}
-                          onToggle={(next) => setMenuAbierto(next ? fila.identificacion : null)}
-                          overlay={
-                            <Popover
-                              id={`acciones-${fila.identificacion}`}
-                              className="acciones__popover"
-                            >
-                              <Popover.Body className="acciones__cuerpo">
                                 <button
                                   type="button"
-                                  className="acciones__item"
-                                  onClick={() => {
-                                    setMenuAbierto(null)
-                                    setEmpleadoAbierto(fila)
-                                  }}
+                                  className="chip chip--danger"
+                                  aria-label={`Ver el motivo del rechazo de ${fila.empleado}`}
                                 >
-                                  <Icon name="empleado" size={16} />
-                                  Ver empleado
+                                  <Icon name="info" size={14} />
+                                  Motivo
                                 </button>
-
-                                <button
-                                  type="button"
-                                  className="acciones__item"
-                                  onClick={() => {
-                                    setMenuAbierto(null)
-                                    abrirFechas(fila)
-                                  }}
-                                >
-                                  <Icon name="editarFechas" size={16} />
-                                  {fila.sinAsignacion ? 'Asignar fechas' : 'Editar fechas'}
-                                </button>
-
-                                {/* Sólo Talento Humano puede aprobar o rechazar.
-                                  El backend responde 403 si otro cargo lo llama. */}
-                                {puedeAprobar ? (
+                              </OverlayTrigger>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="numeric tabular">{UN_DECIMAL.format(fila.diasACorte ?? 0)}</td>
+                        <td className="numeric tabular">
+                          {UN_DECIMAL.format(fila.diasAsignados ?? 0)}
+                        </td>
+                        <td className="numeric">
+                          <CeldaDiasAUsar
+                            valor={fila.diasAUsar ?? 0}
+                            asignados={fila.diasAsignados ?? 0}
+                            corte={fila.diasACorte ?? 0}
+                          />
+                        </td>
+                        <td>
+                          {/* Menú de tres puntos. Se arma con `OverlayTrigger` +
+                            `Popover`: el `Dropdown` de react-bootstrap aplica
+                            modificadores de Popper que competían entre sí y
+                            dejaban el menú descentrado dentro de una tabla con
+                            desplazamiento horizontal. */}
+                          <OverlayTrigger
+                            trigger="click"
+                            placement="left-start"
+                            rootClose
+                            show={menuAbierto === fila.identificacion}
+                            onToggle={(next) => setMenuAbierto(next ? fila.identificacion : null)}
+                            overlay={
+                              <Popover
+                                id={`acciones-${fila.identificacion}`}
+                                className="acciones__popover"
+                              >
+                                <Popover.Body className="acciones__cuerpo">
                                   <button
                                     type="button"
                                     className="acciones__item"
-                                    disabled={fila.sinAsignacion}
-                                    title={
-                                      fila.sinAsignacion
-                                        ? 'Primero programa las fechas de este colaborador'
-                                        : 'Aprobar o rechazar la asignación'
-                                    }
                                     onClick={() => {
                                       setMenuAbierto(null)
-                                      setDecisionAbierta(fila)
+                                      setEmpleadoAbierto(fila)
                                     }}
                                   >
-                                    <Icon name="aprobar" size={16} />
-                                    Aprobar / rechazar
+                                    <Icon name="empleado" size={16} />
+                                    Ver empleado
                                   </button>
-                                ) : null}
 
-                                {fila.motivoRechazo ? (
-                                  <>
-                                    <hr className="acciones__separador" />
+                                  <button
+                                    type="button"
+                                    className="acciones__item"
+                                    onClick={() => {
+                                      setMenuAbierto(null)
+                                      abrirFechas(fila)
+                                    }}
+                                  >
+                                    <Icon name="editarFechas" size={16} />
+                                    {fila.sinAsignacion ? 'Asignar fechas' : 'Editar fechas'}
+                                  </button>
+
+                                  {/* Sólo Talento Humano puede aprobar o rechazar.
+                                    El backend responde 403 si otro cargo lo llama. */}
+                                  {puedeAprobar ? (
                                     <button
                                       type="button"
                                       className="acciones__item"
+                                      disabled={fila.sinAsignacion}
+                                      title={
+                                        fila.sinAsignacion
+                                          ? 'Primero programa las fechas de este colaborador'
+                                          : 'Aprobar o rechazar la asignación'
+                                      }
                                       onClick={() => {
                                         setMenuAbierto(null)
-                                        Swal.fire({
-                                          ...SWAL_BASE,
-                                          icon: 'info',
-                                          title: 'Motivo del rechazo',
-                                          html: construirCuerpoMotivo(fila.motivoRechazo, fila),
-                                          confirmButtonText: 'Entendido',
-                                        })
+                                        setDecisionAbierta(fila)
                                       }}
                                     >
-                                      <Icon name="info" size={16} />
-                                      Ver motivo del rechazo
+                                      <Icon name="aprobar" size={16} />
+                                      Aprobar / rechazar
                                     </button>
-                                  </>
-                                ) : null}
-                              </Popover.Body>
-                            </Popover>
-                          }
-                        >
-                          <button
-                            type="button"
-                            className="acciones__toggle"
-                            aria-label={`Acciones para ${fila.empleado}`}
-                            aria-haspopup="menu"
-                            aria-expanded={menuAbierto === fila.identificacion}
-                            title="Acciones"
+                                  ) : null}
+
+                                  {fila.motivoRechazo ? (
+                                    <>
+                                      <hr className="acciones__separador" />
+                                      <button
+                                        type="button"
+                                        className="acciones__item"
+                                        onClick={() => {
+                                          setMenuAbierto(null)
+                                          Swal.fire({
+                                            ...SWAL_BASE,
+                                            icon: 'info',
+                                            title: 'Motivo del rechazo',
+                                            html: construirCuerpoMotivo(fila.motivoRechazo, fila),
+                                            confirmButtonText: 'Entendido',
+                                          })
+                                        }}
+                                      >
+                                        <Icon name="info" size={16} />
+                                        Ver motivo del rechazo
+                                      </button>
+                                    </>
+                                  ) : null}
+                                </Popover.Body>
+                              </Popover>
+                            }
                           >
-                            <Icon name="masOpciones" size={20} />
-                          </button>
-                        </OverlayTrigger>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </div>
+                            <button
+                              type="button"
+                              className="acciones__toggle"
+                              aria-label={`Acciones para ${fila.empleado}`}
+                              aria-haspopup="menu"
+                              aria-expanded={menuAbierto === fila.identificacion}
+                              title="Acciones"
+                            >
+                              <Icon name="masOpciones" size={20} />
+                            </button>
+                          </OverlayTrigger>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
+
+              <div className="tabla-paginador">
+                <p className="tabla-paginador__info">
+                  Mostrando {NUMERO.format(primerVisible)}–{NUMERO.format(ultimoVisible)} de{' '}
+                  {NUMERO.format(filtradas.length)}{' '}
+                  {filtradas.length === 1 ? 'colaborador' : 'colaboradores'}
+                  {totalPaginas > 1 ? ` · página ${paginaActual} de ${totalPaginas}` : ''}
+                </p>
+
+                <Pagination
+                  className="tabla-paginador__controles"
+                  aria-label="Paginación de la tabla de asignaciones"
+                  size="sm"
+                >
+                  <Pagination.First
+                    onClick={() => irAPagina(1)}
+                    disabled={paginaActual === 1}
+                    aria-label="Ir a la primera página"
+                  />
+                  <Pagination.Prev
+                    onClick={() => irAPagina(paginaActual - 1)}
+                    disabled={paginaActual === 1}
+                    aria-label="Página anterior"
+                  />
+                  {paginas.map((valor) =>
+                    typeof valor === 'number' ? (
+                      <Pagination.Item
+                        key={valor}
+                        active={valor === paginaActual}
+                        onClick={() => irAPagina(valor)}
+                        aria-label={`Ir a la página ${valor}`}
+                      >
+                        {valor}
+                      </Pagination.Item>
+                    ) : (
+                      <Pagination.Ellipsis key={valor} disabled />
+                    ),
+                  )}
+                  <Pagination.Next
+                    onClick={() => irAPagina(paginaActual + 1)}
+                    disabled={paginaActual === totalPaginas}
+                    aria-label="Página siguiente"
+                  />
+                  <Pagination.Last
+                    onClick={() => irAPagina(totalPaginas)}
+                    disabled={paginaActual === totalPaginas}
+                    aria-label="Ir a la última página"
+                  />
+                </Pagination>
+              </div>
+            </>
           ) : (
             <EmptyState
               icon="buscarPersona"
@@ -685,14 +821,18 @@ export default function AsignacionesPage() {
                 cargando
                   ? 'Consultando los colaboradores…'
                   : filas.length === 0
-                    ? 'No hay colaboradores para esta UNES'
+                    ? unes
+                      ? 'No hay colaboradores para esta UNES'
+                      : 'No hay colaboradores en la plantilla'
                     : 'Ningún colaborador coincide con la búsqueda'
               }
               text={
                 cargando
                   ? 'Un momento.'
                   : filas.length === 0
-                    ? `La vista no devolvió colaboradores para la UNES ${unes || 'indicada'}. Revisa el número o consulta con Soporte.`
+                    ? unes
+                      ? `La vista no devolvió colaboradores para la UNES ${unes}. Revisa el número o consulta con Soporte.`
+                      : 'La vista no devolvió colaboradores. Consulta con Soporte.'
                     : 'Prueba con otro nombre, identificación o cargo, o quita los filtros.'
               }
               action={

@@ -405,10 +405,17 @@ def create_app(settings: Settings | None = None) -> Flask:
     @app.post("/api/auth/login")
     def login():
         payload = _json_body()
-        # La UNES se digita al entrar. Se valida antes de gastar un intento del
-        # limitador: un formato equivocado no es un intento de adivinar la
-        # contraseña.
-        unes = validar_unes_login(payload.get("unes"))
+        # La UNES es opcional: Talento Humano entra sólo con correo y
+        # contraseña. Si viene escrita, se valida antes de gastar un intento del
+        # limitador —un formato equivocado no es un intento de adivinar la
+        # contraseña—; si viene vacía, quien decide si hacía falta es el servicio,
+        # que ya conoce el cargo de la cuenta.
+        unes_cruda = payload.get("unes")
+        unes = (
+            validar_unes_login(unes_cruda)
+            if unes_cruda is not None and str(unes_cruda).strip()
+            else ""
+        )
 
         outcome = auth_service.login(
             payload.get("correo"),
@@ -426,6 +433,16 @@ def create_app(settings: Settings | None = None) -> Flask:
             )
             response.headers["Retry-After"] = str(outcome.retry_after)
             return response, status
+
+        if outcome.status == "unes_required":
+            # Las credenciales eran correctas, pero el cargo no es de Talento
+            # Humano y su listado se filtra por UNES. No es un fallo de
+            # credenciales y el mensaje lo dice.
+            return fail(
+                "Escribe la UNES con la que vas a trabajar.",
+                code="UNES_REQUERIDA",
+                status=400,
+            )
 
         if outcome.status != "ok" or outcome.user is None or outcome.token is None:
             # Un solo mensaje para correo inexistente, contraseña incorrecta o
@@ -634,23 +651,34 @@ def create_app(settings: Settings | None = None) -> Flask:
     @app.get("/api/asignaciones")
     @require_auth
     def listar_asignaciones():
-        """Tablero de la UNES de la sesión.
+        """Tablero de colaboradores que le corresponde a la sesión.
 
         Si hay conexión con la vista corporativa, la tabla son **los
-        colaboradores de esa UNES** con la asignación que tengan (o ninguna).
-        Si no la hay, se devuelven sólo las asignaciones registradas: la pantalla
-        sigue siendo útil aunque el servidor corporativo no responda.
+        colaboradores** con la asignación que tengan (o ninguna):
+
+        * Talento Humano entra sin UNES y recibe **toda la plantilla de la
+          empresa**.
+        * Los demás cargos reciben sólo los de la UNES con la que entraron: el
+          filtro es una regla de acceso y lo aplica el servidor en el ``WHERE``.
+
+        Si la vista no responde, se devuelven sólo las asignaciones registradas:
+        la pantalla sigue siendo útil aunque el servidor corporativo falle.
         """
         unes = current_unes()
+        es_talento_humano = current_user().es_talento_humano
         directorio = servicios().employees
 
-        if unes and directorio.disponible:
+        if directorio.disponible and (es_talento_humano or unes):
             try:
-                colaboradores = directorio.listar_por_unes(unes)
+                colaboradores = (
+                    directorio.listar_todos() if es_talento_humano else directorio.listar_por_unes(unes)
+                )
                 tablero = servicios().assignments.tablero_de_unes(
                     colaboradores,
                     propietarios=_propietarios_por_correo(),
-                    unes=unes,
+                    # Para Talento Humano no se acota por UNES: ve también las
+                    # asignaciones huérfanas de cualquier unidad.
+                    unes="" if es_talento_humano else unes,
                 )
                 return ok(
                     {
@@ -688,13 +716,7 @@ def create_app(settings: Settings | None = None) -> Flask:
     def crear_asignacion():
         payload = _json_body()
         _, asignacion = servicios().assignments.crear(payload, current_user())
-        servicios().notifications.avisar_asignacion(
-            asignacion,
-            current_user(),
-            usuario_destino=_propietarios_por_correo().get(
-                str(asignacion.get("correo") or "").strip().lower()
-            ),
-        )
+        servicios().notifications.avisar_asignacion(asignacion, current_user())
         return ok({"asignacion": asignacion}, 201)
 
     @app.put("/api/asignaciones/<int:assignment_id>/periodos")
@@ -704,15 +726,9 @@ def create_app(settings: Settings | None = None) -> Flask:
         asignacion = servicios().assignments.guardar_periodos(
             assignment_id, payload, current_user()
         )
-        # Modificar fechas u observaciones genera el aviso, y va dirigido al
-        # usuario dueño de esas fechas.
-        servicios().notifications.avisar_asignacion(
-            asignacion,
-            current_user(),
-            usuario_destino=_propietarios_por_correo().get(
-                str(asignacion.get("correo") or "").strip().lower()
-            ),
-        )
+        # Modificar fechas u observaciones genera el aviso, con el id de quien
+        # lo hizo.
+        servicios().notifications.avisar_asignacion(asignacion, current_user())
         return ok({"asignacion": asignacion})
 
     @app.post("/api/asignaciones/<int:assignment_id>/decision")
@@ -727,13 +743,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         asignacion = servicios().assignments.registrar_decision(
             assignment_id, payload, current_user()
         )
-        servicios().notifications.avisar_decision(
-            asignacion,
-            current_user(),
-            usuario_destino=_propietarios_por_correo().get(
-                str(asignacion.get("correo") or "").strip().lower()
-            ),
-        )
+        servicios().notifications.avisar_decision(asignacion, current_user())
         return ok({"asignacion": asignacion})
 
     # -- notificaciones -----------------------------------------------------
@@ -753,7 +763,7 @@ def create_app(settings: Settings | None = None) -> Flask:
     @app.get("/api/notificaciones/mias")
     @require_auth
     def listar_mis_notificaciones():
-        """Avisos dirigidos a la persona que consulta (``usuario_id``)."""
+        """Avisos generados por la persona que consulta (``usuario_id``)."""
         avisos = servicios().notifications.listar_para_usuario(current_user().id)
         return ok({"notificaciones": avisos, "total": len(avisos)})
 
