@@ -8,10 +8,11 @@ endpoints que consume el frontend en React.
 * Python 3.11 o superior (probado en 3.14).
 * **Microsoft ODBC Driver 17 for SQL Server** instalado.
 * Acceso de lectura/escritura a `dbo.Usuarios` con el login de base configurado.
-* Paquetes: `flask`, `flask-cors`, `pyodbc`, `python-dotenv`.
+* Paquetes: `flask`, `flask-cors`, `pyodbc`, `python-dotenv`, `reportlab` y
+  `openpyxl` (estos dos últimos sólo para las descargas).
 
 ```powershell
-python -m pip install flask flask-cors pyodbc python-dotenv
+python -m pip install flask flask-cors pyodbc python-dotenv reportlab openpyxl
 ```
 
 ## Configuración
@@ -166,6 +167,8 @@ la interfaz.
 | `POST` | `/api/asignaciones` | Sesión | Registra una asignación nueva |
 | `PUT` | `/api/asignaciones/{id}/periodos` | Sesión | Programa los tres períodos |
 | `POST` | `/api/asignaciones/{id}/decision` | **Talento Humano** | Aprueba o rechaza |
+| `GET` | `/api/reportes/planilla` | Sesión | Planilla de vacaciones en PDF (plantilla institucional). Filtra por la UNES pedida (`?unes=`) o por la de la sesión |
+| `GET` | `/api/reportes/plano-unoee` | **Talento Humano** | Plano UNOEE en Excel sobre la plantilla oficial |
 | `GET` | `/api/notificaciones` | Sesión | Bandeja del cargo: Talento Humano ve todas; el resto, ninguna |
 | `GET` | `/api/notificaciones/mias` | Sesión | Avisos generados por quien consulta (`usuario_id`) |
 | `GET` | `/api/usuarios` | **Talento Humano** | Usuarios registrados, con su estado |
@@ -423,6 +426,7 @@ generan notificaciones, resumen y las protecciones del último Talento Humano.
 | `auth.py` | Almacén de sesiones y servicio de login |
 | `assignments.py` | Asignaciones: repositorio, validación y cálculo de días |
 | `notifications.py` | Avisos: redacción en el servidor y filtrado por cargo |
+| `reports.py` | Planilla en PDF y plano UNOEE en Excel |
 | `dashboard.py` | Resumen y consolidado por empleado (`LEFT JOIN`) |
 | `db.py` | Conexión, cursores parametrizados y acceso por nombre de columna |
 | `test_backend.py` | Prueba de humo end-to-end |

@@ -290,7 +290,6 @@ export default function LoginPage() {
                   }
                 }}
                 error={unesError}
-                hint="Solo si tu perfil no es Talento Humano."
                 inputMode="numeric"
                 autoComplete="off"
                 placeholder="109"

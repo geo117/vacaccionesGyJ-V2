@@ -19,7 +19,7 @@ Abre `http://127.0.0.1:5173`.
 | `npm run dev` | Servidor de desarrollo con HMR |
 | `npm run build` | Build de producción en `dist/` |
 | `npm run lint` | ESLint |
-| `npm test` | Pruebas de la lógica de períodos y del reporte |
+| `npm test` | Pruebas de la lógica de períodos, del reporte y de las descargas |
 | `npm run preview` | Sirve el build de producción |
 
 ### Sobre los estilos de Bootstrap
@@ -38,7 +38,7 @@ cuarta que sólo aparece en las filas rechazadas.
 
 | Acción | Qué hace |
 |---|---|
-| **Descargar reporte** (cabecera) | Exporta a CSV **las filas que se están viendo** (respeta búsqueda y filtros). Pide confirmación diciendo cuántos registros van y avisa del alcance. |
+| **Descargar** (cabecera) | Submenú con dos documentos que genera el servidor con las plantillas oficiales: la **planilla** de vacaciones en PDF y el **plano UNOEE** en Excel. El plano sólo lo ve Talento Humano. |
 | **Ver empleado** | Ficha de consulta: datos del colaborador, los tres períodos con sus días calculados, total, observaciones y motivo de rechazo si lo hay. Desde aquí se puede vaciar los períodos. |
 | **Asignar fechas** | Modal con los tres períodos **en una fila de columnas**, el total como cuarta columna, fecha de ingreso sugerida y observaciones. |
 | **Aprobar / rechazar** | Modal de decisión. Al rechazar, el motivo es **obligatorio** y hay un recuadro para escribirlo. |
@@ -86,18 +86,36 @@ Los días **nunca** se escriben a mano: se derivan de las fechas.
   botón para aplicarla; se propone, no se impone.
 
 La lógica vive en `src/utils/periodos.js` (pura y sin React) y el estado en
-`src/hooks/useAsignaciones.js`, de modo que la tabla, el modal y el reporte leen
-los mismos datos y no pueden divergir.
+`src/hooks/useAsignaciones.js`, de modo que la tabla y los modales leen los
+mismos datos y no pueden divergir.
 
-### El reporte CSV
+### Las descargas
 
-`src/utils/reporte.js` genera un CSV pensado para abrirse en Excel:
+El botón **Descargar** de la cabecera abre un submenú con dos documentos que arma
+el **servidor** con las plantillas institucionales, no el navegador. Cada opción
+abre su propio modal:
 
-* Lleva **BOM UTF-8** para que Excel en Windows no rompa las tildes ni la ñ.
-* Escapa comillas y comas según RFC 4180.
-* **Neutraliza fórmulas**: un campo que empiece por `=`, `+`, `-` o `@` se
-  prefija con apóstrofo. Sin esto, un nombre como `=cmd|'/c calc'!A1` se ejecuta
-  al abrir el archivo (CSV injection).
+* **Planilla** de vacaciones en **PDF** (`/api/reportes/planilla`). Talento Humano
+  elige la UNES en un desplegable (`DescargarPlanillaModal`); los demás cargos
+  descargan la suya **sin modal**, porque el servidor limita el PDF a la UNES de
+  la sesión.
+* **Plano UNOEE** en **Excel** (`/api/reportes/plano-unoee`), sobre
+  `backend/planos_unoee/ARCHIVO PLANO TNL-VACACIONES.xlsx`.
+  `DescargarPlanoModal` ofrece **plano general** (toda la plantilla) o **plano por
+  UNES** (con el desplegable). **Exclusivo de Talento Humano**: además de
+  ocultarse la opción, el backend responde `403` si otro cargo llama a la API.
+
+El desplegable de UNES se arma con las UNES de la tabla, ya cargadas
+(`opcionesUnes`), así que no hay una petición extra. La búsqueda y el filtro de
+estado del navegador **no viajan**: los documentos son por UNES, que es como
+están definidos.
+
+El nombre del archivo lo propone el servidor en `Content-Disposition` y
+`src/utils/descargas.js` lo lee (`filename*` con UTF-8 primero, para no perder
+tildes); si no llegara, se usa un nombre de reserva.
+
+El generador de CSV de `src/utils/reporte.js` se conserva —y sigue cubierto por
+pruebas— como volcado crudo reutilizable, pero la cabecera ya no lo ofrece.
 
 ## Cómo llega el frontend a la API
 
@@ -219,6 +237,7 @@ responde 403 en los endpoints de administración.
 | Opción «Administración» en el sidebar | sí | oculta |
 | Ruta `/app/administracion` | carga | muestra «Esta sección es de Talento Humano» |
 | Opción «Aprobar / rechazar» en el menú de asignaciones | sí | oculta |
+| Opción «Descargar plano UNOEE» | sí | oculta |
 | Tablero de asignaciones | toda la plantilla | sólo su UNES |
 | Bandeja general de notificaciones | todo | vacía |
 | Avisos que uno mismo generó (`usuario_id`) | sí | sí |
@@ -307,6 +326,8 @@ src/
 │   ├── EmpleadoDetalleModal.jsx  Ficha del colaborador
 │   ├── AsignarPeriodosModal.jsx  Los tres períodos y el cálculo
 │   ├── DecisionModal.jsx         Aprobar / rechazar con motivo
+│   ├── DescargarPlanillaModal.jsx  Planilla PDF por UNES (Talento Humano)
+│   ├── DescargarPlanoModal.jsx   Plano UNOEE general o por UNES
 │   └── NuevaAsignacionModal.jsx  Alta de una asignación
 ├── hooks/useAsignaciones.js      Carga y escritura contre la API
 ├── layout/AppShell.jsx           Barra superior + sidebar + contenido
@@ -322,11 +343,12 @@ src/
 ├── utils/
 │   ├── fechas.js                 Fechas y días (cálculo en UTC)
 │   ├── periodos.js               Reglas puras y probadas
-│   └── reporte.js                Generación y descarga del CSV
+│   ├── reporte.js                Generación del CSV (volcado crudo)
+│   └── descargas.js              Nombre del archivo y descarga de Blob
 └── styles/
     ├── tokens.css                Color, tipografía, espaciado, movimiento
     ├── layout.css                Login, shell, sidebar, topbar y páginas
-    └── modal.css                 Modales, formularios y menú de acciones
+    └── modal.css                 Modales, formularios, opciones y menú de acciones
 
 tests/periodos.test.mjs           Pruebas de la lógica pura
 ```
@@ -344,8 +366,9 @@ npm test
 
 Cubren lo que puede fallar en silencio: conteo de días atravesando meses y años,
 febrero bisiesto, rangos invertidos, períodos que se cruzan, el BOM y el escape
-del CSV y la neutralización de fórmulas. Son funciones puras, así que corren con
-`node --test` sin navegador.
+del CSV, la neutralización de fórmulas y la lectura del nombre de archivo que
+propone el servidor. Son funciones puras, así que corren con `node --test` sin
+navegador.
 
 ## Accesibilidad
 

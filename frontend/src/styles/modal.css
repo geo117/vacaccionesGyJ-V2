@@ -705,16 +705,22 @@ table.data th:last-child {
 }
 
 /* --------------------------------------------------------------------------
-   Grupo de decisión (aprobar / rechazar)
+   Grupos de opciones excluyentes
+   --------------------------------------------------------------------------
+   `.decision` es el grupo de aprobar/rechazar; `.opciones`, cualquier otro par
+   donde elegir una descarta la otra. Comparten el mismo botón base; la decisión
+   conserva su verde/rojo en las reglas de abajo.
    -------------------------------------------------------------------------- */
 
-.decision {
+.decision,
+.opciones {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
 }
 
-.decision__opcion {
+.decision__opcion,
+.opciones__item {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -733,9 +739,22 @@ table.data th:last-child {
     color var(--motion-fast) var(--ease-out);
 }
 
-.decision__opcion:hover {
+.decision__opcion:hover,
+.opciones__item:hover {
   border-color: var(--brand-600);
   color: var(--brand-700);
+}
+
+/* La opción elegida de un grupo genérico se marca con el color de marca. */
+.opciones__item[aria-pressed='true'] {
+  color: var(--brand-700);
+  background-color: var(--brand-050);
+  border-color: var(--brand-700);
+}
+
+.opciones__item:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .decision__opcion[aria-pressed='true'][data-decision='aprobada'] {

@@ -29,6 +29,22 @@
  *
  * Si la vista corporativa no responde, el servidor degrada al listado local de
  * asignaciones y lo dice en `origen`; la pantalla lo avisa.
+ *
+ * Descargas
+ * ---------
+ * El botón «Descargar» abre un submenú con dos documentos que genera el
+ * **servidor** con las plantillas oficiales:
+ *
+ *   - «Descargar planilla»    → la planilla de vacaciones en PDF. Talento Humano
+ *     elige la UNES en un modal; los demás cargos descargan la suya sin pasar
+ *     por el modal, porque el servidor la limita a la UNES de la sesión.
+ *   - «Descargar plano UNOEE» → el plano en Excel, en un modal que elige entre
+ *     el plano general o el de una UNES. Sólo lo ve Talento Humano; el backend
+ *     además lo exige con `@require_talento_humano`, así que ocultar la opción
+ *     no es el control.
+ *
+ * La búsqueda y el filtro de estado del navegador no viajan: los documentos son
+ * por UNES, que es como están definidos.
  */
 
 import { useDeferredValue, useId, useMemo, useState } from 'react'
@@ -42,6 +58,8 @@ import Table from 'react-bootstrap/Table'
 import Swal from 'sweetalert2'
 import AsignarPeriodosModal from '../components/AsignarPeriodosModal'
 import DecisionModal from '../components/DecisionModal'
+import DescargarPlanillaModal from '../components/DescargarPlanillaModal'
+import DescargarPlanoModal from '../components/DescargarPlanoModal'
 import EmpleadoDetalleModal from '../components/EmpleadoDetalleModal'
 import EmptyState from '../components/EmptyState'
 import Icon from '../components/Icon'
@@ -50,9 +68,10 @@ import StatusChip from '../components/StatusChip'
 import { useAuth } from '../auth/useAuth'
 import useAsignaciones, { mensajeDeError } from '../hooks/useAsignaciones'
 import { useNotificaciones } from '../notifications/useNotificaciones'
+import { reportesApi } from '../services/api'
+import { descargarBlob } from '../utils/descargas'
 import { NUMERO } from '../utils/fechas'
 import { semaforoDiasAUsar } from '../utils/periodos'
-import { buildAssignmentsCsv, buildReportFilename, downloadCsv } from '../utils/reporte'
 
 /** Filas por página de la tabla. */
 const POR_PAGINA = 20
@@ -141,7 +160,7 @@ export default function AsignacionesPage() {
   const stateId = useId()
   const unesId = useId()
 
-  const { puedeAprobar, unes } = useAuth()
+  const { esTalentoHumano, puedeAprobar, unes } = useAuth()
   const {
     filas,
     origen,
@@ -168,13 +187,31 @@ export default function AsignacionesPage() {
   const [nuevaInicial, setNuevaInicial] = useState(null)
   const [guardando, setGuardando] = useState(false)
   const [menuAbierto, setMenuAbierto] = useState(null)
+  const [menuDescargaAbierto, setMenuDescargaAbierto] = useState(false)
+  /* Qué documento se está generando: 'planilla' | 'plano' | null. */
+  const [descargando, setDescargando] = useState(null)
+  /* Modales de descarga: planilla (Talento Humano) y plano UNOEE. */
+  const [modalPlanillaAbierto, setModalPlanillaAbierto] = useState(false)
+  const [modalPlanoAbierto, setModalPlanoAbierto] = useState(false)
 
   const deferredQuery = useDeferredValue(query)
 
-  const unesDisponibles = useMemo(() => {
-    const set = new Set(filas.map((row) => row.unes).filter(Boolean))
-    return [...set].sort((a, b) => a.localeCompare(b, 'es'))
+  /* UNES de la tabla, con su descripción para el desplegable. Se arma una sola
+     vez para el filtro de la barra y para los dos modales de descarga. */
+  const opcionesUnes = useMemo(() => {
+    const mapa = new Map()
+    for (const fila of filas) {
+      const valor = String(fila.unes || '').trim()
+      if (!valor || mapa.has(valor)) continue
+      const descripcion = String(fila.descUnes || '').trim()
+      mapa.set(valor, descripcion ? `${valor} · ${descripcion}` : valor)
+    }
+    return [...mapa.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.value.localeCompare(b.value, 'es'))
   }, [filas])
+
+  const unesDisponibles = useMemo(() => opcionesUnes.map((opcion) => opcion.value), [opcionesUnes])
 
   const filtradas = useMemo(() => {
     const needle = deferredQuery.trim().toLowerCase()
@@ -249,64 +286,87 @@ export default function AsignacionesPage() {
     setPagina(1)
   }
 
-  /* -- Reporte ------------------------------------------------------------- */
+  /* -- Descargas ----------------------------------------------------------- */
 
-  async function handleDescargar() {
-    if (filtradas.length === 0) {
-      await Swal.fire({
-        ...SWAL_BASE,
-        icon: 'info',
-        title: 'No hay registros que exportar',
-        text: 'Ajusta la búsqueda o los filtros para que la tabla tenga filas.',
-        confirmButtonText: 'Entendido',
-      })
-      return
-    }
-
-    const confirmacion = await Swal.fire({
-      ...SWAL_BASE,
-      icon: 'question',
-      title: 'Descargar el reporte',
-      html: `Se exportarán <strong>${NUMERO.format(filtradas.length)}</strong> ${filtradas.length === 1 ? 'colaborador' : 'colaboradores'
-        }${hayFiltros ? ' (con los filtros aplicados)' : ''}, con sus períodos y días calculados.`,
-      showCancelButton: true,
-      confirmButtonText: 'Descargar CSV',
-      cancelButtonText: 'Cancelar',
-      reverseButtons: true,
-      focusCancel: true,
-    })
-    if (!confirmacion.isConfirmed) return
+  /**
+   * Descarga un documento generado por el servidor.
+   *
+   * `tipo` es `'planilla'` (PDF) o `'plano'` (Excel UNOEE). `unes` es opcional:
+   * sin él, el servidor decide el alcance —la UNES de la sesión para la
+   * planilla, o toda la plantilla para el plano—.
+   */
+  async function ejecutarDescarga({ tipo, unes }) {
+    const esPlano = tipo === 'plano'
+    setDescargando(tipo)
 
     Swal.fire({
       ...SWAL_BASE,
-      title: 'Generando el reporte…',
+      title: esPlano ? 'Generando el plano UNOEE…' : 'Generando la planilla…',
       allowOutsideClick: false,
       didOpen: () => Swal.showLoading(),
     })
 
     try {
-      const { filename, bytes } = downloadCsv(
-        buildReportFilename('csv'),
-        buildAssignmentsCsv(filtradas),
-      )
+      const { blob, filename } = esPlano
+        ? await reportesApi.planoUnoee(unes)
+        : await reportesApi.planilla(unes)
+
+      const nombre =
+        filename || (esPlano ? 'plano_vacaciones.xlsx' : 'planilla_vacaciones.pdf')
+      descargarBlob(blob, nombre)
+
       await Swal.fire({
         ...SWAL_BASE,
         icon: 'success',
-        title: 'Reporte descargado',
-        html: `<strong>${filename}</strong><br /><span style="color:#5a6b7b">${NUMERO.format(
-          Math.max(1, Math.round(bytes / 1024)),
-        )} kB · ábrelo con Excel o Google Sheets</span>`,
+        title: esPlano ? 'Plano descargado' : 'Planilla descargada',
+        html: `<strong>${nombre}</strong><br /><span style="color:#5a6b7b">${NUMERO.format(
+          Math.max(1, Math.round(blob.size / 1024)),
+        )} kB · ábrelo con ${esPlano ? 'Excel' : 'un lector de PDF'}</span>`,
         confirmButtonText: 'Listo',
       })
-    } catch {
+    } catch (error) {
       await Swal.fire({
         ...SWAL_BASE,
         icon: 'error',
-        title: 'No se pudo generar el reporte',
-        text: 'Intenta de nuevo. Si el problema sigue, contacta a Soporte.',
+        title: 'No se pudo generar la descarga',
+        // «Prohibido» aquí significa que el cargo no es de Talento Humano: el
+        // mensaje del backend es genérico, así que se concreta para la descarga.
+        text:
+          error?.code === 'FORBIDDEN_ROLE'
+            ? 'El plano UNOEE es exclusivo de Talento Humano.'
+            : mensajeDeError(error),
         confirmButtonText: 'Entendido',
       })
+    } finally {
+      setDescargando(null)
     }
+  }
+
+  /** «Descargar planilla»: Talento Humano elige la UNES; el resto descarga directo. */
+  function abrirDescargarPlanilla() {
+    setMenuDescargaAbierto(false)
+    if (esTalentoHumano) {
+      setModalPlanillaAbierto(true)
+      return
+    }
+    // Sin modal: el servidor limita el PDF a la UNES de la sesión.
+    ejecutarDescarga({ tipo: 'planilla' })
+  }
+
+  async function descargarPlanilla(unes) {
+    setModalPlanillaAbierto(false)
+    await ejecutarDescarga({ tipo: 'planilla', unes })
+  }
+
+  /** «Descargar plano UNOEE»: abre el modal con alcance general o por UNES. */
+  function abrirDescargarPlano() {
+    setMenuDescargaAbierto(false)
+    setModalPlanoAbierto(true)
+  }
+
+  async function descargarPlano({ unes }) {
+    setModalPlanoAbierto(false)
+    await ejecutarDescarga({ tipo: 'plano', unes: unes || undefined })
   }
 
   /* -- Acciones ------------------------------------------------------------ */
@@ -462,10 +522,52 @@ export default function AsignacionesPage() {
             <Icon name="crear" size={18} />
             Nueva asignación
           </Button>
-          <Button variant="outline-secondary" onClick={handleDescargar}>
-            <Icon name="descargar" size={18} />
-            Descargar reporte
-          </Button>
+          <OverlayTrigger
+            trigger="click"
+            placement="bottom-end"
+            rootClose
+            show={menuDescargaAbierto}
+            onToggle={setMenuDescargaAbierto}
+            overlay={
+              <Popover id="menu-descargas" className="acciones__popover">
+                <Popover.Body className="acciones__cuerpo">
+                  {/* El plano UNOEE es exclusivo de Talento Humano. Además de
+                      ocultarlo aquí, el backend lo exige con 403. */}
+                  {esTalentoHumano ? (
+                    <button
+                      type="button"
+                      className="acciones__item"
+                      disabled={descargando !== null}
+                      onClick={abrirDescargarPlano}
+                    >
+                      <Icon name="plano" size={16} />
+                      Descargar plano UNOEE
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="acciones__item"
+                    disabled={descargando !== null}
+                    onClick={abrirDescargarPlanilla}
+                  >
+                    <Icon name="planilla" size={16} />
+                    Descargar planilla
+                  </button>
+                </Popover.Body>
+              </Popover>
+            }
+          >
+            <Button
+              variant="outline-secondary"
+              aria-haspopup="menu"
+              aria-expanded={menuDescargaAbierto}
+              disabled={descargando !== null}
+            >
+              <Icon name="descargar" size={18} />
+              Descargar
+              <Icon name="desplegar" size={16} />
+            </Button>
+          </OverlayTrigger>
         </div>
       </header>
 
@@ -611,7 +713,7 @@ export default function AsignacionesPage() {
                         key={`${fila.identificacion}-${fila.id ?? 'sin'}`}
                         data-sin-asignacion={fila.sinAsignacion ? 'si' : undefined}
                       >
-                        <td title={fila.descUnes || undefined}>{fila.descUnes || '—'}</td>
+                        <td title={fila.descUnes || undefined} classname="text-wrap">{fila.descUnes || '—'}</td>
                         <td title={fila.empleado || undefined}>{fila.empleado}</td>
                         <td className="tabular">{fila.identificacion || '—'}</td>
                         <td>{fila.unes || '—'}</td>
@@ -887,6 +989,29 @@ export default function AsignacionesPage() {
           setNuevaInicial(null)
         }}
         onCrear={handleCrear}
+      />
+
+      {/* Descargas: dos modales, uno por documento. El de la planilla sólo se
+          abre para Talento Humano (los demás descargan su UNES directo). La
+          `key` reinicia el estado interno en cada apertura. */}
+      <DescargarPlanillaModal
+        key={modalPlanillaAbierto ? 'planilla-abierta' : 'planilla-cerrada'}
+        show={modalPlanillaAbierto}
+        opcionesUnes={opcionesUnes}
+        unesInicial={filtroUnes !== 'todas' ? filtroUnes : ''}
+        descargando={descargando !== null}
+        onHide={() => setModalPlanillaAbierto(false)}
+        onConfirmar={descargarPlanilla}
+      />
+
+      <DescargarPlanoModal
+        key={modalPlanoAbierto ? 'plano-abierto' : 'plano-cerrado'}
+        show={modalPlanoAbierto}
+        opcionesUnes={opcionesUnes}
+        unesInicial={filtroUnes !== 'todas' ? filtroUnes : ''}
+        descargando={descargando !== null}
+        onHide={() => setModalPlanoAbierto(false)}
+        onConfirmar={descargarPlano}
       />
     </>
   )

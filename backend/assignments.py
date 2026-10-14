@@ -600,6 +600,9 @@ class AssignmentService:
                 "motivoRechazo": asignacion["motivoRechazo"] if asignacion else None,
                 "thAsignacion": asignacion["thAsignacion"] if asignacion else None,
                 "diasAcumulados": datos["diasAcumulados"],
+                # Fecha de ingreso a la empresa (de la vista). Sólo la usa la
+                # planilla en PDF; no forma parte de la asignación.
+                "fechaIngresoLaboral": datos.get("fechaIngresoLaboral"),
                 "fechaRegistro": asignacion["fechaRegistro"] if asignacion else None,
                 "fechaUpdate": asignacion["fechaUpdate"] if asignacion else None,
                 # Usuario dueño de estas fechas, para poder notificarle. El

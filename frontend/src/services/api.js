@@ -15,6 +15,8 @@
  *  - No se usan cookies: sin `credentials`, sin CSRF.
  */
 
+import { nombreDeArchivoDesdeCabecera } from '../utils/descargas.js'
+
 const RAW_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 const API_BASE = RAW_BASE.replace(/\/+$/, '')
 
@@ -147,6 +149,83 @@ async function request(path, { method = 'GET', body, auth = false, timeoutMs = R
   throw new ApiError({ code, message, status: response.status, details: payload?.details ?? null })
 }
 
+/**
+ * Petición que devuelve un archivo (`Blob`) en lugar de JSON.
+ *
+ * Se usa para las descargas que genera el servidor. El token viaja igual que en
+ * el resto de peticiones: sin `Authorization` el backend responde 401 y no se
+ * descarga nada. El nombre lo propone el servidor en `Content-Disposition`.
+ */
+async function requestBlob(path, { timeoutMs = 30_000 } = {}) {
+  const url = `${API_BASE}${path}`
+  const token = readToken()
+  if (!token) {
+    throw new ApiError({
+      code: 'SESSION_REQUIRED',
+      message: 'Tu sesión no está activa. Inicia sesión para continuar.',
+      status: 401,
+    })
+  }
+
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+
+  let response
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      headers: { Accept: '*/*', Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+      credentials: 'omit',
+      cache: 'no-store',
+      redirect: 'error',
+      referrerPolicy: 'no-referrer',
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new ApiError({
+        code: 'TIMEOUT',
+        message: 'La descarga tardó demasiado. Revisa tu conexión e intenta de nuevo.',
+        status: 0,
+      })
+    }
+    throw new ApiError({
+      code: 'NETWORK_ERROR',
+      message: 'No pudimos comunicarnos con el servidor. Verifica que el backend esté en ejecución.',
+      status: 0,
+    })
+  } finally {
+    window.clearTimeout(timer)
+  }
+
+  if (!response.ok) {
+    let payload = null
+    const contentType = response.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      try {
+        payload = await response.json()
+      } catch {
+        payload = null
+      }
+    }
+    const code = payload?.code || `HTTP_${response.status}`
+    const message = payload?.message || 'No pudimos generar el archivo. Intenta de nuevo.'
+
+    if (response.status === 401 && code !== 'INVALID_CREDENTIALS') {
+      clearToken()
+      notifySessionExpired()
+    }
+
+    throw new ApiError({ code, message, status: response.status, details: payload?.details ?? null })
+  }
+
+  const blob = await response.blob()
+  return {
+    blob,
+    filename: nombreDeArchivoDesdeCabecera(response.headers.get('Content-Disposition')),
+  }
+}
+
 /* -- API ------------------------------------------------------------------ */
 
 export const authApi = {
@@ -236,6 +315,29 @@ export const asignacionesApi = {
   decidir(id, datos) {
     return request(`/api/asignaciones/${id}/decision`, { method: 'POST', body: datos, auth: true })
   },
+}
+
+/**
+ * Descargas generadas por el servidor.
+ *
+ * El `unes` es opcional: Talento Humano puede pedir una UNES concreta; para el
+ * resto de cargos el servidor ignora el parámetro y usa la UNES de la sesión, de
+ * modo que el reporte no se puede ampliar desde el navegador.
+ */
+export const reportesApi = {
+  /** Planilla de vacaciones en PDF, con la plantilla institucional. */
+  planilla(unes) {
+    return requestBlob(`/api/reportes/planilla${consultaUnes(unes)}`)
+  },
+  /** Plano UNOEE en Excel. El backend exige el cargo de Talento Humano. */
+  planoUnoee(unes) {
+    return requestBlob(`/api/reportes/plano-unoee${consultaUnes(unes)}`)
+  },
+}
+
+function consultaUnes(unes) {
+  const valor = String(unes ?? '').trim()
+  return valor ? `?unes=${encodeURIComponent(valor)}` : ''
 }
 
 export const notificacionesApi = {

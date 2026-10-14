@@ -28,6 +28,7 @@ export const MENSAJES_ASIGNACIONES = {
   CAMPO_REQUERIDO: 'Falta un dato obligatorio.',
   FECHA_INVALIDA: 'Una de las fechas no es válida.',
   DATABASE_UNAVAILABLE: 'La base de datos no respondió. Intenta de nuevo en unos segundos.',
+  PLANTILLA_NO_DISPONIBLE: 'La plantilla del documento no está disponible. Contacta a Soporte.',
   NETWORK_ERROR: 'No pudimos comunicarnos con el servidor. Verifica que esté en ejecución.',
 }
 

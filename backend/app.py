@@ -16,12 +16,13 @@ Endpoints: ver ``/api`` o el README. Reglas de construccion aplicadas aqui:
 
 from __future__ import annotations
 
+import io
 import logging
 from functools import wraps
 from typing import Any, Callable, TypeVar
 
 import pyodbc
-from flask import Flask, Response, g, jsonify, request
+from flask import Flask, Response, g, jsonify, request, send_file
 from flask_cors import CORS
 
 from assignments import AssignmentService
@@ -29,8 +30,9 @@ from auth import AuthService
 from config import ConfigError, Settings, load_settings
 from dashboard import DashboardService
 from db import Database, DatabaseUnavailable
-from employees import EmployeeDirectory, validar_unes_login
+from employees import EmployeeDirectory, normalizar_unes, validar_unes_login
 from notifications import NotificationService
+from reports import generar_pdf_reporte_vacaciones, generar_plano_unoee
 from security import ValidationError, hash_password, normalize_email, validate_password
 from users import (
     CARGO_TALENTO_HUMANO,
@@ -48,6 +50,9 @@ F = TypeVar("F", bound=Callable[..., Any])
 API_VERSION = "2.0.0"
 BEARER_PREFIX = "bearer "
 MAX_CONTENT_LENGTH = 64 * 1024  # 64 KB: un login o una asignación no necesitan más
+
+# Tipo MIME del libro de Excel que devuelve el plano UNOEE.
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 # Cabeceras de seguridad. La CSP del backend es irrelevante para el navegador
 # (sirve JSON), pero se deja explícita para que un proxy mal configurado no
@@ -270,7 +275,9 @@ def create_app(settings: Settings | None = None) -> Flask:
         resources={r"/api/*": {"origins": list(settings.cors_origins)}},
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],
-        expose_headers=[],
+        # El navegador necesita leer el nombre del archivo (y su extensión) que
+        # propone el servidor al descargar la planilla o el plano.
+        expose_headers=["Content-Disposition"],
         supports_credentials=False,
         max_age=600,
         vary_header=True,
@@ -370,6 +377,8 @@ def create_app(settings: Settings | None = None) -> Flask:
                     "POST   /api/asignaciones",
                     "PUT    /api/asignaciones/{id}/periodos",
                     "POST   /api/asignaciones/{id}/decision",
+                    "GET    /api/reportes/planilla",
+                    "GET    /api/reportes/plano-unoee",
                     "GET    /api/notificaciones",
                     "GET    /api/usuarios",
                     "POST   /api/usuarios",
@@ -648,6 +657,73 @@ def create_app(settings: Settings | None = None) -> Flask:
             if usuario.get("correo")
         }
 
+    def _filas_tablero(
+        *,
+        es_talento_humano: bool,
+        unes_sesion: str,
+        unes_solicitada: str = "",
+        con_propietarios: bool = True,
+    ) -> tuple[list[dict[str, Any]], str]:
+        """Colaboradores con su asignación, aplicando la regla de acceso.
+
+        Talento Humano recibe toda la plantilla; si además pidió una UNES
+        concreta, sólo esa. Cualquier otro cargo recibe exclusivamente la UNES de
+        su sesión: ``unes_solicitada`` se ignora para no ampliar lo que ve por la
+        puerta del parámetro.
+
+        Si la vista corporativa no responde, se degrada al listado local de
+        asignaciones en lugar de dejar la pantalla en blanco. Devuelve
+        ``(filas, origen)`` con ``origen`` en ``"vista"`` o ``"local"``.
+        """
+        directorio = servicios().employees
+        unes_objetivo = unes_solicitada if es_talento_humano else unes_sesion
+        ver_todo = es_talento_humano and not unes_objetivo
+
+        if directorio.disponible and (ver_todo or unes_objetivo):
+            try:
+                colaboradores = (
+                    directorio.listar_todos()
+                    if ver_todo
+                    else directorio.listar_por_unes(unes_objetivo)
+                )
+                return (
+                    servicios().assignments.tablero_de_unes(
+                        colaboradores,
+                        propietarios=_propietarios_por_correo() if con_propietarios else None,
+                        # Para Talento Humano sin UNES no se acota por unidad: ve
+                        # también las asignaciones huérfanas de cualquier UNES.
+                        unes="" if ver_todo else unes_objetivo,
+                    ),
+                    "vista",
+                )
+            except DatabaseUnavailable:
+                # El servidor corporativo no respondió. Se degrada al listado
+                # local en lugar de dejar la pantalla en blanco.
+                logger.warning("La vista de colaboradores no respondió; se usa el listado local.")
+
+        return servicios().assignments.listar(), "local"
+
+    def _unes_para_reporte() -> str:
+        """UNES que se aplica a un reporte, según el cargo de la sesión.
+
+        Talento Humano puede pedir una UNES concreta con ``?unes=``; sin ella, el
+        reporte cubre toda la plantilla. Para cualquier otro cargo el parámetro
+        se ignora y manda la UNES de la sesión: el reporte es una regla de acceso
+        y no puede ampliarse desde el navegador.
+        """
+        if current_user().es_talento_humano:
+            return normalizar_unes(request.args.get("unes"))
+        return current_unes()
+
+    def _enviar_archivo(contenido: bytes, nombre: str, mimetype: str):
+        """Devuelve un archivo adjunto sin pasar por disco."""
+        return send_file(
+            io.BytesIO(contenido),
+            mimetype=mimetype,
+            as_attachment=True,
+            download_name=nombre,
+        )
+
     @app.get("/api/asignaciones")
     @require_auth
     def listar_asignaciones():
@@ -665,40 +741,15 @@ def create_app(settings: Settings | None = None) -> Flask:
         la pantalla sigue siendo útil aunque el servidor corporativo falle.
         """
         unes = current_unes()
-        es_talento_humano = current_user().es_talento_humano
-        directorio = servicios().employees
-
-        if directorio.disponible and (es_talento_humano or unes):
-            try:
-                colaboradores = (
-                    directorio.listar_todos() if es_talento_humano else directorio.listar_por_unes(unes)
-                )
-                tablero = servicios().assignments.tablero_de_unes(
-                    colaboradores,
-                    propietarios=_propietarios_por_correo(),
-                    # Para Talento Humano no se acota por UNES: ve también las
-                    # asignaciones huérfanas de cualquier unidad.
-                    unes="" if es_talento_humano else unes,
-                )
-                return ok(
-                    {
-                        "asignaciones": tablero,
-                        "total": len(tablero),
-                        "origen": "vista",
-                        "unes": unes,
-                    }
-                )
-            except DatabaseUnavailable:
-                # El servidor corporativo no respondió. Se degrada al listado
-                # local en lugar de dejar la pantalla en blanco.
-                logger.warning("La vista de colaboradores no respondió; se usa el listado local.")
-
-        asignaciones = servicios().assignments.listar()
+        filas, origen = _filas_tablero(
+            es_talento_humano=current_user().es_talento_humano,
+            unes_sesion=unes,
+        )
         return ok(
             {
-                "asignaciones": asignaciones,
-                "total": len(asignaciones),
-                "origen": "local",
+                "asignaciones": filas,
+                "total": len(filas),
+                "origen": origen,
                 "unes": unes,
             }
         )
@@ -745,6 +796,71 @@ def create_app(settings: Settings | None = None) -> Flask:
         )
         servicios().notifications.avisar_decision(asignacion, current_user())
         return ok({"asignacion": asignacion})
+
+    # -- reportes descargables ----------------------------------------------
+
+    @app.get("/api/reportes/planilla")
+    @require_auth
+    def exportar_reporte_pdf():
+        """Planilla de vacaciones en PDF, con la plantilla institucional.
+
+        La cubre cualquier sesión: quien entra con una UNES sólo obtiene la de su
+        unidad; Talento Humano, la que pida o toda la plantilla.
+        """
+        unes_filtro = _unes_para_reporte()
+        filas, _origen = _filas_tablero(
+            es_talento_humano=current_user().es_talento_humano,
+            unes_sesion=current_unes(),
+            unes_solicitada=unes_filtro,
+            con_propietarios=False,
+        )
+
+        # La descripción sólo tiene sentido cuando el reporte es de una UNES.
+        desc_unes = ""
+        if unes_filtro:
+            desc_unes = next(
+                (str(f.get("descUnes") or "") for f in filas if f.get("descUnes")), ""
+            )
+
+        pdf_bytes = generar_pdf_reporte_vacaciones(filas, unes_filtro or "", desc_unes)
+
+        unes_part = unes_filtro or "todos"
+        if not unes_part.lower().startswith("2-"):
+            unes_part = f"2-{unes_part}"
+        return _enviar_archivo(pdf_bytes, f"{unes_part}_vacaciones.pdf", "application/pdf")
+
+    @app.get("/api/reportes/plano-unoee")
+    @require_talento_humano
+    def generar_plano():
+        """Plano UNOEE en Excel sobre la plantilla oficial.
+
+        Exclusivo de Talento Humano. El decorador es el control real: ocultar la
+        opción en la interfaz no impide que alguien llame a la API directamente.
+        """
+        unes_filtro = _unes_para_reporte()
+        filas, _origen = _filas_tablero(
+            es_talento_humano=True,
+            unes_sesion=current_unes(),
+            unes_solicitada=unes_filtro,
+            con_propietarios=False,
+        )
+
+        try:
+            xlsx_bytes = generar_plano_unoee(filas)
+        except FileNotFoundError:
+            logger.error("No se encontró la plantilla del plano UNOEE.")
+            return fail(
+                "La plantilla del plano no está disponible. Contacta a Soporte.",
+                code="PLANTILLA_NO_DISPONIBLE",
+                status=500,
+            )
+
+        nombre = (
+            f"plano_vacaciones_unes_{unes_filtro}.xlsx"
+            if unes_filtro
+            else "plano_vacaciones_general.xlsx"
+        )
+        return _enviar_archivo(xlsx_bytes, nombre, XLSX_MIME)
 
     # -- notificaciones -----------------------------------------------------
 

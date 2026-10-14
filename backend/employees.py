@@ -48,6 +48,7 @@ SELECT
     DescCO,
     cedula,
     Empleado,
+    fecha_ingreso,
     Cargo,
     dias_vacaciones_acumulado,
     dias_vacaciones_corteDic,
@@ -130,6 +131,10 @@ class Colaborador:
     diasACorte: float
     correo: str
     correoCorporativo: str
+    # Fecha de ingreso a la empresa. Alimenta la columna «FECHA DE INGRESO» de la
+    # planilla en PDF; el tablero no la usa. Se llama distinto de ``fechaIngreso``
+    # a propósito: en la asignación ese nombre es la fecha de regreso.
+    fechaIngresoLaboral: str = ""
 
     @property
     def correoParaUsar(self) -> str:
@@ -152,7 +157,20 @@ class Colaborador:
             "correo": self.correo,
             "correoCorporativo": self.correoCorporativo,
             "correoParaUsar": self.correoParaUsar,
+            "fechaIngresoLaboral": self.fechaIngresoLaboral,
         }
+
+
+def _fecha(valor: object) -> str:
+    """``date``/``datetime`` de la vista → ``aaaa-mm-dd``; el resto, tal cual."""
+    if valor is None or valor == "":
+        return ""
+    if hasattr(valor, "strftime"):
+        try:
+            return valor.strftime("%Y-%m-%d")
+        except Exception:  # noqa: BLE001
+            return str(valor)
+    return str(valor)[:10]
 
 
 def _fila_a_colaborador(fila: Any) -> Colaborador:
@@ -166,6 +184,7 @@ def _fila_a_colaborador(fila: Any) -> Colaborador:
         diasACorte=_decimal(fila["dias_vacaciones_corteDic"]),
         correo=_texto_exacto(fila["email"]),
         correoCorporativo=_texto_exacto(fila["emailCorporativo"]),
+        fechaIngresoLaboral=_fecha(fila["fecha_ingreso"]),
     )
 
 
