@@ -2,7 +2,7 @@
  * Rutas de la aplicación.
  *
  * `/login`  → acceso (público)
- * `/app`    → shell autenticado: barra superior + sidebar
+ * `/app`    → shell autenticado: barra superior + menú lateral (offcanvas)
  *   ├── resumen           cualquier sesión
  *   ├── asignaciones      cualquier sesión
  *   ├── notificaciones    cualquier sesión

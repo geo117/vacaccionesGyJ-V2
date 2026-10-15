@@ -1,17 +1,19 @@
 /**
- * Estructura de la aplicación autenticada: barra superior + sidebar izquierdo.
+ * Estructura de la aplicación autenticada: barra superior + menú lateral.
  *
- * Detalles que hacen que se sienta sólida:
- *  - El sidebar se muestra u oculta con **una sola hamburguesa**, en la esquina
- *    superior izquierda de la barra, a cualquier ancho de pantalla. El estado
- *    vive en un único atributo (`data-nav`) del contenedor y TODO el
- *    comportamiento responsive está en CSS: no hay estilos en línea que peleen
- *    con los media queries.
- *  - En móvil entra como panel deslizante con fondo oscurecido que se cierra con
- *    Escape o al tocar fuera, y el foco vuelve al botón que lo abrió. En pantalla
- *    ancha, ocultar el menú devuelve el ancho al contenido.
- *  - El sidebar es un `<nav>` con encabezado propio; el ítem activo se marca
- *    con `aria-current="page"` (lo pone `NavLink`) además del color.
+ * El menú es un **offcanvas**: no ocupa una columna permanente, vive fuera de la
+ * pantalla y entra deslizándose por encima del contenido cuando se pulsa la
+ * hamburguesa. Por eso el contenido usa todo el ancho.
+ *
+ * Decisiones que sostienen el comportamiento:
+ *  - **Arranca cerrado** (`useState(false)`): al iniciar sesión no hay panel
+ *    abierto y la vista queda despejada.
+ *  - Al elegir una opción el panel **se cierra solo** (el `onClick` de cada
+ *    enlace apaga el estado): el menú no tapa la vista que la persona pidió.
+ *  - Se usa el `Offcanvas` de react-bootstrap y no un panel propio porque trae
+ *    el diálogo completo: `role="dialog"`, fondo oscurecido, cierre con Escape o
+ *    al tocar fuera, foco atrapado y devuelto al disparador, y bloqueo del
+ *    scroll de la página. La accesibilidad no se reimplementa.
  *  - El contador de notificaciones pendientes sale del contexto compartido, el
  *    mismo que usa la bandeja: el número del menú y lo que se ve al abrirlo no
  *    pueden discrepar.
@@ -19,27 +21,14 @@
  *    funcione desde el primer tabulador.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+import Offcanvas from 'react-bootstrap/Offcanvas'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import { useAuth } from '../auth/useAuth'
 import Icon from '../components/Icon'
 import { useNotificaciones } from '../notifications/useNotificaciones'
 import { navItemsPara } from '../services/navigation'
-
-/** Debajo de este ancho el sidebar es un panel deslizante, no una columna. */
-const CONSULTA_MOVIL = '(max-width: 767.98px)'
-
-/** Estado inicial del sidebar: visible en pantalla ancha, oculto en móvil. */
-function initialNavAbierto() {
-  if (typeof window === 'undefined') return true
-  return !window.matchMedia(CONSULTA_MOVIL).matches
-}
-
-function enMovil() {
-  if (typeof window === 'undefined') return false
-  return window.matchMedia(CONSULTA_MOVIL).matches
-}
 
 function initials(nombre) {
   return (nombre || '')
@@ -61,10 +50,8 @@ export default function AppShell() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const [navAbierto, setNavAbierto] = useState(initialNavAbierto)
-  /* Mientras el usuario no decida, el ancho de la ventana manda. */
-  const [userTouchedNav, setUserTouchedNav] = useState(false)
-  const burgerRef = useRef(null)
+  /* El menú arranca cerrado: al entrar a la aplicación no hay nada abierto. */
+  const [navAbierto, setNavAbierto] = useState(false)
 
   // El menú se arma con el cargo que confirmó el servidor: «Administración»
   // sólo existe en la lista para Talento Humano.
@@ -74,40 +61,13 @@ export default function AppShell() {
     [items, location.pathname],
   )
 
-  /* Mantiene el modo coherente al cambiar de tamaño, salvo si el usuario ya
-     decidió algo en esta pantalla. */
-  useEffect(() => {
-    if (userTouchedNav) return undefined
-    const query = window.matchMedia(CONSULTA_MOVIL)
-    const handle = (event) => setNavAbierto(!event.matches)
-    query.addEventListener('change', handle)
-    return () => query.removeEventListener('change', handle)
-  }, [userTouchedNav])
+  const abrirNav = useCallback(() => setNavAbierto(true), [])
+  const cerrarNav = useCallback(() => setNavAbierto(false), [])
 
-  const cerrarNav = useCallback((restoreFocus = false) => {
-    setNavAbierto(false)
-    if (restoreFocus) burgerRef.current?.focus()
-  }, [])
-
-  /* Escape cierra el panel deslizante; el foco vuelve al botón que lo abrió. */
-  useEffect(() => {
-    if (!navAbierto || !enMovil()) return undefined
-    function handleKeyDown(event) {
-      if (event.key === 'Escape') {
-        event.stopPropagation()
-        cerrarNav(true)
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [navAbierto, cerrarNav])
-
-  /* Al navegar desde el panel, se cierra solo. Se hace al pulsar el enlace —y no
-     con un efecto sobre la ruta— porque el cierre sólo tiene sentido en móvil y
-     ahí es donde está el panel abierto; en pantalla ancha el menú se queda como
-     esté, que no es un diálogo que haya que cerrar. */
+  /* Al navegar desde el panel, se cierra solo: la vista elegida queda a la vista
+     y no tapada por el menú. */
   const handleNavClick = useCallback(() => {
-    if (enMovil()) setNavAbierto(false)
+    setNavAbierto(false)
   }, [])
 
   const handleLogout = useCallback(async () => {
@@ -131,13 +91,8 @@ export default function AppShell() {
     navigate('/login', { replace: true })
   }, [logout, navigate])
 
-  const toggleNav = useCallback(() => {
-    setUserTouchedNav(true)
-    setNavAbierto((abierto) => !abierto)
-  }, [])
-
   return (
-    <div className="shell" data-nav={navAbierto ? 'abierto' : 'oculto'}>
+    <div className="shell">
       <a className="skip-link" href="#contenido">
         Saltar al contenido
       </a>
@@ -146,11 +101,10 @@ export default function AppShell() {
         <button
           type="button"
           className="topbar__burger"
-          onClick={toggleNav}
-          aria-label={navAbierto ? 'Ocultar el menú de navegación' : 'Mostrar el menú de navegación'}
+          onClick={abrirNav}
+          aria-label="Mostrar el menú de navegación"
           aria-expanded={navAbierto}
           aria-controls="menu-lateral"
-          ref={burgerRef}
         >
           <Icon name="menu" size={22} />
         </button>
@@ -185,58 +139,60 @@ export default function AppShell() {
         </button>
       </header>
 
-      {navAbierto ? (
-        <button
-          type="button"
-          className="scrim"
-          aria-label="Cerrar el menú de navegación"
-          onClick={() => cerrarNav(true)}
-        />
-      ) : null}
+      <Offcanvas
+        id="menu-lateral"
+        show={navAbierto}
+        onHide={cerrarNav}
+        placement="start"
+        className="sidebar"
+        aria-label="Menú de navegación"
+      >
+        <Offcanvas.Header closeButton closeLabel="Cerrar el menú de navegación">
+          <Offcanvas.Title>Menú</Offcanvas.Title>
+        </Offcanvas.Header>
 
-      <nav className="sidebar" id="menu-lateral" aria-label="Navegación principal">
-        <p className="sidebar__heading">Menú</p>
+        <Offcanvas.Body>
+          <nav className="sidebar__nav" aria-label="Navegación principal">
+            {items.map((item) => {
+              const badge = item.id === 'notificaciones' ? pendientes : item.badge
+              return (
+                <NavLink
+                  key={item.id}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) => `sidebar__link${isActive ? ' is-active' : ''}`}
+                  title={item.label}
+                  onClick={handleNavClick}
+                >
+                  <Icon name={item.icon} size={20} />
+                  <span className="sidebar__label">{item.label}</span>
+                  {badge ? (
+                    <span className="sidebar__badge tabular" aria-hidden="true">
+                      {textoBadge(badge)}
+                    </span>
+                  ) : null}
+                  {item.id === 'notificaciones' && pendientes > 0 ? (
+                    <span className="visually-hidden">
+                      {`${pendientes} ${pendientes === 1 ? 'aviso pendiente' : 'avisos pendientes'} por revisar`}
+                    </span>
+                  ) : null}
+                </NavLink>
+              )
+            })}
+          </nav>
 
-        <div className="sidebar__nav">
-          {items.map((item) => {
-            const badge = item.id === 'notificaciones' ? pendientes : item.badge
-            return (
-              <NavLink
-                key={item.id}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) => `sidebar__link${isActive ? ' is-active' : ''}`}
-                title={item.label}
-                onClick={handleNavClick}
-              >
-                <Icon name={item.icon} size={20} />
-                <span className="sidebar__label">{item.label}</span>
-                {badge ? (
-                  <span className="sidebar__badge tabular" aria-hidden="true">
-                    {textoBadge(badge)}
-                  </span>
-                ) : null}
-                {item.id === 'notificaciones' && pendientes > 0 ? (
-                  <span className="visually-hidden">
-                    {`${pendientes} ${pendientes === 1 ? 'aviso pendiente' : 'avisos pendientes'} por revisar`}
-                  </span>
-                ) : null}
-              </NavLink>
-            )
-          })}
-        </div>
-
-        <div className="sidebar__foot">
-          <p className="sidebar__foot-title">Sesión</p>
-          <p className="sidebar__foot-line">
-            {user?.cargo ? `Cargo: ${user.cargo}` : 'Sesión validada contra la base institucional.'}
-          </p>
-          {esTalentoHumano ? (
-            <p className="sidebar__foot-line">Plantilla completa de la empresa</p>
-          ) : null}
-          <p className="sidebar__foot-line">Versión 2.0</p>
-        </div>
-      </nav>
+          <div className="sidebar__foot">
+            <p className="sidebar__foot-title">Sesión</p>
+            <p className="sidebar__foot-line">
+              {user?.cargo ? `Cargo: ${user.cargo}` : 'Sesión validada contra la base institucional.'}
+            </p>
+            {esTalentoHumano ? (
+              <p className="sidebar__foot-line">Plantilla completa de la empresa</p>
+            ) : null}
+            <p className="sidebar__foot-line">Versión 2.0</p>
+          </div>
+        </Offcanvas.Body>
+      </Offcanvas>
 
       <main className="shell__content" id="contenido" tabIndex={-1}>
         <div className="shell__inner">

@@ -290,6 +290,11 @@ export default function LoginPage() {
                   }
                 }}
                 error={unesError}
+                hint={
+                  unes === '106'
+                    ? 'UNES de filial: si eres jefe de filial verás únicamente los colaboradores de tu equipo.'
+                    : undefined
+                }
                 inputMode="numeric"
                 autoComplete="off"
                 placeholder="109"

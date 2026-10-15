@@ -5,8 +5,9 @@
  * pruebas del proyecto corren con `node --test` sin DOM, y añadir jsdom sólo para
  * esto sería una dependencia nueva. Lo que se comprueba es lo que no puede
  * perderse en una edición descargada: que haya **una sola** hamburguesa en la
- * esquina superior izquierda, que su estado llegue al CSS por `data-nav`, que el
- * contador salga del contexto compartido y que la bandeja lo apague al abrirse.
+ * esquina superior izquierda, que el menú sea un offcanvas que arranca oculto y
+ * se cierra al elegir una opción, que el contador salga del contexto compartido
+ * y que la bandeja lo apague al abrirse.
  */
 
 import assert from 'node:assert/strict'
@@ -19,20 +20,24 @@ const PROVEEDOR = new URL('../src/notifications/NotificacionesProvider.jsx', imp
 const BANDEJA = new URL('../src/pages/NotificacionesPage.jsx', import.meta.url)
 const MAIN = new URL('../src/main.jsx', import.meta.url)
 
-test('el sidebar se muestra y se oculta con una sola hamburguesa', async () => {
+test('el menú se abre con una sola hamburguesa y arranca oculto', async () => {
   const fuente = await readFile(SHELL, 'utf8')
 
   const hamburguesas = fuente.match(/className="topbar__burger"/g) ?? []
   assert.equal(hamburguesas.length, 1, 'debe haber una única hamburguesa')
   assert.ok(!fuente.includes('topbar__collapse'), 'el control duplicado de colapsar ya no existe')
 
-  // El estado vive en un atributo del contenedor: el comportamiento responsive
-  // está en CSS, no en estilos en línea.
-  assert.ok(
-    fuente.includes('data-nav={navAbierto ? \'abierto\' : \'oculto\'}'),
-    'el estado del menú debe viajar en data-nav',
-  )
+  // El panel arranca cerrado: al iniciar sesión no hay nada abierto.
+  assert.ok(fuente.includes('useState(false)'), 'el menú debe empezar oculto')
   assert.ok(fuente.includes('aria-expanded={navAbierto}'), 'la hamburguesa debe anunciar su estado')
+  assert.ok(
+    fuente.includes('aria-controls="menu-lateral"'),
+    'la hamburguesa debe apuntar al panel que abre',
+  )
+
+  // Es un offcanvas de react-bootstrap, anclado a la izquierda.
+  assert.ok(fuente.includes("from 'react-bootstrap/Offcanvas'"), 'el menú usa el Offcanvas')
+  assert.ok(fuente.includes('placement="start"'), 'el panel entra desde la izquierda')
 
   // La hamburguesa es el primer botón de la barra: esquina superior izquierda.
   const topbar = fuente.indexOf('<header className="topbar">')
@@ -41,22 +46,29 @@ test('el sidebar se muestra y se oculta con una sola hamburguesa', async () => {
   assert.ok(topbar < burger && burger < identidad, 'la hamburguesa va antes que la identidad')
 })
 
-test('el CSS define los dos estados en todos los tamaños', async () => {
-  const css = await readFile(CSS, 'utf8')
+test('elegir una opción del menú lo cierra solo', async () => {
+  const fuente = await readFile(SHELL, 'utf8')
 
   assert.ok(
-    css.includes(".shell[data-nav='oculto'] .sidebar"),
-    'en pantalla ancha, «oculto» debe sacar el sidebar de la vista',
+    fuente.includes('onClick={handleNavClick}'),
+    'cada enlace del menú debe cerrar el panel al pulsarlo',
   )
   assert.ok(
-    css.includes(".shell[data-nav='oculto'] .shell__content"),
-    'al ocultarlo, el contenido debe recuperar el ancho',
+    /const handleNavClick = useCallback\(\(\) => \{[\s\S]*?setNavAbierto\(false\)/.test(fuente),
+    'la navegación apaga el panel',
   )
   assert.ok(
-    css.includes(".shell[data-nav='abierto'] .sidebar"),
-    'en móvil, «abierto» debe mostrar el panel deslizante',
+    fuente.includes('onHide={cerrarNav}'),
+    'react-bootstrap debe poder cerrar el panel (Escape, fondo, botón)',
   )
-  // El badge del riel se superpone al icono; en ancho completo vuelve al flujo.
+})
+
+test('el CSS da al Offcanvas el aspecto del sistema', async () => {
+  const css = await readFile(CSS, 'utf8')
+
+  assert.ok(css.includes('.sidebar.offcanvas'), 'el panel tiene estilo propio')
+  assert.ok(css.includes('--bs-offcanvas-width'), 'el ancho sale del token del sistema')
+  assert.ok(css.includes('.sidebar .offcanvas-body'), 'el cuerpo del panel se estiliza')
   assert.ok(css.includes('.sidebar__badge'), 'el contador debe tener estilo propio')
 })
 

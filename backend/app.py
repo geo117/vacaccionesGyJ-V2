@@ -31,6 +31,7 @@ from config import ConfigError, Settings, load_settings
 from dashboard import DashboardService
 from db import Database, DatabaseUnavailable
 from employees import EmployeeDirectory, normalizar_unes, validar_unes_login
+from filial import filtrar_por_filial
 from notifications import NotificationService
 from reports import generar_pdf_reporte_vacaciones, generar_plano_unoee
 from security import ValidationError, hash_password, normalize_email, validate_password
@@ -657,6 +658,16 @@ def create_app(settings: Settings | None = None) -> Flask:
             if usuario.get("correo")
         }
 
+    def _solo_filial(filas: list[dict[str, Any]], unes_objetivo: str) -> list[dict[str, Any]]:
+        """Acota la lista a la filial del jefe cuando la UNES es 106.
+
+        El jefe de filial entra con la UNES 106 y su **correo** (el de la sesión)
+        identifica su equipo en ``data filial/filial.json``: sólo debe ver esas
+        cédulas. Si el correo no figura en el archivo, no se filtra —se ve toda
+        la UNES— para no dejar la pantalla en blanco.
+        """
+        return filtrar_por_filial(filas, current_user().correo, unes=unes_objetivo)
+
     def _filas_tablero(
         *,
         es_talento_humano: bool,
@@ -670,6 +681,9 @@ def create_app(settings: Settings | None = None) -> Flask:
         concreta, sólo esa. Cualquier otro cargo recibe exclusivamente la UNES de
         su sesión: ``unes_solicitada`` se ignora para no ampliar lo que ve por la
         puerta del parámetro.
+
+        Además, cuando la UNES es la de filial (106), se acota a las cédulas del
+        equipo del jefe de filial que inició sesión (ver :mod:`filial`).
 
         Si la vista corporativa no responde, se degrada al listado local de
         asignaciones en lugar de dejar la pantalla en blanco. Devuelve
@@ -686,22 +700,20 @@ def create_app(settings: Settings | None = None) -> Flask:
                     if ver_todo
                     else directorio.listar_por_unes(unes_objetivo)
                 )
-                return (
-                    servicios().assignments.tablero_de_unes(
-                        colaboradores,
-                        propietarios=_propietarios_por_correo() if con_propietarios else None,
-                        # Para Talento Humano sin UNES no se acota por unidad: ve
-                        # también las asignaciones huérfanas de cualquier UNES.
-                        unes="" if ver_todo else unes_objetivo,
-                    ),
-                    "vista",
+                filas = servicios().assignments.tablero_de_unes(
+                    colaboradores,
+                    propietarios=_propietarios_por_correo() if con_propietarios else None,
+                    # Para Talento Humano sin UNES no se acota por unidad: ve
+                    # también las asignaciones huérfanas de cualquier UNES.
+                    unes="" if ver_todo else unes_objetivo,
                 )
+                return _solo_filial(filas, unes_objetivo), "vista"
             except DatabaseUnavailable:
                 # El servidor corporativo no respondió. Se degrada al listado
                 # local en lugar de dejar la pantalla en blanco.
                 logger.warning("La vista de colaboradores no respondió; se usa el listado local.")
 
-        return servicios().assignments.listar(), "local"
+        return _solo_filial(servicios().assignments.listar(), unes_objetivo), "local"
 
     def _unes_para_reporte() -> str:
         """UNES que se aplica a un reporte, según el cargo de la sesión.
@@ -834,16 +846,32 @@ def create_app(settings: Settings | None = None) -> Flask:
     def generar_plano():
         """Plano UNOEE en Excel sobre la plantilla oficial.
 
+        El plano se arma **directamente desde las asignaciones registradas en la
+        base** (``dbo.asignacion_vacaciones``, el equivalente en la V2 a
+        ``inf_asignacion``), y no desde la vista corporativa. Lo que se descarga
+        para importar tiene que ser exactamente lo grabado, aunque un colaborador
+        ya no aparezca en la plantilla.
+
+        Dos alcances:
+
+        * **general** — sin ``?unes=``: todas las asignaciones.
+        * **por UNES** — con ``?unes=``: sólo las de esa unidad. El filtro usa los
+          tres últimos dígitos de la UNES (acepta ``106`` y ``2-106``), igual que
+          el resto del sistema.
+
         Exclusivo de Talento Humano. El decorador es el control real: ocultar la
         opción en la interfaz no impide que alguien llame a la API directamente.
         """
         unes_filtro = _unes_para_reporte()
-        filas, _origen = _filas_tablero(
-            es_talento_humano=True,
-            unes_sesion=current_unes(),
-            unes_solicitada=unes_filtro,
-            con_propietarios=False,
-        )
+        filas = servicios().assignments.listar()
+
+        if unes_filtro:
+            sufijo = unes_filtro[-3:]
+            filas = [
+                fila
+                for fila in filas
+                if str(fila.get("unes") or "")[-3:] == sufijo
+            ]
 
         try:
             xlsx_bytes = generar_plano_unoee(filas)
