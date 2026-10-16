@@ -422,6 +422,24 @@ def main() -> int:
     if empleado:
         check("sus días totales se suman", empleado["diasTotales"] >= 20, str(empleado["diasTotales"]))
         check("sus aprobadas se cuentan", empleado["aprobadas"] >= 1, str(empleado["aprobadas"]))
+    check("Talento Humano ve el alcance global", datos.get("alcance") == "global", str(datos.get("alcance")))
+
+    # El mismo endpoint para un cargo con UNES: el alcance es una regla de
+    # acceso, así que el servidor acota los totales a esa unidad y no devuelve
+    # el consolidado de cuentas de toda la empresa.
+    respuesta = client.get("/api/resumen", headers=auth_otro)
+    datos_otro = respuesta.get_json() or {}
+    check("el resumen del otro cargo responde", respuesta.status_code == 200, str(respuesta.status_code))
+    check(
+        "el resumen viene acotado a la UNES de la sesión",
+        datos_otro.get("alcance") == "unes" and datos_otro.get("unes") == UNES_PRUEBA,
+        f"alcance={datos_otro.get('alcance')} unes={datos_otro.get('unes')}",
+    )
+    check(
+        "no expone el consolidado de toda la empresa",
+        datos_otro.get("empleados") == [],
+        str(len(datos_otro.get("empleados") or [])),
+    )
 
     # ------------------------------------------------------------------
     print("\n================ TABLERO POR UNES ================")

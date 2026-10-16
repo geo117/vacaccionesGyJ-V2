@@ -20,18 +20,22 @@
   justify-content: space-between;
   gap: var(--space-8);
   padding: var(--space-12) var(--space-8);
-  color: var(--ink-inverse);
-  /*background-color: var(--brand-900);*/
-  background-image: url('../assets/fondo.png');
+  color: var(--on-brand);
+  background-image: url("../assets/fondo.png");
   background-size: cover;
   background-position: center;
-  background-repeat: no-repeat;
 }
 
 .login__brand {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  align-self: flex-start;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(8px);
 }
 
 .login__mark {
@@ -51,12 +55,12 @@
 .login__brand-name {
   font-size: var(--text-base);
   font-weight: 600;
-  color: #00060a;
+  color: var(--on-brand);
 }
 
 .login__brand-sub {
   font-size: var(--text-sm);
-  color: #00060a;
+  color: var(--on-brand-muted);
 }
 
 .login__pitch {
@@ -64,7 +68,7 @@
   font-size: var(--text-lg);
   font-weight: 600;
   line-height: 1.35;
-  color: #00060a;
+  color: var(--on-brand);
 }
 
 .login__facts {
@@ -75,7 +79,7 @@
   margin: 0;
   list-style: none;
   font-size: var(--text-sm);
-  color: #00060a;
+  color: var(--on-brand-muted);
 }
 
 .login__facts li {
@@ -87,7 +91,7 @@
 .login__facts svg {
   flex: none;
   margin-top: 2px;
-  color: #5eead4;
+  color: var(--accent-color);
 }
 
 .login__main {
@@ -137,6 +141,7 @@
   background-color: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
 }
 
 /* UNES y contraseña en la misma fila: la UNES son tres dígitos y no necesita
@@ -262,7 +267,7 @@
 
 .topbar__view {
   font-size: var(--text-xs);
-  color: #a9c0d4;
+  color: var(--on-brand-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -292,7 +297,7 @@
 
 .topbar__user-mail {
   font-size: var(--text-xs);
-  color: #a9c0d4;
+  color: var(--on-brand-muted);
 }
 
 .topbar__avatar {
@@ -304,7 +309,7 @@
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--brand-900);
-  background-color: #5eead4;
+  background-color: var(--accent-color);
   border-radius: var(--radius-pill);
 }
 
@@ -358,8 +363,9 @@
    la izquierda y `--bs-offcanvas-width` fija su ancho. */
 .sidebar.offcanvas {
   --bs-offcanvas-width: var(--sidebar-width);
-  color: var(--ink-inverse);
+  color: var(--on-brand);
   background-color: var(--brand-900);
+  background-image: var(--bg-gradient);
   border-right: 1px solid var(--brand-800);
 }
 
@@ -371,7 +377,7 @@
 .sidebar .offcanvas-title {
   font-size: var(--text-xs);
   font-weight: 600;
-  color: #8fa8be;
+  color: var(--on-brand-faint);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -404,7 +410,7 @@
   padding: 0 var(--space-3);
   font-size: var(--text-base);
   font-weight: 500;
-  color: #c2d3e2;
+  color: var(--on-brand-subtle);
   text-decoration: none;
   border-radius: var(--radius-md);
   transition:
@@ -413,17 +419,17 @@
 }
 
 .sidebar__link:hover {
-  color: var(--ink-inverse);
+  color: var(--on-brand);
   background-color: var(--brand-800);
 }
 
 .sidebar__link.is-active {
-  color: var(--ink-inverse);
+  color: var(--on-brand);
   background-color: var(--brand-700);
 }
 
 .sidebar__link.is-active svg {
-  color: #5eead4;
+  color: var(--accent-color);
 }
 
 .sidebar__link svg {
@@ -436,7 +442,7 @@
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--brand-900);
-  background-color: #5eead4;
+  background-color: var(--accent-color);
   border-radius: var(--radius-pill);
 }
 
@@ -444,13 +450,13 @@
   padding: var(--space-4) var(--space-3) 0;
   margin-top: auto;
   font-size: var(--text-xs);
-  color: #8fa8be;
+  color: var(--on-brand-faint);
   border-top: 1px solid var(--brand-800);
 }
 
 .sidebar__foot-title {
   font-weight: 600;
-  color: #c2d3e2;
+  color: var(--on-brand-subtle);
 }
 
 .sidebar__foot-line {
@@ -539,6 +545,7 @@
   background-color: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
 }
 
 .kpi__label {

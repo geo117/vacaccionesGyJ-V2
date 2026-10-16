@@ -84,7 +84,7 @@ const ESTADOS = [
 ]
 
 const SWAL_BASE = {
-  confirmButtonColor: '#16456d',
+  confirmButtonColor: '#003366',
   cancelButtonColor: '#5a6b7b',
   customClass: { popup: 'gv-swal' },
 }
@@ -458,7 +458,7 @@ export default function AsignacionesPage() {
       showCancelButton: true,
       confirmButtonText: aprobando ? 'Sí, aprobar' : 'Sí, rechazar',
       cancelButtonText: 'Volver',
-      confirmButtonColor: aprobando ? '#16456d' : '#a81f2b',
+      confirmButtonColor: aprobando ? '#003366' : '#a81f2b',
       reverseButtons: true,
       focusCancel: true,
     })
@@ -713,7 +713,7 @@ export default function AsignacionesPage() {
                         key={`${fila.identificacion}-${fila.id ?? 'sin'}`}
                         data-sin-asignacion={fila.sinAsignacion ? 'si' : undefined}
                       >
-                        <td title={fila.descUnes || undefined} classname="text-wrap">{fila.descUnes || '—'}</td>
+                        <td title={fila.descUnes || undefined}>{fila.descUnes || '—'}</td>
                         <td title={fila.empleado || undefined}>{fila.empleado}</td>
                         <td className="tabular">{fila.identificacion || '—'}</td>
                         <td>{fila.unes || '—'}</td>

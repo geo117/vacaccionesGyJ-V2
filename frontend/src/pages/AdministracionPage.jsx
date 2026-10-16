@@ -31,7 +31,7 @@ import { ApiError, usuariosApi } from '../services/api'
 import { formatDateTime, NUMERO } from '../utils/fechas'
 
 const SWAL_BASE = {
-  confirmButtonColor: '#16456d',
+  confirmButtonColor: '#003366',
   cancelButtonColor: '#5a6b7b',
   customClass: { popup: 'gv-swal' },
 }
@@ -225,7 +225,7 @@ export default function AdministracionPage() {
       showCancelButton: true,
       confirmButtonText: activo ? 'Sí, activar' : 'Sí, desactivar',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: activo ? '#16456d' : '#a81f2b',
+      confirmButtonColor: activo ? '#003366' : '#a81f2b',
       reverseButtons: true,
       focusCancel: true,
     })
@@ -306,7 +306,7 @@ export default function AdministracionPage() {
         <div>
           <h1 className="page__title">Administración de usuarios</h1>
           <p className="page__lead">
-            Cuentas registradas en <code>dbo.Usuarios</code>. Desde aquí se crean, se editan y se
+            Cuentas registradas en la base de datos. Desde aquí se crean, se editan y se
             eliminan.
           </p>
         </div>

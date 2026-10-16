@@ -727,6 +727,26 @@ def create_app(settings: Settings | None = None) -> Flask:
             return normalizar_unes(request.args.get("unes"))
         return current_unes()
 
+    def _colaboradores_de_unes(unes: str) -> int:
+        """Cuántos colaboradores tiene la UNES en la vista corporativa.
+
+        ``dbo.Usuarios`` no guarda la UNES —es un dato de la sesión, no de la
+        cuenta—, así que el total de colaboradores de una unidad sale del
+        directorio. Si la vista no está configurada o no responde, devuelve 0: el
+        resumen sigue siendo útil con las cifras de asignaciones, que salen de
+        la base propia.
+        """
+        directorio = servicios().employees
+        if not unes or not directorio.disponible:
+            return 0
+        try:
+            return len(directorio.listar_por_unes(unes))
+        except DatabaseUnavailable:
+            logger.warning(
+                "La vista de colaboradores no respondió; el total de la UNES queda en cero."
+            )
+            return 0
+
     def _enviar_archivo(contenido: bytes, nombre: str, mimetype: str):
         """Devuelve un archivo adjunto sin pasar por disco."""
         return send_file(
@@ -916,7 +936,20 @@ def create_app(settings: Settings | None = None) -> Flask:
     @app.get("/api/resumen")
     @require_auth
     def resumen():
-        return ok(servicios().dashboard.resumen())
+        """Totales del resumen.
+
+        Talento Humano ve la empresa completa. Cualquier otro cargo recibe sólo
+        los de la UNES con la que entró: el alcance es una regla de acceso y lo
+        aplica el servidor, no la interfaz.
+        """
+        if current_user().es_talento_humano:
+            return ok(servicios().dashboard.resumen())
+
+        unes = current_unes()
+        datos = servicios().dashboard.resumen(unes=unes)
+        # «Usuarios registrados» para una UNES es su plantilla de colaboradores.
+        datos["totales"]["usuarios"] = _colaboradores_de_unes(unes)
+        return ok(datos)
 
     return app
 

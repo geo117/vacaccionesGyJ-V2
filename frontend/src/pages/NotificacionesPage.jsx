@@ -199,8 +199,7 @@ export default function NotificacionesPage() {
       </section>
 
       <p className="field__hint" style={{ marginTop: 'var(--space-4)' }}>
-        <Icon name="info" size={14} /> Los avisos los genera el servidor en{' '}
-        <code>dbo.notificaciones</code> y se filtran según tu cargo. Al abrir esta bandeja se
+        <Icon name="info" size={14} /> Los avisos se guardan en el servidor y se filtran según tu cargo. Al abrir esta bandeja se
         apaga el contador del menú.
       </p>
     </>

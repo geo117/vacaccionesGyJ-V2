@@ -78,7 +78,7 @@ export default function AppShell() {
       showCancelButton: true,
       confirmButtonText: 'Cerrar sesión',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#16456d',
+      confirmButtonColor: '#003366',
       cancelButtonColor: '#5a6b7b',
       reverseButtons: true,
       focusCancel: true,

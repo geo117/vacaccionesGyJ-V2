@@ -796,7 +796,7 @@ table.data th:last-child {
 
 /* La fila propia se distingue: evita borrarse a uno mismo por descuido. */
 .usuario-avatar[data-propio='si'] {
-  background-color: #5eead4;
+  background-color: var(--accent-color);
 }
 
 /* Una cuenta desactivada se atenúa: se nota de un vistazo en la tabla. */

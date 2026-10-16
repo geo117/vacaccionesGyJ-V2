@@ -1,36 +1,30 @@
 /**
  * Resumen general.
  *
- * Dos indicadores y el consolidado **de todos los empleados** con sus datos
- * actuales: la totalidad de las cuentas registradas en `dbo.Usuarios`, cruzadas
- * con las asignaciones de cada una.
+ * Cuatro indicadores y nada más. El alcance lo decide el servidor: `GET
+ * /api/resumen` devuelve los totales de toda la empresa para Talento Humano y
+ * los de la UNES de la sesión para cualquier otro cargo. Esta vista no filtra:
+ * sólo presenta lo que recibe y ajusta los rótulos al alcance.
  *
- * Todo lo que se ve sale de `GET /api/resumen`, que resuelve el cruce con un
- * `LEFT JOIN` en la base. Quien no tiene asignaciones aparece igual, con ceros:
- * son justamente a quienes hay que mirar.
+ * Los cuatro indicadores son los mismos en ambos casos porque los resuelve la
+ * misma consulta; lo que cambia es la unidad que cubren. «Usuarios registrados»
+ * para una UNES es su plantilla de colaboradores, no las cuentas de la
+ * aplicación (que no llevan UNES: es un dato de la sesión).
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Alert from 'react-bootstrap/Alert'
 import Button from 'react-bootstrap/Button'
-import Table from 'react-bootstrap/Table'
-import EmptyState from '../components/EmptyState'
 import Icon from '../components/Icon'
-import StatusChip from '../components/StatusChip'
 import { ApiError, resumenApi } from '../services/api'
-import { formatDateTime, NUMERO } from '../utils/fechas'
-
-const CARGO_TALENTO_HUMANO = 'talento humano'
-
-function esTalentoHumano(empleado) {
-  return String(empleado?.cargo || '').trim().toLowerCase() === CARGO_TALENTO_HUMANO
-}
+import { useAuth } from '../auth/useAuth'
+import { NUMERO } from '../utils/fechas'
 
 export default function ResumenPage() {
+  const { esTalentoHumano, unes } = useAuth()
   const [datos, setDatos] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState(null)
-  const [busqueda, setBusqueda] = useState('')
 
   const traerResumen = useCallback(async () => {
     try {
@@ -38,13 +32,13 @@ export default function ResumenPage() {
     } catch (error) {
       return {
         datos: null,
-        error:
-          error instanceof ApiError ? error.message : 'No pudimos cargar el resumen.',
+        error: error instanceof ApiError ? error.message : 'No pudimos cargar el resumen.',
       }
     }
   }, [])
 
   const recargar = useCallback(async () => {
+    setCargando(true)
     const { datos: nuevos, error } = await traerResumen()
     if (nuevos) setDatos(nuevos)
     setErrorCarga(error)
@@ -65,18 +59,9 @@ export default function ResumenPage() {
   }, [traerResumen])
 
   const totales = datos?.totales ?? {}
-  const empleados = useMemo(() => datos?.empleados ?? [], [datos])
-
-  const visibles = useMemo(() => {
-    const needle = busqueda.trim().toLowerCase()
-    if (!needle) return empleados
-    return empleados.filter(
-      (e) =>
-        e.nombre.toLowerCase().includes(needle) ||
-        e.correo.toLowerCase().includes(needle) ||
-        (e.cargo || '').toLowerCase().includes(needle),
-    )
-  }, [empleados, busqueda])
+  // Sólo hay alcance por UNES cuando la persona no es de Talento Humano y entró
+  // con una UNES digitada.
+  const alcanceUnes = !esTalentoHumano && Boolean(unes)
 
   const indicadores = [
     {
@@ -85,7 +70,9 @@ export default function ResumenPage() {
       value: totales.usuarios ?? 0,
       tone: 'info',
       icon: 'empleado',
-      foot: `${empleados.filter(esTalentoHumano).length} con cargo de Talento Humano`,
+      foot: alcanceUnes
+        ? `Colaboradores de la UNES ${unes}`
+        : 'Cuentas registradas en la base de datos',
     },
     {
       id: 'asignaciones',
@@ -119,8 +106,9 @@ export default function ResumenPage() {
         <div>
           <h1 className="page__title">Resumen general</h1>
           <p className="page__lead">
-            Estado de las asignaciones y consolidado de todos los empleados registrados, con sus
-            datos actuales.
+            {alcanceUnes
+              ? `Estado de las asignaciones de la UNES ${unes}, con sus cifras actuales.`
+              : 'Estado de las asignaciones de toda la empresa, con sus cifras actuales.'}
           </p>
         </div>
         <div className="page__actions">
@@ -148,138 +136,10 @@ export default function ResumenPage() {
               <Icon name={kpi.icon} size={16} />
               {kpi.label}
             </p>
-            <p className="kpi__value tabular">
-              {cargando ? '—' : NUMERO.format(kpi.value)}
-            </p>
+            <p className="kpi__value tabular">{cargando ? '—' : NUMERO.format(kpi.value)}</p>
             <p className="kpi__foot">{kpi.foot}</p>
           </article>
         ))}
-      </section>
-
-      <section className="card" style={{ marginTop: 'var(--space-6)' }} aria-labelledby="empleados-titulo">
-        <header className="card__header">
-          <div>
-            <h2 className="card__title" id="empleados-titulo">
-              Consolidado por empleado
-            </h2>
-            <p className="card__subtitle">
-              {cargando
-                ? 'Consultando la base de datos…'
-                : `${NUMERO.format(visibles.length)} de ${NUMERO.format(empleados.length)} empleados con sus asignaciones.`}
-            </p>
-          </div>
-          <div className="toolbar__field" style={{ minWidth: 260 }}>
-            <label className="visually-hidden" htmlFor="buscar-empleado">
-              Buscar empleado
-            </label>
-            <div className="field__control">
-              <input
-                id="buscar-empleado"
-                className="field__input"
-                type="search"
-                value={busqueda}
-                onChange={(event) => setBusqueda(event.target.value)}
-                placeholder="Nombre, correo o cargo"
-                autoComplete="off"
-              />
-              <span
-                aria-hidden="true"
-                style={{
-                  position: 'absolute',
-                  right: 'var(--space-4)',
-                  display: 'inline-flex',
-                  color: 'var(--ink-muted)',
-                }}
-              >
-                <Icon name="buscarPersona" size={18} />
-              </span>
-            </div>
-          </div>
-        </header>
-
-        <div className="card__body card__body--flush">
-          {visibles.length > 0 ? (
-            <Table className="data" borderless responsive>
-              <caption className="visually-hidden">
-                Empleados registrados con su correo, cargo, número de asignaciones, días totales y
-                estado de sus solicitudes.
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Empleado</th>
-                  <th scope="col">Correo</th>
-                  <th scope="col">Cargo</th>
-                  <th scope="col" className="numeric">
-                    Asignaciones
-                  </th>
-                  <th scope="col" className="numeric">
-                    Días totales
-                  </th>
-                  <th scope="col">Estado</th>
-                  <th scope="col">Última actualización</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibles.map((empleado) => (
-                  <tr key={empleado.usuarioId}>
-                    <td>{empleado.nombre}</td>
-                    <td>{empleado.correo}</td>
-                    <td>
-                      {esTalentoHumano(empleado) ? (
-                        <StatusChip estado="ok" label={empleado.cargo} />
-                      ) : (
-                        empleado.cargo || '—'
-                      )}
-                    </td>
-                    <td className="numeric tabular">{NUMERO.format(empleado.asignaciones)}</td>
-                    <td className="numeric tabular">{NUMERO.format(empleado.diasTotales)}</td>
-                    <td>
-                      {empleado.asignaciones === 0 ? (
-                        <span className="chip chip--neutral">Sin asignaciones</span>
-                      ) : (
-                        <div className="d-flex align-items-center gap-2">
-                          {empleado.pendientes > 0 ? (
-                            <StatusChip estado="pendiente" label={`${empleado.pendientes} pend.`} />
-                          ) : null}
-                          {empleado.aprobadas > 0 ? (
-                            <StatusChip estado="aprobada" label={`${empleado.aprobadas} aprob.`} />
-                          ) : null}
-                          {empleado.rechazadas > 0 ? (
-                            <StatusChip estado="rechazada" label={`${empleado.rechazadas} rech.`} />
-                          ) : null}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      {empleado.ultimaActualizacion
-                        ? formatDateTime(empleado.ultimaActualizacion)
-                        : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          ) : (
-            <EmptyState
-              icon="empleado"
-              title={cargando ? 'Consultando los empleados…' : 'Ningún empleado coincide'}
-              text={
-                cargando
-                  ? 'Un momento.'
-                  : busqueda.trim()
-                    ? 'Prueba con otro nombre, correo o cargo.'
-                    : 'Todavía no hay usuarios registrados en la base de datos.'
-              }
-              action={
-                busqueda.trim() ? (
-                  <Button variant="outline-secondary" onClick={() => setBusqueda('')}>
-                    Limpiar búsqueda
-                  </Button>
-                ) : null
-              }
-            />
-          )}
-        </div>
       </section>
     </>
   )

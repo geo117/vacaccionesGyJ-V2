@@ -161,7 +161,7 @@ la interfaz.
 | `POST` | `/api/auth/login` | Público | Valida credenciales y emite el token. La UNES es opcional para Talento Humano |
 | `POST` | `/api/auth/logout` | Sesión | Revoca el token actual |
 | `GET` | `/api/auth/session` | Sesión | Confirma la sesión y devuelve el usuario con su cargo |
-| `GET` | `/api/resumen` | Sesión | Totales y consolidado por empleado |
+| `GET` | `/api/resumen` | Sesión | Totales de la empresa para Talento Humano; los de la UNES de la sesión para el resto |
 | `GET` | `/api/asignaciones` | Sesión | Colaboradores de la UNES de la sesión; **toda la plantilla** para Talento Humano |
 | `GET` | `/api/asignaciones/{id}` | Sesión | Una asignación |
 | `POST` | `/api/asignaciones` | Sesión | Registra una asignación nueva |
@@ -427,6 +427,6 @@ generan notificaciones, resumen y las protecciones del último Talento Humano.
 | `assignments.py` | Asignaciones: repositorio, validación y cálculo de días |
 | `notifications.py` | Avisos: redacción en el servidor y filtrado por cargo |
 | `reports.py` | Planilla en PDF y plano UNOEE en Excel |
-| `dashboard.py` | Resumen y consolidado por empleado (`LEFT JOIN`) |
+| `dashboard.py` | Resumen: totales globales o por UNES y consolidado por empleado (`LEFT JOIN`) |
 | `db.py` | Conexión, cursores parametrizados y acceso por nombre de columna |
 | `test_backend.py` | Prueba de humo end-to-end |

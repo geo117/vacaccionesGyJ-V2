@@ -133,7 +133,7 @@ llamará directo a esa URL y el origen del frontend debe estar en
 |---|---|---|
 | `/` | — | Redirige a `/app/resumen` |
 | `/login` | Público | Correo y contraseña; **UNES** sólo si el cargo la necesita |
-| `/app/resumen` | Sesión | Indicadores y consolidado de **todos** los empleados |
+| `/app/resumen` | Sesión | Indicadores de toda la empresa (Talento Humano) o de la UNES de la sesión |
 | `/app/asignaciones` | Sesión | Plantilla de la UNES —**toda la empresa** para Talento Humano— con búsqueda, filtros, paginación y las tres operaciones |
 | `/app/notificaciones` | Sesión | Bandeja del cargo y los avisos que uno mismo generó |
 | `/app/administracion` | **Talento Humano** | Usuarios: crear, editar, activar/desactivar y eliminar |

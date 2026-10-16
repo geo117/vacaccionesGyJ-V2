@@ -5,33 +5,60 @@
    movimiento. Un componente no escribe un hex ni un valor de spacing suelto:
    usa una variable de aquí. Cambiar el mundo visual se hace en un solo lugar.
 
+   Paleta corporativa G&J (origen de todos los tokens de color):
+     --primary-color   #003366   azul institucional (marca, acciones)
+     --secondary-color #00509d   azul de apoyo (hover, realces)
+     --accent-color    #ffcc00   dorado de resalte
+     --bg-gradient     #001f3f → #003366   fondo de marca (acceso, menú)
+     --text-light      #f8f9fa   texto sobre superficies de marca
+     --text-dark       #212529   texto sobre superficies claras
+     --card-shadow     0 8px 32px 0 rgba(0,0,0,.37)
+
    Contraste medido (WCAG 2.1 AA, mínimo 4.5:1 en texto):
-     --ink        #111C26 sobre --surface  -> 15.4:1
-     --ink        #111C26 sobre --brand-050 -> 15.0:1
-     --ink-muted  #5A6B7B sobre --surface  ->  5.4:1
+     --ink        #212529 sobre --surface   -> 15.4:1
+     --ink        #212529 sobre --brand-050 -> 14.2:1
+     --ink-muted  #5A6B7B sobre --surface   ->  5.4:1
      --ink-muted  #5A6B7B sobre --brand-050 ->  5.3:1
-     --brand-700  #16456D sobre --surface  ->  9.4:1
-     --brand-050  #F4F8FB sobre --brand-900 -> 13.6:1 (sidebar)
-     ok/warn/danger/info sobre --surface    -> 7.0 / 6.1 / 7.7 / 7.4 : 1
+     --brand-700  #003366 sobre --surface   -> 12.6:1
+     --brand-050  #F1F6FB sobre --brand-900 -> 15.2:1 (sidebar)
+     ok/warn/danger/info sobre --surface     -> 7.0 / 6.1 / 7.7 / 7.4 : 1
    ========================================================================== */
 
 :root {
+  /* Paleta corporativa G&J: la fuente de la que derivan los tokens de abajo. */
+  --primary-color: #003366;
+  --secondary-color: #00509d;
+  --accent-color: #ffcc00;
+  --bg-gradient: linear-gradient(135deg, #001f3f 0%, #003366 100%);
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --text-light: #f8f9fa;
+  --text-dark: #212529;
+  --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
   /* Marca (azul corporativo G&J) */
-  --brand-900: #0b2942;
-  --brand-800: #103a5e;
-  --brand-700: #16456d;
-  --brand-600: #1d5b8f;
-  --brand-100: #e4edf5;
-  --brand-050: #f4f8fb;
+  --brand-900: #001f3f;
+  --brand-800: #002952;
+  --brand-700: var(--primary-color);
+  --brand-600: var(--secondary-color);
+  --brand-100: #dbe6f4;
+  --brand-050: #f1f6fb;
 
   /* Tinta y superficies */
-  --ink: #111c26;
+  --ink: var(--text-dark);
   --ink-muted: #5a6b7b;
-  --ink-inverse: #f4f8fb;
+  --ink-inverse: var(--text-light);
   --surface: #ffffff;
   --surface-sunken: var(--brand-050);
   --line: #d5dee6;
   --line-strong: #b9c6d2;
+
+  /* Tinta sobre superficies de marca (topbar, sidebar, panel de acceso).
+     Se derivan del texto claro para que un cambio de paleta arrastre todo. */
+  --on-brand: var(--text-light);
+  --on-brand-muted: color-mix(in srgb, var(--text-light) 66%, transparent);
+  --on-brand-subtle: color-mix(in srgb, var(--text-light) 80%, transparent);
+  --on-brand-faint: color-mix(in srgb, var(--text-light) 56%, transparent);
 
   /* Estados */
   --ok: #0f6b4f;
@@ -87,8 +114,10 @@
   --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-enter: cubic-bezier(0.2, 0.8, 0.2, 1);
 
-  /* Elevación: una sola sombra en todo el sistema, para el drawer y el menú */
-  --shadow-overlay: 0 12px 32px -12px rgb(11 41 66 / 35%);
+  /* Elevación: una sola sombra en todo el sistema —tarjetas, drawer y menú—
+     tomada de la paleta (--card-shadow). */
+  --shadow-card: var(--card-shadow);
+  --shadow-overlay: var(--card-shadow);
 }
 
 /* ==========================================================================
@@ -497,6 +526,7 @@ textarea {
   background-color: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
 }
 
 .card__header {
@@ -577,6 +607,10 @@ table.data--tablero thead th {
 table.data--tablero th:nth-child(1),
 table.data--tablero td:nth-child(1) {
   width: 120px;
+  /* Desc. Unes es texto libre y largo. Sin esto, el `nowrap` general lo deja
+     desbordar y se monta encima de «Colaborador». */
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* Colaborador y Cargo: texto libre y largo. Se les da un ancho cómodo y se
