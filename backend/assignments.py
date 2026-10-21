@@ -45,7 +45,7 @@ _COLUMNAS = (
     "periodo1_fecha1, periodo1_fecha2, periodo1_dias1, "
     "periodo2_fecha1, periodo2_fecha2, periodo2_dias2, "
     "periodo3_fecha1, periodo3_fecha2, periodo3_dias3, "
-    "fecha_regreso, total_dias_empleado, motivo_rechazo, th_asignacion, "
+    "fecha_regreso, fecha_reintegro_lab, total_dias_empleado, motivo_rechazo, th_asignacion, "
     "fecha_registro, fecha_update"
 )
 
@@ -59,9 +59,10 @@ _INSERT = (
     "periodo1_fecha1, periodo1_fecha2, periodo1_dias1, "
     "periodo2_fecha1, periodo2_fecha2, periodo2_dias2, "
     "periodo3_fecha1, periodo3_fecha2, periodo3_dias3, "
-    "fecha_regreso, total_dias_empleado, motivo_rechazo, th_asignacion, "
+    "fecha_regreso, fecha_reintegro_lab, "
+    "total_dias_empleado, motivo_rechazo, th_asignacion, "
     "fecha_registro, fecha_update"
-    ") OUTPUT INSERTED.id VALUES (" + ", ".join(["?"] * 24) + ")"
+    ") OUTPUT INSERTED.id VALUES (" + ", ".join(["?"] * 25) + ")"
 )
 
 _UPDATE_PERIODOS = (
@@ -70,7 +71,7 @@ _UPDATE_PERIODOS = (
     "periodo1_fecha1 = ?, periodo1_fecha2 = ?, periodo1_dias1 = ?, "
     "periodo2_fecha1 = ?, periodo2_fecha2 = ?, periodo2_dias2 = ?, "
     "periodo3_fecha1 = ?, periodo3_fecha2 = ?, periodo3_dias3 = ?, "
-    "fecha_regreso = ?, total_dias_empleado = ?, dias_a_corte = ?, "
+    "fecha_regreso = ?, fecha_reintegro_lab = ?, total_dias_empleado = ?, dias_a_corte = ?, "
     "estado_asignacion = ?, motivo_rechazo = NULL, "
     "th_asignacion = ?, fecha_update = GETDATE() "
     "WHERE id = ?"
@@ -222,6 +223,9 @@ def fila_a_dict(fila: Any) -> dict[str, Any]:
         # El mismo valor con el nombre que usa la interfaz, que es también el que
         # acepta el payload de entrada.
         "fechaIngreso": _a_iso(fila["fecha_regreso"]),
+        # Fecha elegida a mano para el reintegro a labores; no se deriva de los
+        # períodos porque puede diferir del día siguiente al último.
+        "fechaReintegroLab": _a_iso(fila["fecha_reintegro_lab"]),
         "totalDias": round(total_dias, 1),
         "motivoRechazo": fila["motivo_rechazo"],
         "thAsignacion": fila["th_asignacion"],
@@ -314,6 +318,9 @@ def validar_datos_empleado(payload: dict[str, Any]) -> dict[str, Any]:
         # como número, no como entero.
         "dias_a_corte": _numero(payload.get("diasACorte"), "los días a corte") or 0.0,
         "observaciones": _texto(payload.get("observaciones"), "las observaciones", OBSERVACIONES_MAX),
+        # Fecha de reintegro a labores: la elige quien registra la asignación.
+        # Es opcional, pero si viene se valida aquí para no guardar basura.
+        "fecha_reintegro_lab": _a_date(payload.get("fechaReintegroLab"), "reintegro a labores"),
     }
 
 
@@ -337,6 +344,8 @@ def validar_periodos_entrantes(payload: dict[str, Any]) -> dict[str, Any]:
         "periodos": periodos,
         "total_dias": total,
         "fecha_regreso": fecha_regreso,
+        # Reintegro a labores elegido a mano; no se deriva de los períodos.
+        "fecha_reintegro_lab": _a_date(payload.get("fechaReintegroLab"), "reintegro a labores"),
         "observaciones": _texto(payload.get("observaciones"), "las observaciones", OBSERVACIONES_MAX),
     }
 
@@ -374,6 +383,7 @@ class AssignmentRepository:
             periodos[1]["inicio"], periodos[1]["fin"], periodos[1]["dias"],
             periodos[2]["inicio"], periodos[2]["fin"], periodos[2]["dias"],
             fecha_regreso,
+            datos.get("fecha_reintegro_lab"),
             total,
             None,
             th,
@@ -410,6 +420,7 @@ class AssignmentRepository:
                 periodos[1]["inicio"], periodos[1]["fin"], periodos[1]["dias"],
                 periodos[2]["inicio"], periodos[2]["fin"], periodos[2]["dias"],
                 datos["fecha_regreso"],
+                datos.get("fecha_reintegro_lab"),
                 total_nuevo,
                 resultado,
                 ESTADO_PENDIENTE,
@@ -596,6 +607,7 @@ class AssignmentService:
                 "periodos": asignacion["periodos"] if asignacion else [],
                 "fechaRegreso": asignacion["fechaRegreso"] if asignacion else None,
                 "fechaIngreso": asignacion["fechaIngreso"] if asignacion else None,
+                "fechaReintegroLab": asignacion["fechaReintegroLab"] if asignacion else None,
                 "observaciones": asignacion["observaciones"] if asignacion else None,
                 "motivoRechazo": asignacion["motivoRechazo"] if asignacion else None,
                 "thAsignacion": asignacion["thAsignacion"] if asignacion else None,

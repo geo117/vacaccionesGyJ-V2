@@ -94,6 +94,9 @@ CREATE TABLE dbo.asignacion_vacaciones (
     periodo2_fecha1 DATE NULL, periodo2_fecha2 DATE NULL, periodo2_dias2 INT NULL,
     periodo3_fecha1 DATE NULL, periodo3_fecha2 DATE NULL, periodo3_dias3 INT NULL,
     fecha_regreso DATE NULL,
+    -- Fecha de reintegro a labores elegida al crear la asignación; no se deriva
+    -- de los períodos y puede diferir de fecha_regreso.
+    fecha_reintegro_lab DATE NULL,
     total_dias_empleado INT NULL,
     motivo_rechazo TEXT NULL,
     th_asignacion VARCHAR(100) NULL,

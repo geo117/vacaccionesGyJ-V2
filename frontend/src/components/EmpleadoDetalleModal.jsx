@@ -92,7 +92,10 @@ export default function EmpleadoDetalleModal({ show, asignacion, onHide, onAsign
           <Campo etiqueta="Centro de operación" valor={asignacion.unes} />
           <Campo etiqueta={responsable.etiqueta} valor={responsable.valor} />
           <Campo etiqueta="Aplica licencia" valor={licencia.texto} tono={licencia.tono} />
-          <Campo etiqueta="Fecha de ingreso" valor={formatIsoDate(asignacion.fechaIngreso, 'long')} />
+          <Campo
+            etiqueta="Fecha de ingreso"
+            valor={formatIsoDate(asignacion.fechaReintegroLab, 'long')}
+          />
         </div>
 
         <h3 className="card__title" style={{ margin: 'var(--space-6) 0 var(--space-3)' }}>

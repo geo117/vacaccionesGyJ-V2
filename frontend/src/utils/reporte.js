@@ -95,7 +95,7 @@ function filaDeAsignacion(row) {
     formatIsoDate(periodos[2]?.fin),
     dias[2],
     unDecimal(row.totalDias ?? 0),
-    formatIsoDate(row.fechaIngreso),
+    formatIsoDate(row.fechaReintegroLab),
     row.observaciones ?? '',
     row.motivoRechazo ?? '',
   ]

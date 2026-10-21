@@ -7,8 +7,9 @@
  *  - **Cálculo de días en vivo**, por período y en total. El total incluye
  *    ambos extremos de cada rango (del 1 al 5 son 5 días), que es la convención
  *    de una asignación de vacaciones.
- *  - Fecha de ingreso sugerida automáticamente como el día siguiente al último
- *    período, con un botón para aplicarla: se propone, no se impone.
+ *  - Fecha de ingreso (reintegro a labores) editable: viene de la columna
+ *    `fecha_reintegro_lab` y, si no hay ninguna guardada, se sugiere el día
+ *    siguiente al último período con un botón para aplicarla.
  *  - Validación de rangos invertidos y de **períodos que se cruzan**, que es el
  *    error que de verdad descuadra el total y la nómina.
  *
@@ -54,7 +55,9 @@ export default function AsignarPeriodosModal({ show, asignacion, onHide, onGuard
   // datos correctos. Un efecto que llame a `setState` provoca un render en
   // cascada y es justo lo que la regla `set-state-in-effect` señala.
   const [periodos, setPeriodos] = useState(() => aFormulario(asignacion?.periodos))
-  const [fechaIngreso, setFechaIngreso] = useState(asignacion?.fechaIngreso ?? '')
+  /* La fecha de ingreso de esta pantalla es el reintegro a labores que guarda
+     `fecha_reintegro_lab`, no `fecha_regreso`. */
+  const [fechaIngreso, setFechaIngreso] = useState(asignacion?.fechaReintegroLab ?? '')
 
   const resumen = useMemo(() => resumirPeriodos(periodos), [periodos])
 
@@ -106,14 +109,22 @@ export default function AsignarPeriodosModal({ show, asignacion, onHide, onGuard
     if (resumen.periodosProgramados === 0) {
       nuevosErrores.general = 'Programa al menos un período antes de guardar.'
     }
+    /* El reintegro no puede caer dentro de las vacaciones: si coincide con el
+       último día programado (o es anterior), la persona seguiría de vacaciones
+       ese día. Mismo criterio que en el alta. */
+    if (fechaIngreso && ultimoDia && fechaIngreso <= ultimoDia) {
+      nuevosErrores.fechaIngreso = 'Debe ser posterior al último día de vacaciones.'
+    }
     if (Object.keys(nuevosErrores).length > 0) {
       setErrores(nuevosErrores)
-      // Se lleva el foco al primer período con problema, una sola vez.
-      const primero = Object.keys(nuevosErrores)
-        .filter((clave) => clave.startsWith('periodo'))
-        .sort()[0]
+      // Se lleva el foco al primer campo con problema, una sola vez.
+      const primero =
+        Object.keys(nuevosErrores)
+          .filter((clave) => clave.startsWith('periodo'))
+          .sort()[0] ?? (nuevosErrores.fechaIngreso ? 'ingreso' : null)
       if (primero) {
-        document.getElementById(`${baseId}-${primero}-inicio`)?.focus()
+        const sufijo = primero.startsWith('periodo') ? '-inicio' : ''
+        document.getElementById(`${baseId}-${primero}${sufijo}`)?.focus()
       }
       return
     }
@@ -121,7 +132,10 @@ export default function AsignarPeriodosModal({ show, asignacion, onHide, onGuard
     setErrores({})
     await onGuardar({
       periodos,
-      fechaIngreso: fechaIngreso || ingreso,
+      // `fecha_regreso` sigue siendo el día siguiente al último período; la
+      // fecha elegida a mano va a la columna nueva.
+      fechaIngreso: ingreso || null,
+      fechaReintegroLab: fechaIngreso || null,
       observaciones,
       totalDias: resumen.totalDias,
     })
@@ -248,6 +262,14 @@ export default function AsignarPeriodosModal({ show, asignacion, onHide, onGuard
             <p className="resumen-calculo__nota">
               {UN_DECIMAL.format(corte)} a corte − {UN_DECIMAL.format(resumen.totalDias)} asignados
             </p>
+
+            {/* Día de reintegro a labores, el que está en «Fecha de ingreso»:
+                se mueve al editar los períodos o la propia fecha. */}
+            <p className="resumen-calculo__nota">
+              {fechaIngreso
+                ? `Reintegro a labores: ${formatIsoDate(fechaIngreso, 'long')}`
+                : 'Reintegro a labores: elige la fecha de ingreso.'}
+            </p>
           </div>
         </div>
 
@@ -257,29 +279,46 @@ export default function AsignarPeriodosModal({ show, asignacion, onHide, onGuard
             <Form.Control
               type="date"
               value={fechaIngreso}
-              onChange={(event) => setFechaIngreso(event.target.value)}
+              onChange={(event) => {
+                setFechaIngreso(event.target.value)
+                setErrores((previos) => {
+                  if (!previos.fechaIngreso) return previos
+                  const copia = { ...previos }
+                  delete copia.fechaIngreso
+                  return copia
+                })
+              }}
+              isInvalid={Boolean(errores.fechaIngreso)}
               min={ultimoDia || undefined}
+              aria-describedby={errores.fechaIngreso ? `${baseId}-ingreso-error` : undefined}
             />
-            <Form.Text>
-              {ingreso
-                ? ingresoDesactualizado
-                  ? `Según los períodos, el ingreso sería el ${formatIsoDate(ingreso, 'long')}.`
-                  : 'Coincide con el día siguiente al último período.'
-                : 'Se calcula al programar el primer período.'}
-              {ingresoDesactualizado ? (
-                <>
-                  {' '}
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="p-0 align-baseline"
-                    onClick={() => setFechaIngreso(ingreso)}
-                  >
-                    Usar esa fecha
-                  </Button>
-                </>
-              ) : null}
-            </Form.Text>
+            {errores.fechaIngreso ? (
+              <p className="invalid-feedback" id={`${baseId}-ingreso-error`} role="alert">
+                <Icon name="error" size={16} />
+                <span>{errores.fechaIngreso}</span>
+              </p>
+            ) : (
+              <Form.Text>
+                {ingreso
+                  ? ingresoDesactualizado
+                    ? `Según los períodos, el ingreso sería el ${formatIsoDate(ingreso, 'long')}.`
+                    : 'Coincide con el día siguiente al último período.'
+                  : 'Se calcula al programar el primer período.'}
+                {ingresoDesactualizado ? (
+                  <>
+                    {' '}
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="p-0 align-baseline"
+                      onClick={() => setFechaIngreso(ingreso)}
+                    >
+                      Usar esa fecha
+                    </Button>
+                  </>
+                ) : null}
+              </Form.Text>
+            )}
           </Form.Group>
 
           <Form.Group controlId={`${baseId}-observaciones`}>

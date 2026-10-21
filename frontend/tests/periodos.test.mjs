@@ -13,7 +13,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { addDays, daysInclusive, parseIsoDate, toIsoDate } from '../src/utils/fechas.js'
+import { addDays, daysInclusive, formatIsoDate, parseIsoDate, toIsoDate } from '../src/utils/fechas.js'
 import { buildAssignmentsCsv, buildReportFilename } from '../src/utils/reporte.js'
 import {
   calcularDias,
@@ -53,6 +53,16 @@ test('suma días para la fecha de ingreso', () => {
 
 test('convierte ISO en ambos sentidos', () => {
   assert.equal(toIsoDate(parseIsoDate('2026-07-09')), '2026-07-09')
+})
+
+test('muestra el mismo día que se eligió, sin correrse por la zona horaria', () => {
+  /* `parseIsoDate` crea la fecha a medianoche UTC. Al formatearla en una zona
+     con desfase negativo (Bogotá, UTC−5) se mostraba el día anterior: 10 de
+     noviembre aparecía como 9 de noviembre. El formateo debe usar UTC. */
+  assert.equal(formatIsoDate('2026-11-10', 'long'), '10 de noviembre de 2026')
+  // El formato corto cambia con la versión de ICU; basta con que no reste un día.
+  assert.match(formatIsoDate('2026-11-10'), /10/)
+  assert.equal(formatIsoDate('2027-01-01', 'long'), '1 de enero de 2027')
 })
 
 /* -- Resumen de los tres períodos ------------------------------------------ */
@@ -201,6 +211,7 @@ const FILA = {
   periodos: [{ inicio: '2026-10-20', fin: '2026-10-24' }, { inicio: null, fin: null }, { inicio: null, fin: null }],
   totalDias: 5,
   fechaIngreso: '2026-10-25',
+  fechaReintegroLab: '2026-10-26',
   observaciones: 'Nota con "comillas" y ; punto y coma',
   motivoRechazo: null,
 }
@@ -212,6 +223,18 @@ test('el CSV lleva BOM para que Excel no rompa las tildes', () => {
 test('el CSV tiene encabezado y una fila por asignación', () => {
   const lineas = buildAssignmentsCsv([FILA, { ...FILA, id: 'ACT-3042' }]).trim().split('\r\n')
   assert.equal(lineas.length, 3)
+})
+
+test('el CSV toma la «Fecha de ingreso» de fecha_reintegro_lab', () => {
+  const csv = buildAssignmentsCsv([FILA])
+  assert.ok(
+    csv.includes(formatIsoDate(FILA.fechaReintegroLab)),
+    'la columna debe llevar la fecha de reintegro a labores',
+  )
+  assert.ok(
+    !csv.includes(formatIsoDate(FILA.fechaIngreso)),
+    'no debe llevar fecha_regreso, que es otro dato',
+  )
 })
 
 test('escapa comillas y comas según RFC 4180', () => {

@@ -7,8 +7,12 @@
  * instantes, así que se cuentan como tales.
  */
 
-const FECHA_CORTA = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' })
-const FECHA_LARGA = new Intl.DateTimeFormat('es-CO', { dateStyle: 'long' })
+/* Se formatean en UTC porque las fechas de la aplicación son días de
+   calendario, no instantes: `parseIsoDate` las crea a medianoche UTC. Sin
+   `timeZone: 'UTC'`, al formatearlas en una zona con desfase negativo (Bogotá,
+   UTC−5) se mostraría el día anterior. */
+const FECHA_CORTA = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeZone: 'UTC' })
+const FECHA_LARGA = new Intl.DateTimeFormat('es-CO', { dateStyle: 'long', timeZone: 'UTC' })
 const NUMERO = new Intl.NumberFormat('es-CO')
 const MS_POR_DIA = 86_400_000
 

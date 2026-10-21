@@ -1,0 +1,62 @@
+# .gitignore del backend (Flask + pyodbc)
+# Las rutas de este archivo son relativas a `backend/`.
+# Complementa al .gitignore de la raíz; no lo sustituye.
+
+# --- Credenciales ----------------------------------------------------------
+# `.env` guarda la contraseña de SQL Server, el pepper de sesión y el resto de
+# la configuración. Se versiona únicamente la plantilla.
+.env
+.env.*
+!.env.example
+
+# --- Entornos virtuales ----------------------------------------------------
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# --- Bytecode y cachés de Python -------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# --- Cobertura y perfiles --------------------------------------------------
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.prof
+
+# --- Empaquetado / distribución --------------------------------------------
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# --- Registros y temporales -------------------------------------------------
+*.log
+logs/
+*.tmp
+*.bak
+~$*
+
+# --- Salidas generadas en tiempo de ejecución -------------------------------
+# Los Excel que produce `planos_unoee` cambian con cada exportación: no aportan
+# nada al historial. El archivo original sí se versiona.
+planos_unoee/plano_generado.xlsx
+planos_unoee/*.tmp
+
+# --- Sistema operativo y editores ------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo

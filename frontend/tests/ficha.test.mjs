@@ -70,6 +70,19 @@ test('el botón «Vaciar períodos» se eliminó', async () => {
   )
 })
 
+test('«Fecha de ingreso» sale de fecha_reintegro_lab, no de fecha_regreso', async () => {
+  const fuente = await readFile(MODAL, 'utf8')
+
+  assert.ok(
+    fuente.includes('asignacion.fechaReintegroLab'),
+    'la fecha de ingreso debe leerse de fecha_reintegro_lab',
+  )
+  assert.ok(
+    !fuente.includes('asignacion.fechaIngreso'),
+    'fecha_regreso (`fechaIngreso` en el JSON) ya no es la fecha de ingreso de la ficha',
+  )
+})
+
 test('el tono del campo tiene estilo propio', async () => {
   const css = await readFile(CSS, 'utf8')
 

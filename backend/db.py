@@ -140,7 +140,7 @@ class Database:
 
         Con ``named=True`` las filas se leen por nombre de columna
         (``fila.correo``). Es lo que se usa en consultas anchas como
-        ``asignacion_vacaciones`` (25 columnas): mapear por posicion se rompe en
+        ``asignacion_vacaciones`` (26 columnas): mapear por posicion se rompe en
         cuanto alguien reordena o agrega una columna.
         """
         connection = self._take_connection()

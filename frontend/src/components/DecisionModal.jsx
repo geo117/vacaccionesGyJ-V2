@@ -84,7 +84,9 @@ export default function DecisionModal({ show, asignacion, onHide, onConfirmar, s
           </div>
           <div className="ficha__campo">
             <p className="ficha__etiqueta">Fecha de ingreso</p>
-            <p className="ficha__valor">{formatIsoDate(asignacion.fechaIngreso, 'long') || '—'}</p>
+            <p className="ficha__valor">
+              {formatIsoDate(asignacion.fechaReintegroLab, 'long') || '—'}
+            </p>
           </div>
         </div>
 

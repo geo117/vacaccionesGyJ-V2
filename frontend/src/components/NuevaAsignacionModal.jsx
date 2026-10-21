@@ -34,6 +34,9 @@ const CAMPOS_VACIOS = {
   // la asignación, si ya existe) y sólo alimentan el cálculo de «Días a usar».
   diasACorte: '',
   observaciones: '',
+  // Fecha de reintegro a labores: se elige a mano y se guarda en
+  // `fecha_reintegro_lab`. No se deriva de los períodos.
+  fechaReintegroLab: '',
 }
 
 const PERIODOS_VACIOS = [
@@ -56,6 +59,7 @@ function aFormulario(inicial) {
     // El campo del formulario es texto; un 0 se muestra como "0", no vacío.
     diasACorte: corte === undefined || corte === null ? '' : String(corte),
     observaciones: '',
+    fechaReintegroLab: String(inicial.fechaReintegroLab ?? ''),
   }
 }
 
@@ -88,7 +92,9 @@ export default function NuevaAsignacionModal({
     return fines.length ? fines[fines.length - 1] : ''
   }, [periodos])
 
-  /** Se propone, no se impone: la persona puede cambiarla. */
+  /* Día siguiente al último período: es la fecha de regreso que se guarda en
+     `fecha_regreso`. El reintegro a labores de `fecha_reintegro_lab` es otro
+     dato, se elige a mano y no se deriva de aquí. */
   const ingreso = ultimoDia ? addDays(ultimoDia, 1) : ''
 
   /* Días a usar = días a corte − días asignados, en ese orden.
@@ -149,6 +155,13 @@ export default function NuevaAsignacionModal({
     }
     if (datos.correo.trim().length > 150) nuevos.correo = 'Máximo 150 caracteres.'
 
+    /* El reintegro a labores no puede caer dentro de las vacaciones: si coincide
+       con el último día programado (o es anterior), la persona seguiría de
+       vacaciones ese día. */
+    if (datos.fechaReintegroLab && ultimoDia && datos.fechaReintegroLab <= ultimoDia) {
+      nuevos.fechaReintegroLab = 'Debe ser posterior al último día de vacaciones.'
+    }
+
     if (resumen.periodosProgramados === 0) {
       nuevos.general = 'Programa al menos un período de vacaciones.'
     }
@@ -160,7 +173,14 @@ export default function NuevaAsignacionModal({
     const nuevos = validar()
     if (Object.keys(nuevos).length > 0) {
       setErrores(nuevos)
-      const orden = ['identificacion', 'empleado', 'periodo1', 'periodo2', 'periodo3']
+      const orden = [
+        'identificacion',
+        'empleado',
+        'fechaReintegroLab',
+        'periodo1',
+        'periodo2',
+        'periodo3',
+      ]
       const primero = orden.find((clave) => nuevos[clave])
       if (primero) {
         const sufijo = primero.startsWith('periodo') ? '-inicio' : ''
@@ -179,6 +199,7 @@ export default function NuevaAsignacionModal({
       correo: datos.correo.trim().toLowerCase() || null,
       diasACorte: datos.diasACorte === '' ? 0 : Number(datos.diasACorte),
       observaciones: datos.observaciones.trim() || null,
+      fechaReintegroLab: datos.fechaReintegroLab || null,
       periodos,
       fechaIngreso: ingreso || null,
     })
@@ -424,28 +445,55 @@ export default function NuevaAsignacionModal({
               </p>
             )}
 
-            {ingreso ? (
-              <p className="resumen-calculo__nota">
-                Ingreso sugerido: {formatIsoDate(ingreso, 'long')}
-              </p>
-            ) : null}
+            {/* El ingreso sugerido ya no se deriva de los períodos: es la fecha
+                de reintegro a labores que se elige en el campo de la izquierda
+                de Observaciones, y se refleja aquí tal cual. */}
+            <p className="resumen-calculo__nota">
+              {datos.fechaReintegroLab
+                ? `Ingreso sugerido: ${formatIsoDate(datos.fechaReintegroLab, 'long')}`
+                : 'Ingreso sugerido: elige la fecha de reintegro a labores.'}
+            </p>
           </div>
         </div>
 
-        <Form.Group controlId={`${baseId}-observaciones`} style={{ marginTop: 'var(--space-4)' }}>
-          <Form.Label>
-            Observaciones <span className="opcional">(opcional)</span>
-          </Form.Label>
-          <Form.Control
-            as="textarea"
-            rows={3}
-            value={datos.observaciones}
-            onChange={(event) => actualizar('observaciones', event.target.value)}
-            maxLength={4000}
-            placeholder="Acuerdos con el líder de UNES, reemplazos, condiciones del turno…"
-          />
-          <Form.Text>{datos.observaciones.length}/4000 caracteres.</Form.Text>
-        </Form.Group>
+        {/* Reintegro a labores a la izquierda de Observaciones: la etiqueta es
+            «Fecha de ingreso», la misma de la ficha del colaborador, y el dato
+            se guarda en `fecha_reintegro_lab` (no en `fecha_regreso`). */}
+        <div className="bloque-cierre" style={{ marginTop: 'var(--space-4)' }}>
+          <Form.Group controlId={`${baseId}-fechaReintegroLab`}>
+            <Form.Label>Fecha de ingreso</Form.Label>
+            <Form.Control
+              type="date"
+              value={datos.fechaReintegroLab}
+              onChange={(event) => actualizar('fechaReintegroLab', event.target.value)}
+              isInvalid={Boolean(errores.fechaReintegroLab)}
+              min={ultimoDia || undefined}
+            />
+            {errores.fechaReintegroLab ? (
+              <p className="invalid-feedback" role="alert">
+                <Icon name="error" size={16} />
+                <span>{errores.fechaReintegroLab}</span>
+              </p>
+            ) : (
+              <Form.Text>Reintegro a labores: día en que vuelve a trabajar.</Form.Text>
+            )}
+          </Form.Group>
+
+          <Form.Group controlId={`${baseId}-observaciones`}>
+            <Form.Label>
+              Observaciones <span className="opcional">(opcional)</span>
+            </Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              value={datos.observaciones}
+              onChange={(event) => actualizar('observaciones', event.target.value)}
+              maxLength={4000}
+              placeholder="Acuerdos con el líder de UNES, reemplazos, condiciones del turno…"
+            />
+            <Form.Text>{datos.observaciones.length}/4000 caracteres.</Form.Text>
+          </Form.Group>
+        </div>
       </Modal.Body>
 
       <Modal.Footer>

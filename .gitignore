@@ -37,3 +37,6 @@ Thumbs.db
 
 # Verificación visual local (capturas y servidores temporales)
 frontend/.verify/
+
+# Resultados de auditoría de seguridad: nunca se versionan.
+security/
