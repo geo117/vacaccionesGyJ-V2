@@ -10,9 +10,15 @@ with a second screen sometimes — never on a phone, though it must not break
 there.
 
 The single source of operational truth is a **local Microsoft SQL Server**
-database (`vacacionesgyj`), already populated and owned by an existing
+database (`vacacionesgyj_V2`), already populated and owned by an existing
 corporate process. This project does not own that data; it reads and writes it
 under the same rules the existing processes use.
+
+The employee roster is **not** stored there: it comes, read-only, from the
+corporate view `BD_Integraciones.dbo.PBI_Colaborador_Vacaciones` on a separate
+SQL Server. That connection is optional by design; when it does not answer, the
+assignment board falls back to the assignments registered locally and the API
+reports the origin as `"local"`.
 
 ## Who uses it
 
@@ -49,7 +55,9 @@ session may see. The interface reflects that authority; it never grants it.
 ## Functional scope (this iteration)
 
 - **Login** — corporate email + password, verified against SQL Server, with a
-  server-issued opaque session token.
+  server-issued opaque session token. If the API does not answer (service
+  stopped, timeout, or a `5xx` from the proxy), the screen says that explicitly
+  in its own alert instead of blaming the credentials.
 - **Home** — a top navbar and a left sidebar with three options:
   1. **Resumen** (dashboard): assignment KPIs and recent activity.
   2. **Asignaciones**: searchable/filterable assignment table.
@@ -72,4 +80,6 @@ else.
 Precise, administrative, calm. Colombian Spanish (es-CO) in the interface.
 Dates read `dd/mm/aaaa`. No exclamation marks, no marketing tone, no
 "¡Bienvenido de vuelta!" enthusiasm for a compliance tool. Errors state what
-happened and what to do next, in the same register.
+happened and what to do next, in the same register. A connectivity failure is
+never presented as a wrong password, and a wrong password never reveals whether
+the account exists.

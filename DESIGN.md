@@ -100,6 +100,11 @@ Restrained, and it always says something.
   Helper text above the error, error below the field with an icon + text and
   `aria-describedby`, `aria-invalid` on the input. Errors are announced once,
   not per keystroke; validation fires on submit and on blur.
+- **Alert** — one tone per cause: `info` for context, `danger` for what the user
+  must correct (credentials, validation), `warn` when the failure is not theirs
+  (the server did not answer). Glyph + bold diagnosis + next step in one
+  sentence. Not dismissible: it clears when the condition changes or the user
+  edits the form.
 - **Status chip** — `ok` / `warn` / `danger` / `info` / neutral, icon + label,
   4px radius, 2px vertical padding.
 - **Card** — `--surface`, `1px var(--line)`, 6px radius, 20px padding, optional
@@ -118,6 +123,11 @@ Restrained, and it always says something.
   password, inactive account, and unknown account are indistinguishable to the
   visitor. The remaining-attempts and lockout state is communicated as a rate
   limit, not as a hint about which accounts exist.
+- **A network failure is not a credential failure.** When the API does not
+  answer — connection refused, timeout, or a `5xx` returned by a proxy or
+  intermediary — the login screen says so in its own warning-toned alert and
+  names the failure. The generic credential message stays reserved for
+  rejected credentials. Neither path hints at whether the account exists.
 - Sign-out clears client state and revokes the server-side token.
 - Session expiry (401) surfaces one message and returns to login; it never
   loops.

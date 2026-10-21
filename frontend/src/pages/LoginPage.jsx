@@ -14,6 +14,10 @@
  *    servidor ya es indistinguible entre "correo no existe", "contraseña
  *    incorrecta" y "cuenta sin acceso"; la interfaz no reintroduce la
  *    diferencia que el backend se cuidó de no revelar.
+ *  - Los fallos de comunicación se avisan aparte: "no llegué al servidor" no es
+ *    "la contraseña está mal". El aviso dice qué falló (sin respuesta, tiempo
+ *    agotado o servicio caído) para que la persona sepa si debe reintentar o
+ *    avisar a Soporte, en lugar de corregir unas credenciales que no fallaron.
  *  - Cuando hay bloqueo por intentos, se dice cuánto falta. El límite es
  *    información del usuario; el catálogo de cuentas no lo es.
  *  - Tras un fallo se limpia la contraseña y el foco vuelve al primer campo con
@@ -48,11 +52,32 @@ const MESSAGES = {
   PASSWORD_TOO_LONG: 'La contraseña supera los 128 caracteres permitidos.',
   DATABASE_UNAVAILABLE:
     'No pudimos validar tus credenciales en este momento. Intenta de nuevo en unos segundos.',
-  NETWORK_ERROR:
-    'No pudimos comunicarnos con el servidor. Verifica que el servicio esté en ejecución.',
-  TIMEOUT: 'La operación tardó demasiado. Revisa tu conexión e intenta de nuevo.',
+  NETWORK_ERROR: 'Revisa tu conexión de red e intenta de nuevo.',
+  TIMEOUT: 'El servidor tardó demasiado en responder. Revisa tu conexión e intenta de nuevo.',
   INTERNAL_ERROR: 'Ocurrió un error inesperado. Intenta de nuevo o contacta a Soporte.',
   RATE_LIMITED: 'Demasiadas solicitudes seguidas. Espera un momento antes de reintentar.',
+  HTTP_500:
+    'El servidor no respondió. Puede estar detenido o reiniciándose; intenta de nuevo en unos segundos.',
+  HTTP_502:
+    'La puerta de enlace no pudo contactar al servidor. Puede estar detenido o sin acceso desde tu equipo.',
+  HTTP_503: 'El servicio está temporalmente fuera de servicio. Intenta de nuevo en unos minutos.',
+  HTTP_504: 'El servidor no respondió a tiempo. Intenta de nuevo en unos segundos.',
+}
+
+/**
+ * Códigos que significan "no hubo respuesta del backend", no "las credenciales
+ * no sirven".
+ *
+ * Los `HTTP_5xx` entran aquí sólo cuando el cuerpo no traía el `code` del
+ * backend. Ese es justo el caso del proxy de Vite con el backend detenido
+ * (`HTTP_500`) o de un intermediario que no lo alcanza (`502`/`503`/`504`). Un
+ * error de negocio del backend siempre llega como JSON con su propio código
+ * —por ejemplo `DATABASE_UNAVAILABLE`—, así que no se confunde con este grupo.
+ */
+const CONNECTION_CODES = new Set(['NETWORK_ERROR', 'TIMEOUT'])
+
+function isConnectionFailure(code) {
+  return CONNECTION_CODES.has(code) || /^HTTP_5\d\d$/.test(code)
 }
 
 export default function LoginPage() {
@@ -156,7 +181,13 @@ export default function LoginPage() {
 
       // La contraseña no se queda escrita después de un fallo.
       setPassword('')
-      setFormError({ code, message })
+      setFormError({
+        code,
+        message,
+        // Distingue "el servidor no respondió" de "las credenciales no son
+        // correctas": el usuario necesita saber qué falló para actuar distinto.
+        kind: isConnectionFailure(code) ? 'conexion' : 'sesion',
+      })
       passwordRef.current?.focus()
     } finally {
       setSubmitting(false)
@@ -237,10 +268,20 @@ export default function LoginPage() {
 
           <form className="login__form" onSubmit={handleSubmit} noValidate>
             {formError ? (
-              <div className="alert alert--danger login__form-error" role="alert">
+              <div
+                className={`alert ${
+                  formError.kind === 'conexion' ? 'alert--warn' : 'alert--danger'
+                } login__form-error`}
+                role="alert"
+              >
                 <Icon name="alerta" size={18} />
                 <span>
-                  <strong>No pudimos iniciar tu sesión.</strong> {formError.message}
+                  <strong>
+                    {formError.kind === 'conexion'
+                      ? 'No hay conexión con el servidor.'
+                      : 'No pudimos iniciar tu sesión.'}
+                  </strong>{' '}
+                  {formError.message}
                 </span>
               </div>
             ) : null}

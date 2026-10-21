@@ -58,6 +58,12 @@ microsegundos también revela que la cuenta no existe aunque el mensaje sea
 idéntico. La interfaz no reintroduce la diferencia: usa un único mensaje para
 todos los fallos de credenciales.
 
+Un fallo de **transporte** no es un fallo de credenciales y queda fuera de esa
+respuesta: si la API no responde, tarda de más o un intermediario devuelve un
+`5xx` sin cuerpo, el backend no llegó a evaluar la credencial. La interfaz lo
+presenta como un problema de comunicación, con texto y tono propios, sin
+convertirlo en una pista sobre si la cuenta existe.
+
 ### 2.3 Fuerza bruta — acotada
 
 `RateLimiter` (ventana deslizante en memoria, con cerrojo) permite
@@ -179,6 +185,11 @@ el detalle de la excepción solo va al log del servidor.
   base se renderice como HTML.
 * La contraseña se limpia del estado tras cada fallo y el foco vuelve al campo
   con problema.
+* El aviso de comunicación se decide por el código de transporte/HTTP
+  (`NETWORK_ERROR`, `TIMEOUT` o `HTTP_5xx` sin el `code` del backend), nunca por
+  el resultado de la validación. Un `401 INVALID_CREDENTIALS` sigue siendo
+  indistinguible entre cuenta inexistente, contraseña incorrecta y cuenta
+  inactiva.
 * Accesibilidad como control de calidad, no como adorno: contraste medido ≥
   4.5:1, foco visible (`:focus-visible`, nunca `outline: none`), etiquetas
   reales, errores junto al campo con `aria-describedby`/`aria-invalid`,
@@ -197,10 +208,14 @@ código en esta iteración.
 2. **Limitador de intentos por proceso.** Mismo problema: `LOGIN_MAX_ATTEMPTS2`
    se multiplica por el número de workers. Con varios procesos hay que
    centralizarlo.
-3. **`TrustServerCertificate=yes`.** Correcto contra `.\\SQLEXPRESS` local con
-   certificado autofirmado; **incorrecto** contra un servidor remoto, donde se
-   debe usar `DB_TRUST_SERVER_CERT2=no` y un certificado de una CA en la que el
-   cliente confíe.
+3. **`TrustServerCertificate=yes` en las dos conexiones.** Es correcto contra
+   `.\\SQLEXPRESS` local con certificado autofirmado, pero la conexión
+   corporativa (`DB_*`, vista `PBI_Colaborador_Vacaciones`) apunta a un servidor
+   remoto y el `.env` no declara `DB_TRUST_SERVER_CERT`, así que toma el valor
+   por defecto `yes`: el canal se cifra, pero no se comprueba con quién se
+   habla. Antes de llevarlo a producción hay que poner `DB_TRUST_SERVER_CERT=no`
+   (y `DB_TRUST_SERVER_CERT2=no`) con un certificado emitido por una CA en la
+   que el cliente confíe.
 4. **Sin TLS.** En desarrollo la API viaja por HTTP en loopback. Publicar
    `HOST2=0.0.0.0` sin TLS expone las contraseñas en texto plano a la red local.
 5. **Sin cabecera HSTS.** No tiene sentido sin TLS; se añade junto con el
@@ -213,6 +228,11 @@ código en esta iteración.
    Werkzeug es mono-proceso y no está endurecido. El despliegue real va detrás
    de un WSGI (waitress en Windows, gunicorn detrás de Nginx en Linux) con los
    puntos 1 y 2 resueltos.
+8. **La conexión corporativa usa `sa`.** Leer una vista no requiere un
+   administrador del servidor: mientras `DB_USER` siga siendo `sa`, cualquier
+   error de consulta se ejecuta con el máximo privilegio y no tiene red de
+   seguridad en la base. Debe ser un usuario con `SELECT` sólo sobre
+   `BD_Integraciones.dbo.PBI_Colaborador_Vacaciones`.
 
 ## 4. Verificación ejecutada
 
@@ -232,6 +252,10 @@ npm run build    # sin errores
 Además se inspeccionó el flujo real en navegador headless sobre el build de
 producción (acceso, resumen, asignaciones, notificaciones y ancho móvil de
 390 px).
+
+El cambio de mensajes de comunicación de `frontend/src/pages/LoginPage.jsx` se
+validó con `npx eslint src/pages/LoginPage.jsx` y `vite build` en un directorio
+temporal, sin errores.
 
 ## 5. Reglas para quien siga construyendo aquí
 

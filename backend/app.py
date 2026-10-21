@@ -361,7 +361,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         )
 
     # -- rutas --------------------------------------------------------------
-
+    
     @app.get("/api")
     def api_index():
         return ok(
