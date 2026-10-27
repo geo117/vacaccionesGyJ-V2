@@ -22,9 +22,31 @@ logger = logging.getLogger(__name__)
 
 USERS_TABLE = "dbo.Usuarios"
 
-# El cargo que habilita la administración. Se compara normalizado (minúsculas y
-# sin espacios sobrantes) porque en la base está capturado a mano.
+# Cargos con privilegios. Se comparan normalizados (minúsculas y sin espacios
+# sobrantes) porque en la base están capturados a mano.
+#
+#   talento humano → aprueba/rechaza asignaciones y ve toda la plantilla.
+#   admin          → administra las cuentas y también ve toda la plantilla.
+#
+# Administración de usuarios es exclusiva de «admin»; Talento Humano conserva la
+# decisión sobre las asignaciones.
 CARGO_TALENTO_HUMANO = "talento humano"
+CARGO_ADMIN = "admin"
+
+# Empresa a la que pertenece la cuenta. Vive en `Usuarios.company` y decide qué
+# plantilla de colaboradores se le muestra: la vista corporativa identifica la
+# empresa con el **primer dígito** de `IDCia_CO` (`'2-109'`, `'3-…'`, `'4-301'`).
+# El número es el que se guarda; el texto es sólo para mostrar.
+EMPRESAS = {
+    2: "GyJ Ferreterías",
+    3: "Almasa",
+    4: "Colmena",
+}
+
+# Cuentas anteriores a la columna `company` no traen empresa. La aplicación nació
+# para GyJ (la vista original sólo tenía UNES `2-…`), así que se asumen de GyJ en
+# lugar de dejarlas sin filtro y exponerles la plantilla de las otras empresas.
+EMPRESA_POR_DEFECTO = 2
 
 # `activo` es VARCHAR(10) y en la base está capturado con texto ("si"/"no"), no
 # como BIT. Se acepta un conjunto amplio de valores afirmativos para no depender
@@ -43,7 +65,7 @@ NOMBRE_MAX = 100
 CORREO_MAX = 150
 CARGO_MAX = 60
 
-_SELECT_COLUMNS = "id, nombre, correo, cargo, activo, fecha_creacion"
+_SELECT_COLUMNS = "id, nombre, correo, cargo, activo, fecha_creacion, company"
 
 _SELECT_BY_EMAIL = (
     f"SELECT {_SELECT_COLUMNS}, password_hash FROM {USERS_TABLE} WHERE LOWER(correo) = ?"
@@ -52,10 +74,10 @@ _SELECT_BY_ID = f"SELECT {_SELECT_COLUMNS} FROM {USERS_TABLE} WHERE id = ?"
 _SELECT_BY_CORREO = f"SELECT {_SELECT_COLUMNS} FROM {USERS_TABLE} WHERE LOWER(correo) = ?"
 _SELECT_ALL = f"SELECT {_SELECT_COLUMNS} FROM {USERS_TABLE} ORDER BY nombre"
 _INSERT = (
-    f"INSERT INTO {USERS_TABLE} (nombre, correo, password_hash, cargo, activo, fecha_creacion) "
-    "OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, GETDATE())"
+    f"INSERT INTO {USERS_TABLE} (nombre, correo, password_hash, cargo, activo, company, fecha_creacion) "
+    "OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, GETDATE())"
 )
-_UPDATE = f"UPDATE {USERS_TABLE} SET nombre = ?, correo = ?, cargo = ? WHERE id = ?"
+_UPDATE = f"UPDATE {USERS_TABLE} SET nombre = ?, correo = ?, cargo = ?, company = ? WHERE id = ?"
 _UPDATE_ACTIVO = f"UPDATE {USERS_TABLE} SET activo = ? WHERE id = ?"
 _UPDATE_PASSWORD = f"UPDATE {USERS_TABLE} SET password_hash = ? WHERE id = ?"
 _DELETE = f"DELETE FROM {USERS_TABLE} WHERE id = ?"
@@ -82,6 +104,52 @@ def es_activo(valor: object) -> bool:
     return str(valor).strip().lower() in VALORES_ACTIVO
 
 
+def company_desde_bd(valor: object) -> int:
+    """Empresa leída de la fila → entero.
+
+    Una fila anterior a la columna `company` (o con el valor vacío) se asume de
+    GyJ: la aplicación nació para esa empresa y dejarla sin empresa equivaldría a
+    mostrarle la plantilla de todas. Un valor desconocido se conserva tal cual
+    para que el filtro siga acotando por el primer dígito de `IDCia_CO`.
+    """
+    if valor is None:
+        return EMPRESA_POR_DEFECTO
+    texto = str(valor).strip()
+    if not texto:
+        return EMPRESA_POR_DEFECTO
+    try:
+        numero = int(texto)
+    except (TypeError, ValueError):
+        return EMPRESA_POR_DEFECTO
+    return numero if numero > 0 else EMPRESA_POR_DEFECTO
+
+
+def etiqueta_empresa(valor: object) -> str:
+    """Nombre visible de la empresa; nunca deja el desplegable en blanco."""
+    numero = company_desde_bd(valor)
+    return EMPRESAS.get(numero, f"Empresa {numero}")
+
+
+def validar_company(valor: object) -> int:
+    """Empresa enviada por el navegador.
+
+    Se acepta un entero o el texto que envía un formulario, pero sólo los valores
+    del catálogo: es una regla de acceso, no un dato libre. Si se permitiera un
+    número arbitrario, el filtro por `IDCia_CO` quedaría a merced del cliente.
+    """
+    if valor is None or str(valor).strip() == "":
+        raise ValidationError("COMPANY_REQUERIDA", "Selecciona la empresa del usuario.")
+    try:
+        numero = int(str(valor).strip())
+    except (TypeError, ValueError) as exc:
+        raise ValidationError(
+            "COMPANY_INVALIDA", "La empresa seleccionada no es válida."
+        ) from exc
+    if numero not in EMPRESAS:
+        raise ValidationError("COMPANY_INVALIDA", "La empresa seleccionada no es válida.")
+    return numero
+
+
 @dataclass(frozen=True)
 class User:
     """Identidad de la sesión. ``password_hash`` no forma parte de este objeto."""
@@ -91,10 +159,30 @@ class User:
     correo: str
     cargo: str
     activo: bool = False
+    company: int = EMPRESA_POR_DEFECTO
+
+    @property
+    def empresa(self) -> str:
+        return etiqueta_empresa(self.company)
 
     @property
     def es_talento_humano(self) -> bool:
         return normalizar_cargo(self.cargo) == CARGO_TALENTO_HUMANO
+
+    @property
+    def es_admin(self) -> bool:
+        """Administra las cuentas (crear, editar, activar y eliminar)."""
+        return normalizar_cargo(self.cargo) == CARGO_ADMIN
+
+    @property
+    def ve_toda_la_plantilla(self) -> bool:
+        """Quién ve la plantilla completa de su empresa, no sólo una UNES.
+
+        Es una regla de alcance distinta de «puede aprobar»: el admin necesita
+        ver todos los colaboradores para gestionar las cuentas, pero no decide
+        sobre las asignaciones.
+        """
+        return self.es_talento_humano or self.es_admin
 
     @property
     def puede_aprobar(self) -> bool:
@@ -109,7 +197,11 @@ class User:
             "correo": self.correo,
             "cargo": self.cargo or "",
             "activo": self.activo,
+            "company": self.company,
+            "empresa": self.empresa,
             "esTalentoHumano": self.es_talento_humano,
+            "esAdmin": self.es_admin,
+            "veTodaLaPlantilla": self.ve_toda_la_plantilla,
             "puedeAprobar": self.puede_aprobar,
         }
 
@@ -117,7 +209,7 @@ class User:
 def _fila_a_usuario(row: tuple[Any, ...]) -> User:
     """Mapea ``_SELECT_COLUMNS`` a ``User``.
 
-    El orden es ``id, nombre, correo, cargo, activo, fecha_creacion``.
+    El orden es ``id, nombre, correo, cargo, activo, fecha_creacion, company``.
     """
     return User(
         id=int(row[0]),
@@ -125,6 +217,7 @@ def _fila_a_usuario(row: tuple[Any, ...]) -> User:
         correo=str(row[2] or ""),
         cargo=str(row[3] or ""),
         activo=es_activo(row[4]),
+        company=company_desde_bd(row[6]),
     )
 
 
@@ -163,15 +256,15 @@ class UserRepository:
         viajar por accidente dentro de una respuesta.
 
         Ojo con el índice: ``_SELECT_BY_EMAIL`` es
-        ``id, nombre, correo, cargo, activo, fecha_creacion, password_hash``, así
-        que el hash va en la **posición 6**. Leerlo de otra posición no falla:
-        compara contra un valor que no es un hash y todo inicio de sesión
-        devuelve "credenciales incorrectas".
+        ``id, nombre, correo, cargo, activo, fecha_creacion, company,
+        password_hash``, así que el hash va en la **posición 7**. Leerlo de otra
+        posición no falla: compara contra un valor que no es un hash y todo
+        inicio de sesión devuelve "credenciales incorrectas".
         """
         row = self._database.query_one(_SELECT_BY_EMAIL, (email,))
         if row is None:
             return None
-        return _fila_a_usuario(row), str(row[6] or "")
+        return _fila_a_usuario(row), str(row[7] or "")
 
     def find_by_id(self, user_id: int) -> User | None:
         row = self._database.query_one(_SELECT_BY_ID, (user_id,))
@@ -199,7 +292,10 @@ class UserRepository:
                 "cargo": str(row[3] or ""),
                 "activo": es_activo(row[4]),
                 "fechaCreacion": row[5].isoformat() if row[5] else None,
+                "company": company_desde_bd(row[6]),
+                "empresa": etiqueta_empresa(row[6]),
                 "esTalentoHumano": normalizar_cargo(row[3]) == CARGO_TALENTO_HUMANO,
+                "esAdmin": normalizar_cargo(row[3]) == CARGO_ADMIN,
             }
             for row in filas
         ]
@@ -221,6 +317,19 @@ class UserRepository:
             if usuario["esTalentoHumano"] and usuario["activo"] and usuario["id"] != excluir_id
         )
 
+    def contar_admin_activo(self, *, excluir_id: int = 0) -> int:
+        """Cuántos administradores **activos** quedan.
+
+        Igual que con Talento Humano, se cuenta en Python para no duplicar la
+        interpretación de ``activo``. Evita que el último admin se degrade a sí
+        mismo y deje el sistema sin quien administre las cuentas.
+        """
+        return sum(
+            1
+            for usuario in self.listar()
+            if usuario["esAdmin"] and usuario["activo"] and usuario["id"] != excluir_id
+        )
+
     def correo_en_uso(self, email: str, *, excluir_id: int = 0) -> bool:
         row = self._database.query_one(_COUNT_BY_EMAIL, (email, excluir_id))
         return bool(row and int(row[0]) > 0)
@@ -228,7 +337,14 @@ class UserRepository:
     # -- escritura -----------------------------------------------------------
 
     def crear(
-        self, *, nombre: str, correo: str, password_hash: str, cargo: str, activo: bool = True
+        self,
+        *,
+        nombre: str,
+        correo: str,
+        password_hash: str,
+        cargo: str,
+        company: int,
+        activo: bool = True,
     ) -> int:
         with self._database.cursor(commit=True) as cursor:
             cursor.execute(
@@ -239,6 +355,7 @@ class UserRepository:
                     password_hash,
                     cargo,
                     ACTIVO_SI if activo else ACTIVO_NO,
+                    company,
                 ),
             )
             row = cursor.fetchone()
@@ -246,8 +363,10 @@ class UserRepository:
             raise RuntimeError("La inserción no devolvió el identificador del usuario.")
         return int(row[0])
 
-    def actualizar(self, user_id: int, *, nombre: str, correo: str, cargo: str) -> int:
-        return self._database.execute(_UPDATE, (nombre, correo, cargo, user_id))
+    def actualizar(
+        self, user_id: int, *, nombre: str, correo: str, cargo: str, company: int
+    ) -> int:
+        return self._database.execute(_UPDATE, (nombre, correo, cargo, company, user_id))
 
     def actualizar_activo(self, user_id: int, activo: bool) -> int:
         return self._database.execute(
@@ -267,6 +386,7 @@ def validar_usuario_nuevo(payload: dict[str, Any]) -> dict[str, Any]:
         "nombre": validar_nombre(payload.get("nombre")),
         "correo": normalize_email(payload.get("correo")),
         "cargo": validar_cargo(payload.get("cargo")),
+        "company": validar_company(payload.get("company")),
         "password": validate_password(payload.get("password")),
         # Si no se dice nada, el usuario nace activo: es lo que se espera al
         # crearlo, y dejarlo inactivo por omisión sería una sorpresa.

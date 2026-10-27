@@ -108,10 +108,13 @@ export default function AuthProvider({ children }) {
 
   const clearNotice = useCallback(() => setNotice(null), [])
 
-  /* El cargo viene del servidor (`usuario.esTalentoHumano`). La interfaz lo usa
+  /* Los privilegios vienen del servidor (`usuario.esAdmin`,
+     `usuario.esTalentoHumano`, `usuario.veTodaLaPlantilla`). La interfaz los usa
      para mostrar u ocultar opciones, pero el control real está en el backend:
      ocultar un botón no impide llamar a la API. */
   const esTalentoHumano = Boolean(user?.esTalentoHumano)
+  const esAdmin = Boolean(user?.esAdmin)
+  const veTodaLaPlantilla = Boolean(user?.veTodaLaPlantilla)
   const puedeAprobar = Boolean(user?.puedeAprobar)
   /* UNES digitada al entrar. No vive en la base: es un dato de la sesión y la
      usan los listados para filtrar. */
@@ -127,9 +130,23 @@ export default function AuthProvider({ children }) {
       login,
       logout,
       esTalentoHumano,
+      esAdmin,
+      veTodaLaPlantilla,
       puedeAprobar,
     }),
-    [status, user, unes, notice, clearNotice, login, logout, esTalentoHumano, puedeAprobar],
+    [
+      status,
+      user,
+      unes,
+      notice,
+      clearNotice,
+      login,
+      logout,
+      esTalentoHumano,
+      esAdmin,
+      veTodaLaPlantilla,
+      puedeAprobar,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

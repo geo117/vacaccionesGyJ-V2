@@ -2,9 +2,9 @@
  * Configuración de la navegación. Una sola definición alimenta el sidebar, el
  * título de la barra superior y las rutas.
  *
- * `soloTalentoHumano` marca las opciones que no todo el mundo debe ver. El
- * sidebar las filtra con el cargo que devolvió el servidor; el backend las
- * vuelve a proteger por su cuenta.
+ * `soloAdmin` marca las opciones que no todo el mundo debe ver. El sidebar las
+ * filtra con el cargo que devolvió el servidor; el backend las vuelve a
+ * proteger por su cuenta.
  */
 
 export const NAV_ITEMS = [
@@ -40,7 +40,7 @@ export const NAV_ITEMS = [
     title: 'Administración de usuarios',
     description: 'Usuarios registrados en la base de datos: crear, editar y eliminar.',
     icon: 'administracion',
-    soloTalentoHumano: true,
+    soloAdmin: true,
   },
 ]
 
@@ -53,6 +53,6 @@ export function findNavItem(pathname) {
 }
 
 /** Opciones visibles para un cargo dado. */
-export function navItemsPara(esTalentoHumano) {
-  return NAV_ITEMS.filter((item) => !item.soloTalentoHumano || esTalentoHumano)
+export function navItemsPara(esAdmin) {
+  return NAV_ITEMS.filter((item) => !item.soloAdmin || esAdmin)
 }

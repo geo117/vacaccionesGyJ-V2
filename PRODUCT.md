@@ -15,18 +15,22 @@ corporate process. This project does not own that data; it reads and writes it
 under the same rules the existing processes use.
 
 The employee roster is **not** stored there: it comes, read-only, from the
-corporate view `BD_Integraciones.dbo.PBI_Colaborador_Vacaciones` on a separate
-SQL Server. That connection is optional by design; when it does not answer, the
-assignment board falls back to the assignments registered locally and the API
-reports the origin as `"local"`.
+corporate view `BD_Integraciones.dbo.PBI_Colaborador_Vacaciones_V2` on a separate
+SQL Server. That view covers the group's three companies (GyJ Ferreterías,
+Almasa and Colmena); each account belongs to one of them through
+`dbo.Usuarios.company` and only receives that company's roster. That connection
+is optional by design; when it does not answer, the assignment board falls back
+to the assignments registered locally and the API reports the origin as
+`"local"`.
 
 ## Who uses it
 
 | Role | What they need | What success looks like |
 |---|---|---|
 | **Talento Humano** (`cargo = 'Talento Humano'`) | See every pending assignment, approve or reject with a motive, notify the area lead | Zero spreadsheet handoffs; every decision carries an audit trail |
+| **Admin** (`cargo = 'admin'`) | Manage application accounts and see the full company roster | User access changes without touching the database |
 | **Gerente UNES** (`cargo = 'gerente unes'`) | See only their UNES, act on the assignments routed to them | No cross-area exposure; no surprises at payroll cutoff |
-| **Soporte / Admin** | Access is granted in the database, never in the UI | No self-service role escalation from the interface |
+| **Soporte** | Access is granted in the database, never in the UI | No self-service role escalation from the interface |
 
 Roles are **data**, not UI state. `users.cargo` and `users.unes` decide what a
 session may see. The interface reflects that authority; it never grants it.

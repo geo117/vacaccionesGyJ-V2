@@ -59,7 +59,7 @@ CREATE TABLE dbo.Usuarios (
     correo        VARCHAR(150) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     fecha_creacion DATETIME DEFAULT GETDATE(),
-    cargo         VARCHAR(60) NULL,       -- 'talento humano' habilita la administración
+    cargo         VARCHAR(60) NULL,       -- 'admin' administra cuentas; 'talento humano' aprueba
     activo        VARCHAR(10) NULL        -- 'si' / 'no': si no está activo, no puede entrar
 );
 ```
@@ -161,11 +161,11 @@ la interfaz.
 |---|---|---|---|
 | `GET` | `/api` | Público | Índice del servicio |
 | `GET` | `/api/health` | Público | Estado de la API y de las tres tablas |
-| `POST` | `/api/auth/login` | Público | Valida credenciales y emite el token. La UNES es opcional para Talento Humano |
+| `POST` | `/api/auth/login` | Público | Valida credenciales y emite el token. La UNES es opcional para Talento Humano y admin |
 | `POST` | `/api/auth/logout` | Sesión | Revoca el token actual |
 | `GET` | `/api/auth/session` | Sesión | Confirma la sesión y devuelve el usuario con su cargo |
-| `GET` | `/api/resumen` | Sesión | Totales de la empresa para Talento Humano; los de la UNES de la sesión para el resto |
-| `GET` | `/api/asignaciones` | Sesión | Colaboradores de la UNES de la sesión; **toda la plantilla** para Talento Humano |
+| `GET` | `/api/resumen` | Sesión | Totales de la empresa para Talento Humano y admin; los de la UNES de la sesión para el resto |
+| `GET` | `/api/asignaciones` | Sesión | Colaboradores de la UNES de la sesión; **toda la plantilla** para Talento Humano y admin |
 | `GET` | `/api/asignaciones/{id}` | Sesión | Una asignación |
 | `POST` | `/api/asignaciones` | Sesión | Registra una asignación nueva |
 | `PUT` | `/api/asignaciones/{id}/periodos` | Sesión | Programa los tres períodos |
@@ -174,11 +174,11 @@ la interfaz.
 | `GET` | `/api/reportes/plano-unoee` | **Talento Humano** | Plano UNOEE en Excel sobre la plantilla oficial |
 | `GET` | `/api/notificaciones` | Sesión | Bandeja del cargo: Talento Humano ve todas; el resto, ninguna |
 | `GET` | `/api/notificaciones/mias` | Sesión | Avisos generados por quien consulta (`usuario_id`) |
-| `GET` | `/api/usuarios` | **Talento Humano** | Usuarios registrados, con su estado |
-| `POST` | `/api/usuarios` | **Talento Humano** | Crea un usuario |
-| `PUT` | `/api/usuarios/{id}` | **Talento Humano** | Edita nombre, correo, cargo y/o contraseña |
-| `PATCH` | `/api/usuarios/{id}/activo` | **Talento Humano** | Activa o desactiva la cuenta |
-| `DELETE` | `/api/usuarios/{id}` | **Talento Humano** | Elimina y cierra sus sesiones |
+| `GET` | `/api/usuarios` | **Admin** | Usuarios registrados, con su estado |
+| `POST` | `/api/usuarios` | **Admin** | Crea un usuario |
+| `PUT` | `/api/usuarios/{id}` | **Admin** | Edita nombre, correo, cargo y/o contraseña |
+| `PATCH` | `/api/usuarios/{id}/activo` | **Admin** | Activa o desactiva la cuenta |
+| `DELETE` | `/api/usuarios/{id}` | **Admin** | Elimina y cierra sus sesiones |
 | `GET` | `/api/notificaciones` | Sesión | Bandeja general (sólo Talento Humano ve algo) |
 | `GET` | `/api/notificaciones/mias` | Sesión | Avisos dirigidos a quien consulta |
 
@@ -190,7 +190,7 @@ distintos y no son intercambiables:
 | Prefijo | Para qué | Obligatoria |
 |---|---|---|
 | `DB_*2` (por ejemplo `DB_SERVER2`) | La base propia: `Usuarios`, `asignacion_vacaciones`, `notificaciones` | Sí, sin ella no arranca |
-| `DB_*` (`DB_SERVER`) | La vista corporativa `PBI_Colaborador_Vacaciones` | No |
+| `DB_*` (`DB_SERVER`) | La vista corporativa `PBI_Colaborador_Vacaciones_V2` | No |
 
 La segunda es **opcional a propósito**: si el servidor corporativo no responde,
 el backend arranca igual y `/api/asignaciones` degrada al listado local de
@@ -219,18 +219,43 @@ Dos advertencias que conviene tener presentes:
   el compromiso habitual; si el tráfico sale de la red, hay que ponerlo en `no` y
   confiar en el certificado real.
 
+## La empresa de la cuenta
+
+`dbo.Usuarios.company` guarda a qué empresa pertenece cada cuenta. Se elige en el
+modal de Administración y no se puede escribir un valor libre: el backend sólo
+acepta los del catálogo.
+
+| `company` | Empresa | Prefijo de `IDCia_CO` |
+|---|---|---|
+| `2` | GyJ Ferreterías | `2-…` |
+| `3` | Almasa | `3-…` |
+| `4` | Colmena | `4-…` |
+
+La vista `PBI_Colaborador_Vacaciones_V2` reúne la plantilla de las tres empresas.
+El **primer dígito** de `IDCia_CO` identifica la empresa (`'4-301'` → `4`), así
+que el servidor lo compara en el `WHERE` con la empresa de la sesión. Una cuenta
+de Colmena nunca recibe por la API la plantilla de GyJ ni la de Almasa, ni
+siquiera cuando la vista corporativa falla y se degrada al listado local: el
+registro guarda la UNES completa (`'4-301'`) y permite aplicar el mismo filtro.
+
+Las cuentas anteriores a la columna (o con el valor vacío) se asumen de GyJ
+(`2`), que es la empresa para la que nació la aplicación. Cambiar la empresa de
+un usuario surte efecto en su siguiente petición: `authenticate` vuelve a leer
+la fila en cada llamada.
+
 ## El filtro por UNES
 
 La UNES se **digita en el login** y no se guarda en `dbo.Usuarios`: vive en la
 sesión. Se aceptan `109` y `2-109`.
 
-**Talento Humano entra sin UNES.** Su tablero es la plantilla completa de la
-empresa (`EmployeeDirectory.listar_todos`), así que el campo es opcional para ese
-cargo: si las credenciales son correctas y no se envió UNES, la sesión se emite
-con `unes` vacío. Para cualquier otro cargo la UNES es obligatoria, porque su
-listado se filtra por ella; si falta, el login responde `400 UNES_REQUERIDA`
-**después** de comprobar la contraseña, no antes. Cuál de las dos cosas aplica lo
-decide el `cargo` que está en la base, nunca un valor de la petición.
+**Talento Humano y el admin entran sin UNES.** Su tablero es la plantilla
+completa **de su empresa** (`EmployeeDirectory.listar_todos`), así que el campo es
+opcional para esos cargos: si las credenciales son correctas y no se envió UNES,
+la sesión se emite con `unes` vacío. Para cualquier otro cargo la UNES es
+obligatoria, porque su listado se filtra por ella; si falta, el login responde
+`400 UNES_REQUERIDA` **después** de comprobar la contraseña, no antes. Cuál de las
+dos cosas aplica lo decide el `cargo` que está en la base, nunca un valor de la
+petición.
 
 El filtro se aplica en el `WHERE` de SQL, comparando los **tres últimos dígitos**
 de `IDCia_CO`, y acota **las dos** cosas: los colaboradores de la vista y las
@@ -239,7 +264,8 @@ sólo lo primero dejaría ver movimientos de otras UNES por esa puerta.
 
 No es cosmético: es una regla de acceso. Un usuario no debe recibir por la API
 la plantilla de otras UNES, así que el filtro no puede hacerse en el navegador.
-Talento Humano es la excepción declarada: su cargo ya implica verlo todo.
+Talento Humano y el admin son la excepción declarada: su cargo ya implica ver
+toda la plantilla de **su empresa**.
 
 ## Los días a usar
 
@@ -318,22 +344,29 @@ comprobación unos segundos, nunca eliminarla.
 
 Dos protecciones más: no se puede desactivar el propio usuario
 (`409 NO_SE_PUEDE_DESACTIVAR_A_SI_MISMO`) ni dejar el sistema sin ningún Talento
-Humano activo (`409 ULTIMO_TALENTO_HUMANO`). Esa última cuenta sólo los
-**activos**, así que degradar o eliminar a alguien ya desactivado no se bloquea.
+Humano activo (`409 ULTIMO_TALENTO_HUMANO`) o sin ningún admin activo
+(`409 ULTIMO_ADMIN`). Esa última cuenta sólo los **activos**, así que degradar o
+eliminar a alguien ya desactivado no se bloquea.
 
 ### El cargo manda
 
 `usuarios.cargo` se lee de la base en cada petición y viaja en la sesión. Las
-rutas marcadas **Talento Humano** están detrás de `@require_talento_humano`: si
-el cargo no coincide, responden `403 FORBIDDEN_ROLE`. **Ocultar la opción en el
-navegador no es el control**; esto sí lo es, porque a la API se le puede llamar
-directamente con un token válido.
+rutas de administración de usuarios están detrás de `@require_admin` y las de
+decisión y plano UNOEE, de `@require_talento_humano`: si el cargo no coincide,
+responden `403 FORBIDDEN_ROLE`. **Ocultar la opción en el navegador no es el
+control**; esto sí lo es, porque a la API se le puede llamar directamente con un
+token válido.
 
-Dos protecciones adicionales evitan dejar el sistema sin administración:
+El alcance del tablero es otra regla: `ve_toda_la_plantilla` es verdadero para
+Talento Humano y para el admin, que entran sin UNES y ven toda la empresa de la
+cuenta. El resto de cargos sólo ve su UNES.
+
+Tres protecciones adicionales evitan dejar el sistema sin administración:
 
 * no se puede eliminar el propio usuario (`409 NO_SE_PUEDE_ELIMINAR_A_SI_MISMO`);
 * no se puede eliminar ni degradar al último usuario de Talento Humano
-  (`409 ULTIMO_TALENTO_HUMANO`).
+  (`409 ULTIMO_TALENTO_HUMANO`);
+* no se puede eliminar ni degradar al último admin (`409 ULTIMO_ADMIN`).
 
 ### Los días los calcula el servidor
 
@@ -353,7 +386,7 @@ quien puede pedir las que generó (`/api/notificaciones/mias`).
 ### `POST /api/auth/login`
 
 ```jsonc
-// Petición — la UNES es opcional: Talento Humano entra sin ella
+// Petición — la UNES es opcional: Talento Humano y el admin entran sin ella
 { "correo": "nombre@gyj.com.co", "password": "…", "unes": "109" }
 
 // 200
@@ -368,6 +401,8 @@ quien puede pedir las que generó (`/api/notificaciones/mias`).
     "correo": "…",
     "cargo": "talento humano",
     "esTalentoHumano": true,
+    "esAdmin": false,
+    "veTodaLaPlantilla": true,
     "puedeAprobar": true,
     "unes": ""
   }
@@ -384,7 +419,7 @@ escrito para la persona y **no** distingue si la cuenta existe:
 | `PASSWORD_WHITESPACE` | 400 | La contraseña empieza o termina con espacio |
 | `PASSWORD_TOO_LONG` | 400 | Supera los 128 caracteres |
 | `UNES_INVALIDA` | 400 | La UNES trae algo distinto de tres dígitos (`109`, `2-109`) |
-| `UNES_REQUERIDA` | 400 | Credenciales correctas de un cargo que **no** es Talento Humano y falta la UNES |
+| `UNES_REQUERIDA` | 400 | Credenciales correctas de un cargo que **no** ve toda la plantilla y falta la UNES |
 | `INVALID_CREDENTIALS` | 401 | Correo inexistente, contraseña incorrecta o cuenta sin acceso |
 | `TOO_MANY_ATTEMPTS` | 429 | Se superó el límite; incluye `Retry-After` |
 | `DATABASE_UNAVAILABLE` | 503 | SQL Server no responde |
@@ -410,11 +445,12 @@ acceso con un aviso único.
 python test_backend.py
 ```
 
-66 comprobaciones contra la base real: credenciales, **control de rol** (un
-usuario de otro cargo recibe 403 en cada ruta de administración y en la de
-decisión), alta/edición/eliminación de usuarios, persistencia de los tres
+66 comprobaciones contra la base real: credenciales, **control de rol** (Talento
+Humano y otros cargos reciben 403 en las rutas de administración, y el resto en
+la de decisión), alta/edición/eliminación de usuarios, persistencia de los tres
 períodos, recálculo de días y total, cruces y rangos invertidos, decisiones que
-generan notificaciones, resumen y las protecciones del último Talento Humano.
+generan notificaciones, resumen y las protecciones del último Talento Humano y
+del último admin.
 
 > Deja datos de prueba en la base. Úsala contra una base de desarrollo.
 

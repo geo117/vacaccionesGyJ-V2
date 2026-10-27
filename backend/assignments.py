@@ -17,6 +17,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from db import Database, DatabaseUnavailable
+from employees import empresa_de_unes
 from security import ValidationError
 
 logger = logging.getLogger(__name__)
@@ -544,6 +545,7 @@ class AssignmentService:
         *,
         propietarios: dict[str, int | None] | None = None,
         unes: str = "",
+        empresa: int = 0,
     ) -> list[dict[str, Any]]:
         """Tablero de una UNES: sus colaboradores con la asignación que tengan.
 
@@ -559,6 +561,9 @@ class AssignmentService:
         ``unes`` acota también las asignaciones huérfanas —las de colaboradores
         que ya no están en la vista—: sin ese filtro se colarían registros de
         otras UNES, que es justo lo que el filtro por UNES debe impedir.
+        ``empresa`` hace lo mismo por el primer dígito de la UNES guardada
+        (``'4-301'`` → ``'4'``), para que la plantilla de una empresa no arrastre
+        movimientos de otra.
         """
         porIdentificacion: dict[str, dict[str, Any]] = {}
         for asignacion in self._repository.listar():
@@ -636,6 +641,12 @@ class AssignmentService:
         for asignacion in porIdentificacion.values():
             if unes and not str(asignacion.get("unes") or "").strip().endswith(unes):
                 continue
+            if empresa:
+                # Sin prefijo reconocible se asume GyJ (2): es el dato histórico
+                # de la aplicación, no una tercera empresa.
+                prefijo = empresa_de_unes(asignacion.get("unes")) or "2"
+                if prefijo != str(empresa):
+                    continue
             tablero.append(
                 {
                     **asignacion,

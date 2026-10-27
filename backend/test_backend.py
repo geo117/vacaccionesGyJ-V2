@@ -28,12 +28,14 @@ FAILED: list[str] = []
 # conocida porque los hashes de la base corresponden a contraseñas que no
 # conocemos.
 PASSWORD_TH = "Temporal1"
+PASSWORD_ADMIN = "Temporal7"
 PASSWORD_OTRO = "Temporal9*"
 
 # UNES de trabajo para la prueba. Existe en la vista corporativa (UNES SABANETA).
 UNES_PRUEBA = "109"
 
 TH_CARGO = "talento humano"
+ADMIN_CARGO = "admin"
 OTRO_CARGO = "gerente unes"
 
 
@@ -73,8 +75,9 @@ def main() -> int:
         correo_th = f"prueba.th.{sufijo_th}@example.com"
         with database.cursor(commit=True) as cursor:
             cursor.execute(
-                "INSERT INTO dbo.Usuarios (nombre, correo, password_hash, cargo, activo, fecha_creacion) "
-                "OUTPUT INSERTED.id VALUES (?, ?, ?, ?, 'si', GETDATE())",
+                "INSERT INTO dbo.Usuarios "
+                "(nombre, correo, password_hash, cargo, company, activo, fecha_creacion) "
+                "OUTPUT INSERTED.id VALUES (?, ?, ?, ?, 2, 'si', GETDATE())",
                 ("Talento Humano De Prueba", correo_th, hash_password(PASSWORD_TH), TH_CARGO),
             )
             th_id = int(cursor.fetchone()[0])
@@ -90,6 +93,33 @@ def main() -> int:
 
     sufijo = uuid.uuid4().hex[:8]
     otro_correo = f"prueba.otro.{sufijo}@example.com"
+
+    # Un admin activo: es el único cargo que puede administrar cuentas.
+    fila_admin = database.query_one(
+        "SELECT TOP 1 id, correo FROM dbo.Usuarios "
+        "WHERE LOWER(cargo) = ? AND LOWER(ISNULL(activo, '')) IN ('si', 'sí', '1', 'true') "
+        "ORDER BY id",
+        (ADMIN_CARGO,),
+    )
+
+    if fila_admin is None:
+        correo_admin = f"prueba.admin.{uuid.uuid4().hex[:8]}@example.com"
+        with database.cursor(commit=True) as cursor:
+            cursor.execute(
+                "INSERT INTO dbo.Usuarios "
+                "(nombre, correo, password_hash, cargo, company, activo, fecha_creacion) "
+                "OUTPUT INSERTED.id VALUES (?, ?, ?, ?, 2, 'si', GETDATE())",
+                ("Admin De Prueba", correo_admin, hash_password(PASSWORD_ADMIN), ADMIN_CARGO),
+            )
+            admin_id = int(cursor.fetchone()[0])
+        print(f"  No había admin activo: se creó id={admin_id} correo={correo_admin}")
+    else:
+        admin_id, correo_admin = int(fila_admin[0]), str(fila_admin[1])
+        database.execute(
+            "UPDATE dbo.Usuarios SET password_hash = ?, activo = 'si' WHERE id = ?",
+            (hash_password(PASSWORD_ADMIN), admin_id),
+        )
+        print(f"  Admin: id={admin_id} correo={correo_admin} (contraseña fijada para la prueba)")
 
     # ------------------------------------------------------------------
     print("\n================ LOGIN ================")
@@ -144,9 +174,39 @@ def main() -> int:
         (respuesta.get_json() or {}).get("usuario", {}).get("activo") is True,
     )
 
+    # El admin también entra sin UNES: ve toda la plantilla y administra cuentas.
+    respuesta = client.post(
+        "/api/auth/login", json={"correo": admin_correo, "password": PASSWORD_ADMIN}
+    )
+    cuerpo_admin = respuesta.get_json() or {}
+    check("el admin entra sin UNES", respuesta.status_code == 200, str(respuesta.status_code))
+    usuario_admin = cuerpo_admin.get("usuario") or {}
+    check("la sesión dice que es admin", usuario_admin.get("esAdmin") is True)
+    check(
+        "el admin ve toda la plantilla",
+        usuario_admin.get("veTodaLaPlantilla") is True,
+    )
+    check(
+        "aprobar sigue siendo exclusivo de Talento Humano",
+        usuario_admin.get("puedeAprobar") is False,
+    )
+    token_admin = cuerpo_admin.get("token")
+    if not token_admin:
+        print("Sin token de admin no se puede continuar.")
+        return 1
+    auth_admin = {"Authorization": f"Bearer {token_admin}"}
+
     # ------------------------------------------------------------------
     print("\n================ ADMINISTRACIÓN DE USUARIOS ================")
+    # Talento Humano ya no administra cuentas: sólo el admin.
     respuesta = client.get("/api/usuarios", headers=auth_th)
+    check(
+        "Talento Humano NO puede listar usuarios (403)",
+        respuesta.status_code == 403,
+        str(respuesta.status_code),
+    )
+
+    respuesta = client.get("/api/usuarios", headers=auth_admin)
     usuarios = (respuesta.get_json() or {}).get("usuarios", [])
     check("listar usuarios", respuesta.status_code == 200 and len(usuarios) > 0, str(respuesta.status_code))
     check("el listado no expone password_hash", "password_hash" not in respuesta.get_data(as_text=True))
@@ -154,17 +214,19 @@ def main() -> int:
 
     respuesta = client.post(
         "/api/usuarios",
-        headers=auth_th,
+        headers=auth_admin,
         json={
             "nombre": "Prueba Otro Cargo",
             "correo": otro_correo,
             "cargo": OTRO_CARGO,
+            "company": 2,
             "password": PASSWORD_OTRO,
         },
     )
     creado = (respuesta.get_json() or {}).get("usuario") or {}
     check("crear usuario", respuesta.status_code == 201, f"{respuesta.status_code} {respuesta.get_data(as_text=True)[:120]}")
     check("el usuario creado queda con su cargo", creado.get("cargo") == OTRO_CARGO)
+    check("el usuario creado queda con su empresa", creado.get("company") == 2, str(creado.get("company")))
     check("el usuario creado NO es Talento Humano", creado.get("esTalentoHumano") is False)
     otro_id = creado.get("id")
     if not otro_id:
@@ -173,18 +235,18 @@ def main() -> int:
 
     respuesta = client.post(
         "/api/usuarios",
-        headers=auth_th,
-        json={"nombre": "Duplicado", "correo": otro_correo, "cargo": OTRO_CARGO, "password": PASSWORD_OTRO, "unes": UNES_PRUEBA},
+        headers=auth_admin,
+        json={"nombre": "Duplicado", "correo": otro_correo, "cargo": OTRO_CARGO, "company": 2, "password": PASSWORD_OTRO, "unes": UNES_PRUEBA},
     )
     check("rechaza un correo duplicado", respuesta.status_code == 409, str(respuesta.status_code))
 
     respuesta = client.post(
-        "/api/usuarios", headers=auth_th, json={"nombre": "", "correo": "no-es-correo", "cargo": "", "password": "corta"}
+        "/api/usuarios", headers=auth_admin, json={"nombre": "", "correo": "no-es-correo", "cargo": "", "password": "corta"}
     )
     check("rechaza datos incompletos", respuesta.status_code == 400, str(respuesta.status_code))
 
     respuesta = client.put(
-        f"/api/usuarios/{otro_id}", headers=auth_th, json={"nombre": "Prueba Editada", "cargo": "analista"}
+        f"/api/usuarios/{otro_id}", headers=auth_admin, json={"nombre": "Prueba Editada", "cargo": "analista"}
     )
     check("editar usuario", respuesta.status_code == 200, str(respuesta.status_code))
     check(
@@ -570,16 +632,29 @@ def main() -> int:
         print(f"  (la vista corporativa no respondió; origen={tablero_th.get('origen')})")
         check("sin vista, Talento Humano se degrada al listado local", tablero_th.get("origen") == "local")
 
+    # El admin también ve toda la plantilla, igual que Talento Humano.
+    respuesta = client.get("/api/asignaciones", headers=auth_admin)
+    tablero_admin = respuesta.get_json() or {}
+    check("el tablero del admin responde", respuesta.status_code == 200, str(respuesta.status_code))
+    check("el admin no queda atado a una UNES", tablero_admin.get("unes") == "", str(tablero_admin.get("unes")))
+    if tablero_admin.get("origen") == "vista":
+        unes_admin = {
+            str(f.get("unes", "")).strip() for f in (tablero_admin.get("asignaciones") or [])
+        }
+        check("el admin ve más de una UNES", len(unes_admin) > 1, str(len(unes_admin)))
+    else:
+        check("sin vista, el admin se degrada al listado local", tablero_admin.get("origen") == "local")
+
     # ------------------------------------------------------------------
     print("\n================ ACTIVAR / DESACTIVAR ================")
-    respuesta = client.get("/api/usuarios", headers=auth_th)
+    respuesta = client.get("/api/usuarios", headers=auth_admin)
     listado = (respuesta.get_json() or {}).get("usuarios", [])
     check("el listado trae el estado activo", all("activo" in u for u in listado))
     check("el usuario nuevo nace activo", next(u for u in listado if u["id"] == otro_id)["activo"] is True)
 
     # Desactivar al otro usuario: su sesión debe morir en el acto.
     respuesta = client.patch(
-        f"/api/usuarios/{otro_id}/activo", headers=auth_th, json={"activo": False}
+        f"/api/usuarios/{otro_id}/activo", headers=auth_admin, json={"activo": False}
     )
     check("desactivar un usuario", respuesta.status_code == 200, str(respuesta.status_code))
     check(
@@ -600,7 +675,7 @@ def main() -> int:
     )
 
     respuesta = client.patch(
-        f"/api/usuarios/{otro_id}/activo", headers=auth_th, json={"activo": True}
+        f"/api/usuarios/{otro_id}/activo", headers=auth_admin, json={"activo": True}
     )
     check("volver a activar", respuesta.status_code == 200, str(respuesta.status_code))
     respuesta = client.post(
@@ -611,7 +686,7 @@ def main() -> int:
     auth_otro = {"Authorization": f"Bearer {token_otro}"}
 
     respuesta = client.patch(
-        f"/api/usuarios/{th_id}/activo", headers=auth_th, json={"activo": False}
+        f"/api/usuarios/{admin_id}/activo", headers=auth_admin, json={"activo": False}
     )
     check("no puede desactivarse a sí mismo", respuesta.status_code == 409, str(respuesta.status_code))
     check(
@@ -624,11 +699,11 @@ def main() -> int:
 
     # ------------------------------------------------------------------
     print("\n================ PROTECCIONES ================")
-    respuesta = client.delete(f"/api/usuarios/{th_id}", headers=auth_th)
+    respuesta = client.delete(f"/api/usuarios/{admin_id}", headers=auth_admin)
     check("no puede eliminar su propio usuario", respuesta.status_code == 409, str(respuesta.status_code))
     check("código NO_SE_PUEDE_ELIMINAR_A_SI_MISMO", (respuesta.get_json() or {}).get("code") == "NO_SE_PUEDE_ELIMINAR_A_SI_MISMO")
 
-    respuesta = client.delete(f"/api/usuarios/{otro_id}", headers=auth_th)
+    respuesta = client.delete(f"/api/usuarios/{otro_id}", headers=auth_admin)
     check("eliminar un usuario", respuesta.status_code == 200, str(respuesta.status_code))
     check(
         "el usuario ya no existe",

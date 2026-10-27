@@ -3,8 +3,8 @@
  *
  * Cuatro indicadores y nada más. El alcance lo decide el servidor: `GET
  * /api/resumen` devuelve los totales de toda la empresa para Talento Humano y
- * los de la UNES de la sesión para cualquier otro cargo. Esta vista no filtra:
- * sólo presenta lo que recibe y ajusta los rótulos al alcance.
+ * para el admin, y los de la UNES de la sesión para cualquier otro cargo. Esta
+ * vista no filtra: sólo presenta lo que recibe y ajusta los rótulos al alcance.
  *
  * Los cuatro indicadores son los mismos en ambos casos porque los resuelve la
  * misma consulta; lo que cambia es la unidad que cubren. «Usuarios registrados»
@@ -21,7 +21,7 @@ import { useAuth } from '../auth/useAuth'
 import { NUMERO } from '../utils/fechas'
 
 export default function ResumenPage() {
-  const { esTalentoHumano, unes } = useAuth()
+  const { veTodaLaPlantilla, unes } = useAuth()
   const [datos, setDatos] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState(null)
@@ -59,9 +59,9 @@ export default function ResumenPage() {
   }, [traerResumen])
 
   const totales = datos?.totales ?? {}
-  // Sólo hay alcance por UNES cuando la persona no es de Talento Humano y entró
+  // Sólo hay alcance por UNES cuando la persona no ve toda la plantilla y entró
   // con una UNES digitada.
-  const alcanceUnes = !esTalentoHumano && Boolean(unes)
+  const alcanceUnes = !veTodaLaPlantilla && Boolean(unes)
 
   const indicadores = [
     {

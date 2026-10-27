@@ -6,7 +6,7 @@
  *   ├── resumen           cualquier sesión
  *   ├── asignaciones      cualquier sesión
  *   ├── notificaciones    cualquier sesión
- *   └── administracion    solo Talento Humano (RequireTalentoHumano + 403 en la API)
+ *   └── administracion    solo admin (RequireAdmin + 403 en la API)
  *
  * Cualquier otra dirección cae en una vista de "no encontrada".
  */
@@ -14,7 +14,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AppShell from './layout/AppShell'
 import RequireAuth from './auth/RequireAuth'
-import RequireTalentoHumano from './auth/RequireTalentoHumano'
+import RequireAdmin from './auth/RequireAdmin'
 import AdministracionPage from './pages/AdministracionPage'
 import AsignacionesPage from './pages/AsignacionesPage'
 import LoginPage from './pages/LoginPage'
@@ -36,9 +36,9 @@ export default function App() {
           <Route path="asignaciones" element={<AsignacionesPage />} />
           <Route path="notificaciones" element={<NotificacionesPage />} />
 
-          {/* Doble puerta: la ruta exige el cargo y el backend lo vuelve a
-              comprobar en cada endpoint de administración. */}
-          <Route element={<RequireTalentoHumano />}>
+          {/* Doble puerta: la ruta exige el cargo admin y el backend lo vuelve
+              a comprobar en cada endpoint de administración. */}
+          <Route element={<RequireAdmin />}>
             <Route path="administracion" element={<AdministracionPage />} />
           </Route>
 

@@ -226,11 +226,12 @@ class AuthService:
             logger.info("Inicio de sesión rechazado: la cuenta está desactivada.")
             return LoginOutcome(status="invalid")
 
-        if not unes and not user.es_talento_humano:
+        if not unes and not user.ve_toda_la_plantilla:
             # Credenciales correctas, pero el listado de esta persona se filtra
             # por UNES y no la digitó. No se crea sesión: la interfaz vuelve a
-            # pedir el campo. Se reinicia el limitador porque no hubo un intento
-            # de adivinar la contraseña.
+            # pedir el campo. Talento Humano y el admin ven toda la plantilla y
+            # no necesitan UNES. Se reinicia el limitador porque no hubo un
+            # intento de adivinar la contraseña.
             self._limiter.reset(key)
             return LoginOutcome(status="unes_required", user=user)
 

@@ -95,10 +95,10 @@ El botón **Descargar** de la cabecera abre un submenú con dos documentos que a
 el **servidor** con las plantillas institucionales, no el navegador. Cada opción
 abre su propio modal:
 
-* **Planilla** de vacaciones en **PDF** (`/api/reportes/planilla`). Talento Humano
-  elige la UNES en un desplegable (`DescargarPlanillaModal`); los demás cargos
-  descargan la suya **sin modal**, porque el servidor limita el PDF a la UNES de
-  la sesión.
+* **Planilla** de vacaciones en **PDF** (`/api/reportes/planilla`). Quien ve toda
+  la plantilla (Talento Humano y admin) elige la UNES en un desplegable
+  (`DescargarPlanillaModal`); los demás cargos descargan la suya **sin modal**,
+  porque el servidor limita el PDF a la UNES de la sesión.
 * **Plano UNOEE** en **Excel** (`/api/reportes/plano-unoee`), sobre
   `backend/planos_unoee/ARCHIVO PLANO TNL-VACACIONES.xlsx`.
   `DescargarPlanoModal` ofrece **plano general** (toda la plantilla) o **plano por
@@ -133,10 +133,10 @@ llamará directo a esa URL y el origen del frontend debe estar en
 |---|---|---|
 | `/` | — | Redirige a `/app/resumen` |
 | `/login` | Público | Correo y contraseña; **UNES** sólo si el cargo la necesita |
-| `/app/resumen` | Sesión | Indicadores de toda la empresa (Talento Humano) o de la UNES de la sesión |
-| `/app/asignaciones` | Sesión | Plantilla de la UNES —**toda la empresa** para Talento Humano— con búsqueda, filtros, paginación y las tres operaciones |
+| `/app/resumen` | Sesión | Indicadores de toda la empresa (Talento Humano y admin) o de la UNES de la sesión |
+| `/app/asignaciones` | Sesión | Plantilla de la UNES —**toda la empresa de la cuenta** para Talento Humano y admin— con búsqueda, filtros, paginación y las tres operaciones |
 | `/app/notificaciones` | Sesión | Bandeja del cargo y los avisos que uno mismo generó |
-| `/app/administracion` | **Talento Humano** | Usuarios: crear, editar, activar/desactivar y eliminar |
+| `/app/administracion` | **Admin** | Usuarios: crear, editar, activar/desactivar y eliminar |
 | `*` | — | Vista de "no encontrada" |
 
 ## El campo UNES del login
@@ -145,11 +145,11 @@ Va **a la izquierda de la contraseña**: son tres dígitos y no necesita el anch
 completo. El campo filtra a dígitos mientras se escribe y exige tres **si se
 escribe algo**.
 
-Es **opcional**: Talento Humano entra sólo con correo y contraseña, porque su
-tablero es la plantilla completa y no hay unidad que elegir. Para los demás
-cargos el servidor responde `400 UNES_REQUERIDA` tras comprobar las credenciales
-—nunca antes, para no delatar qué correos existen— y el formulario señala el
-campo sin borrar lo ya escrito.
+Es **opcional**: Talento Humano y el admin entran sólo con correo y contraseña,
+porque su tablero es la plantilla completa y no hay unidad que elegir. Para los
+demás cargos el servidor responde `400 UNES_REQUERIDA` tras comprobar las
+credenciales —nunca antes, para no delatar qué correos existen— y el formulario
+señala el campo sin borrar lo ya escrito.
 
 La UNES **no se guarda en la base**: viaja en el login, el servidor la mete en la
 sesión y la usa para filtrar. Se acepta `109` y `2-109`.
@@ -170,9 +170,10 @@ programadas aparecen igual (atenuados), porque son justamente a quienes hay que
 programárselas. Sobre ellos, «Asignar fechas» abre el modal de creación **con sus
 datos ya precargados** desde la vista de la empresa.
 
-La tabla muestra la plantilla de la UNES de la sesión; Talento Humano, que entra
-sin UNES, recibe **toda la plantilla** y por eso tiene disponible el filtro de
-UNES en la barra.
+La tabla muestra la plantilla de la UNES de la sesión, siempre acotada a la
+**empresa de la cuenta** (`Usuarios.company`); Talento Humano y el admin, que
+entran sin UNES, reciben toda la plantilla de su empresa y por eso tienen
+disponible el filtro de UNES en la barra.
 
 Se pagina **de a 20 registros** con el `Pagination` de react-bootstrap, debajo de
 la tabla: primera, anterior, números, siguiente y última. La búsqueda y los
@@ -222,27 +223,28 @@ Si el servidor corporativo no responde, el servidor degrada al listado local y l
 pantalla lo advierte con un aviso; no se queda en blanco.
 
 Las opciones del menú salen de una única definición en
-`src/services/navigation.js`. La marca `soloTalentoHumano` hace que el sidebar
-**no dibuje** «Administración» para otros cargos, y la ruta está detrás de
-`RequireTalentoHumano`. Ninguno de los dos es el control real: el backend
-responde 403 en los endpoints de administración.
+`src/services/navigation.js`. La marca `soloAdmin` hace que el sidebar **no
+dibuje** «Administración» para otros cargos, y la ruta está detrás de
+`RequireAdmin`. Ninguno de los dos es el control real: el backend responde 403 en
+los endpoints de administración.
 
 ## El cargo manda
 
-`GET /api/auth/session` y el login devuelven `cargo`, `esTalentoHumano` y
-`puedeAprobar`. La interfaz los usa **sólo para mostrar u ocultar opciones**:
+`GET /api/auth/session` y el login devuelven `cargo`, `esTalentoHumano`,
+`esAdmin`, `veTodaLaPlantilla` y `puedeAprobar`. La interfaz los usa **sólo para
+mostrar u ocultar opciones**:
 
-| | Talento Humano | Otro cargo |
-|---|---|---|
-| Opción «Administración» en el sidebar | sí | oculta |
-| Ruta `/app/administracion` | carga | muestra «Esta sección es de Talento Humano» |
-| Opción «Aprobar / rechazar» en el menú de asignaciones | sí | oculta |
-| Opción «Descargar plano UNOEE» | sí | oculta |
-| Tablero de asignaciones | toda la plantilla | sólo su UNES |
-| Bandeja general de notificaciones | todo | vacía |
-| Avisos que uno mismo generó (`usuario_id`) | sí | sí |
-| Aviso «tu cargo sólo consulta» | no | sí |
-| Opción «Desactivar» sobre su propia cuenta | no (deshabilitada) | — |
+| | Admin | Talento Humano | Otro cargo |
+|---|---|---|---|
+| Opción «Administración» en el sidebar | sí | oculta | oculta |
+| Ruta `/app/administracion` | carga | muestra «Esta sección es del administrador» | igual |
+| Opción «Aprobar / rechazar» en el menú de asignaciones | no | sí | no |
+| Opción «Descargar plano UNOEE» | no | sí | no |
+| Tablero de asignaciones | toda la plantilla | toda la plantilla | sólo su UNES |
+| Bandeja general de notificaciones | vacía | todo | vacía |
+| Avisos que uno mismo generó (`usuario_id`) | sí | sí | sí |
+| Aviso «tu cargo sólo consulta» | no | no | sí |
+| Opción «Desactivar» sobre su propia cuenta | no (deshabilitada) | no (deshabilitada) | — |
 
 Ocultar una opción es comodidad, no seguridad: el backend responde `403` si
 cualquier otro cargo llama a la API directamente. Está comprobado en las pruebas.
@@ -253,13 +255,20 @@ La tabla de usuarios usa el mismo menú de tres puntos que la de asignaciones:
 **Editar**, **Activar / Desactivar** y **Eliminar**. La columna **Estado** muestra
 `Activo` o `Inactivo`, y las filas inactivas se atenúan.
 
+El modal de crear/editar pide la **empresa** de la cuenta a la derecha de la
+contraseña: GyJ Ferreterías (`2`), Almasa (`3`) o Colmena (`4`). No es un dato
+decorativo: el servidor lo usa para acotar la plantilla de colaboradores a esa
+empresa y la tabla de usuarios lo muestra en la columna **Empresa**.
+
 Dos opciones quedan deshabilitadas con el motivo en el `title`, y el backend
 también las rechaza:
 
 * **Desactivar o eliminar tu propio usuario.** Sería cerrarte la sesión a ti mismo
   sin querer.
 * **Desactivar al último Talento Humano activo.** Dejaría el sistema sin nadie que
-  administre.
+  apruebe asignaciones.
+* **Desactivar o degradar al último admin activo.** Dejaría las cuentas sin quien
+  las administre.
 
 ## Notificaciones
 
@@ -315,7 +324,7 @@ src/
 ├── auth/
 │   ├── AuthProvider.jsx          Estado de sesión y cargo
 │   ├── RequireAuth.jsx           Guarda de rutas protegidas
-│   ├── RequireTalentoHumano.jsx  Guarda de la ruta de administración
+│   ├── RequireAdmin.jsx          Guarda de la ruta de administración
 │   ├── context.js                El contexto (módulo aparte, por Fast Refresh)
 │   └── useAuth.js                Hook de acceso con error explícito
 ├── components/
@@ -326,7 +335,7 @@ src/
 │   ├── EmpleadoDetalleModal.jsx  Ficha del colaborador
 │   ├── AsignarPeriodosModal.jsx  Los tres períodos y el cálculo
 │   ├── DecisionModal.jsx         Aprobar / rechazar con motivo
-│   ├── DescargarPlanillaModal.jsx  Planilla PDF por UNES (Talento Humano)
+│   ├── DescargarPlanillaModal.jsx  Planilla PDF por UNES (Talento Humano y admin)
 │   ├── DescargarPlanoModal.jsx   Plano UNOEE general o por UNES
 │   └── NuevaAsignacionModal.jsx  Alta de una asignación
 ├── hooks/useAsignaciones.js      Carga y escritura contre la API

@@ -441,6 +441,27 @@ textarea.form-control {
   color: var(--ok);
 }
 
+/* Modal de usuario: nombre a todo el ancho; correo y cargo comparten fila;
+   contraseña y empresa comparten la siguiente. La empresa va a la derecha de la
+   contraseña a propósito: juntas describen con qué credenciales entra y qué
+   plantilla verá. En pantallas estrechas se apilan. */
+
+.usuario-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+}
+
+@media (min-width: 576px) {
+  .usuario-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .usuario-form__ancho {
+    grid-column: 1 / -1;
+  }
+}
+
 /* Ingreso y observaciones: dos columnas bajo la fila de períodos. */
 
 .bloque-cierre {

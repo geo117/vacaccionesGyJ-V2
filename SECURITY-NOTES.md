@@ -210,7 +210,7 @@ código en esta iteración.
    centralizarlo.
 3. **`TrustServerCertificate=yes` en las dos conexiones.** Es correcto contra
    `.\\SQLEXPRESS` local con certificado autofirmado, pero la conexión
-   corporativa (`DB_*`, vista `PBI_Colaborador_Vacaciones`) apunta a un servidor
+   corporativa (`DB_*`, vista `PBI_Colaborador_Vacaciones_V2`) apunta a un servidor
    remoto y el `.env` no declara `DB_TRUST_SERVER_CERT`, así que toma el valor
    por defecto `yes`: el canal se cifra, pero no se comprueba con quién se
    habla. Antes de llevarlo a producción hay que poner `DB_TRUST_SERVER_CERT=no`
@@ -232,7 +232,7 @@ código en esta iteración.
    administrador del servidor: mientras `DB_USER` siga siendo `sa`, cualquier
    error de consulta se ejecuta con el máximo privilegio y no tiene red de
    seguridad en la base. Debe ser un usuario con `SELECT` sólo sobre
-   `BD_Integraciones.dbo.PBI_Colaborador_Vacaciones`.
+   `BD_Integraciones.dbo.PBI_Colaborador_Vacaciones_V2`.
 
 ## 4. Verificación ejecutada
 

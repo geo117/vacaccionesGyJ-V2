@@ -1,16 +1,17 @@
 /**
  * Administración de usuarios.
  *
- * Exclusiva de Talento Humano. Dos controles, y conviene tener claro cuál manda:
+ * Exclusiva del administrador. Dos controles, y conviene tener claro cuál manda:
  *
- *  1. La opción del sidebar sólo se dibuja si el cargo es Talento Humano
- *     (`navItemsPara`) y la ruta está detrás de `RequireTalentoHumano`.
+ *  1. La opción del sidebar sólo se dibuja si el cargo es «admin»
+ *     (`navItemsPara`) y la ruta está detrás de `RequireAdmin`.
  *  2. **El control real es el backend**: cada endpoint de `/api/usuarios`
  *     responde 403 a quien no tenga ese cargo. Ocultar un botón no impide que
  *     alguien llame a la API con su token.
  *
- * La contraseña nunca se muestra ni se puede leer: al crear es obligatoria y al
- * editar es opcional ("dejar en blanco para no cambiarla"). El servidor la
+ * Talento Humano conserva la decisión sobre las asignaciones, pero ya no entra
+ * aquí. La contraseña nunca se muestra ni se puede leer: al crear es obligatoria
+ * y al editar es opcional ("dejar en blanco para no cambiarla"). El servidor la
  * hashea antes de guardarla.
  */
 
@@ -37,19 +38,23 @@ const SWAL_BASE = {
 }
 
 const CARGO_TALENTO_HUMANO = 'talento humano'
+const CARGO_ADMIN = 'admin'
 
 /** Mensajes por código de error del backend. */
 const MENSAJES = {
   CORREO_DUPLICADO: 'Ya existe un usuario con ese correo. Usa otro o edita el existente.',
   NOMBRE_REQUERIDO: 'Escribe el nombre completo.',
   CARGO_REQUERIDO: 'Escribe el cargo.',
+  COMPANY_REQUERIDA: 'Selecciona la empresa del usuario.',
+  COMPANY_INVALIDA: 'La empresa seleccionada no es válida.',
   EMAIL_INVALID: 'El correo no tiene un formato válido.',
   PASSWORD_INVALID: 'La contraseña debe tener al menos 8 caracteres.',
   PASSWORD_WHITESPACE: 'La contraseña no puede empezar ni terminar con un espacio.',
   ULTIMO_TALENTO_HUMANO: 'Debe quedar al menos un usuario de Talento Humano activo con acceso.',
+  ULTIMO_ADMIN: 'Debe quedar al menos un usuario administrador activo con acceso.',
   NO_SE_PUEDE_ELIMINAR_A_SI_MISMO: 'No puedes eliminar tu propio usuario.',
   NO_SE_PUEDE_DESACTIVAR_A_SI_MISMO: 'No puedes desactivar tu propio usuario.',
-  FORBIDDEN_ROLE: 'Esta opción es exclusiva de Talento Humano.',
+  FORBIDDEN_ROLE: 'Esta opción es exclusiva del administrador.',
   DEPENDENCIA: 'No se puede eliminar: el usuario tiene registros asociados.',
 }
 
@@ -64,8 +69,27 @@ const ESTADOS = [
   { value: 'otros', label: 'Sin Talento Humano' },
 ]
 
+/**
+ * Empresas del grupo. El número es el que se guarda en `Usuarios.company` y el
+ * que el backend convierte en el primer dígito de `IDCia_CO` para filtrar la
+ * plantilla (`2-…`, `3-…`, `4-…`). Coincide con `EMPRESAS` en `backend/users.py`.
+ */
+const EMPRESAS = [
+  { value: '2', label: 'GyJ Ferreterías' },
+  { value: '3', label: 'Almasa' },
+  { value: '4', label: 'Colmena' },
+]
+
+function etiquetaEmpresa(valor) {
+  return EMPRESAS.find((empresa) => empresa.value === String(valor ?? ''))?.label ?? '—'
+}
+
 function esTalentoHumano(usuario) {
   return String(usuario?.cargo || '').trim().toLowerCase() === CARGO_TALENTO_HUMANO
+}
+
+function esAdministrador(usuario) {
+  return String(usuario?.cargo || '').trim().toLowerCase() === CARGO_ADMIN
 }
 
 function iniciales(nombre) {
@@ -155,11 +179,21 @@ export default function AdministracionPage() {
   /**
    * Talento Humano **activo**. Es el número que decide si se puede desactivar o
    * eliminar a alguien: desactivar al último dejaría el sistema sin quien
-   * administre. Se cuentan los activos, no todos, porque degradar a alguien ya
-   * desactivado no cambia nada.
+   * apruebe asignaciones. Se cuentan los activos, no todos, porque degradar a
+   * alguien ya desactivado no cambia nada.
    */
   const totalTalentoHumanoActivos = useMemo(
     () => usuarios.filter((u) => esTalentoHumano(u) && u.activo !== false).length,
+    [usuarios],
+  )
+
+  /**
+   * Administradores **activos**: el número que protege el acceso a esta misma
+   * vista. Desactivar o degradar al último dejaría las cuentas sin quien las
+   * administre.
+   */
+  const totalAdminActivos = useMemo(
+    () => usuarios.filter((u) => esAdministrador(u) && u.activo !== false).length,
     [usuarios],
   )
 
@@ -412,13 +446,14 @@ export default function AdministracionPage() {
           {visibles.length > 0 ? (
             <Table className="data" borderless responsive>
               <caption className="visually-hidden">
-                Usuarios registrados con su correo, cargo, fecha de creación y acciones de
-                administración.
+                Usuarios registrados con su correo, empresa, cargo, fecha de creación y acciones
+                de administración.
               </caption>
               <thead>
                 <tr>
                   <th scope="col">Usuario</th>
                   <th scope="col">Correo</th>
+                  <th scope="col">Empresa</th>
                   <th scope="col">Cargo</th>
                   <th scope="col">Acceso</th>
                   <th scope="col">Estado</th>
@@ -430,12 +465,18 @@ export default function AdministracionPage() {
                 {visibles.map((usuario) => {
                   const soyYo = usuario.id === user?.id
                   const esTh = esTalentoHumano(usuario)
+                  const esAdm = esAdministrador(usuario)
                   const estaActivo = usuario.activo !== false
                   // Desactivar al último Talento Humano activo dejaría el
-                  // sistema sin quien administre; el backend también lo rechaza.
+                  // sistema sin quien apruebe; desactivar al último admin, sin
+                  // quien administre. El backend también lo rechaza.
                   const ultimoThActivo = esTh && estaActivo && totalTalentoHumanoActivos <= 1
-                  const noPuedeDesactivarse = soyYo || ultimoThActivo
-                  const noPuedeEliminarse = soyYo || (esTh && !estaActivo && totalTalentoHumanoActivos <= 0)
+                  const ultimoAdminActivo = esAdm && estaActivo && totalAdminActivos <= 1
+                  const noPuedeDesactivarse = soyYo || ultimoThActivo || ultimoAdminActivo
+                  const noPuedeEliminarse =
+                    soyYo ||
+                    (esTh && !estaActivo && totalTalentoHumanoActivos <= 0) ||
+                    (esAdm && !estaActivo && totalAdminActivos <= 0)
 
                   return (
                     <tr key={usuario.id} data-inactivo={estaActivo ? undefined : 'si'}>
@@ -455,10 +496,13 @@ export default function AdministracionPage() {
                         </div>
                       </td>
                       <td>{usuario.correo}</td>
+                      <td>{usuario.empresa || etiquetaEmpresa(usuario.company)}</td>
                       <td>{usuario.cargo || '—'}</td>
                       <td>
                         {esTh ? (
                           <StatusChip estado="ok" label="Talento Humano" />
+                        ) : esAdm ? (
+                          <StatusChip estado="info" label="Administrador" />
                         ) : (
                           <StatusChip estado="info" label="Solo consulta" />
                         )}
@@ -516,9 +560,11 @@ export default function AdministracionPage() {
                                       ? 'No puedes desactivar tu propio usuario'
                                       : estaActivo && ultimoThActivo
                                         ? 'Debe quedar al menos un Talento Humano activo'
-                                        : estaActivo
-                                          ? `Desactivar a ${usuario.nombre}`
-                                          : `Activar a ${usuario.nombre}`
+                                        : estaActivo && ultimoAdminActivo
+                                          ? 'Debe quedar al menos un administrador activo'
+                                          : estaActivo
+                                            ? `Desactivar a ${usuario.nombre}`
+                                            : `Activar a ${usuario.nombre}`
                                   }
                                 >
                                   <Icon name={estaActivo ? 'desactivar' : 'activar'} size={16} />
@@ -617,6 +663,7 @@ function UsuarioModal({ abierto, usuario, guardando, onCerrar, onGuardar }) {
   const [nombre, setNombre] = useState(usuario?.nombre ?? '')
   const [correo, setCorreo] = useState(usuario?.correo ?? '')
   const [cargo, setCargo] = useState(usuario?.cargo ?? '')
+  const [company, setCompany] = useState(String(usuario?.company ?? ''))
   const [password, setPassword] = useState('')
   const [verPassword, setVerPassword] = useState(false)
   const [errores, setErrores] = useState({})
@@ -638,6 +685,8 @@ function UsuarioModal({ abierto, usuario, guardando, onCerrar, onGuardar }) {
     if (!cargo.trim()) nuevos.cargo = 'Escribe el cargo.'
     else if (cargo.trim().length > CARGO_MAX) nuevos.cargo = `Máximo ${CARGO_MAX} caracteres.`
 
+    if (!company) nuevos.company = 'Selecciona la empresa del usuario.'
+
     if (esNuevo) {
       if (!password) nuevos.password = 'Asigna una contraseña inicial.'
       else if (password.length < 8) nuevos.password = 'Mínimo 8 caracteres.'
@@ -655,13 +704,20 @@ function UsuarioModal({ abierto, usuario, guardando, onCerrar, onGuardar }) {
     const nuevos = validar()
     if (Object.keys(nuevos).length > 0) {
       setErrores(nuevos)
-      const primero = ['nombre', 'correo', 'cargo', 'password'].find((campo) => nuevos[campo])
+      const primero = ['nombre', 'correo', 'cargo', 'password', 'company'].find(
+        (campo) => nuevos[campo],
+      )
       if (primero) document.getElementById(`${baseId}-${primero}`)?.focus()
       return
     }
     setErrores({})
 
-    const datos = { nombre: nombre.trim(), correo: correo.trim().toLowerCase(), cargo: cargo.trim() }
+    const datos = {
+      nombre: nombre.trim(),
+      correo: correo.trim().toLowerCase(),
+      cargo: cargo.trim(),
+      company: Number(company),
+    }
     // En la edición, dejar la contraseña en blanco significa "no cambiarla": no
     // se envía el campo, así el backend no la toca.
     if (password) datos.password = password
@@ -682,8 +738,8 @@ function UsuarioModal({ abierto, usuario, guardando, onCerrar, onGuardar }) {
       </Modal.Header>
 
       <Modal.Body>
-        <div className="bloque-cierre" style={{ padding: 0, border: 0, marginTop: 0 }}>
-          <Form.Group controlId={`${baseId}-nombre`}>
+        <div className="usuario-form">
+          <Form.Group controlId={`${baseId}-nombre`} className="usuario-form__ancho">
             <Form.Label>Nombre completo</Form.Label>
             <Form.Control
               value={nombre}
@@ -744,6 +800,7 @@ function UsuarioModal({ abierto, usuario, guardando, onCerrar, onGuardar }) {
               placeholder="talento humano"
             />
             <datalist id={`${baseId}-cargos`}>
+              <option value="admin" />
               <option value="talento humano" />
               <option value="gerente unes" />
               <option value="analista" />
@@ -755,8 +812,9 @@ function UsuarioModal({ abierto, usuario, guardando, onCerrar, onGuardar }) {
               </p>
             ) : (
               <Form.Text>
-                Escribe <strong>talento humano</strong> para dar acceso a esta sección y a aprobar
-                o rechazar asignaciones. Cualquier otro cargo entra en modo consulta.
+                Escribe <strong>admin</strong> para administrar las cuentas y ver toda la
+                plantilla; <strong>talento humano</strong> para aprobar o rechazar asignaciones y
+                ver también toda la plantilla. Cualquier otro cargo entra en modo consulta.
               </Form.Text>
             )}
           </Form.Group>
@@ -796,6 +854,36 @@ function UsuarioModal({ abierto, usuario, guardando, onCerrar, onGuardar }) {
             ) : (
               <Form.Text>
                 <Icon name="clave" size={14} /> Se guarda con hash; nadie puede consultarla después.
+              </Form.Text>
+            )}
+          </Form.Group>
+
+          <Form.Group controlId={`${baseId}-company`}>
+            <Form.Label>Empresa</Form.Label>
+            <Form.Select
+              value={company}
+              onChange={(event) => {
+                setCompany(event.target.value)
+                if (errores.company) setErrores((previos) => ({ ...previos, company: undefined }))
+              }}
+              isInvalid={Boolean(errores.company)}
+            >
+              <option value="">Selecciona una empresa</option>
+              {EMPRESAS.map((empresa) => (
+                <option key={empresa.value} value={empresa.value}>
+                  {empresa.label}
+                </option>
+              ))}
+            </Form.Select>
+            {errores.company ? (
+              <p className="invalid-feedback" role="alert">
+                <Icon name="error" size={16} />
+                <span>{errores.company}</span>
+              </p>
+            ) : (
+              <Form.Text>
+                Define la plantilla de colaboradores que verá la cuenta. Es una regla de acceso,
+                no un dato de presentación.
               </Form.Text>
             )}
           </Form.Group>

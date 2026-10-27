@@ -6,8 +6,8 @@
  *    deshabilitado mientras viaja, de modo que no se pueda martillar el
  *    endpoint ni crear varias sesiones con un doble clic.
  *  - El correo y la contraseña se validan siempre. La **UNES es opcional**:
- *    Talento Humano entra sólo con correo y contraseña y su tablero es la
- *    plantilla completa de la empresa. Para los demás cargos el servidor
+ *    Talento Humano y el admin entran sólo con correo y contraseña y su tablero
+ *    es la plantilla completa de la empresa. Para los demás cargos el servidor
  *    responde `UNES_REQUERIDA` tras comprobar las credenciales y es entonces
  *    cuando el campo se exige, sin delatar de antemano qué correos existen.
  *  - Un único mensaje para todos los fallos de credenciales. La respuesta del
@@ -127,8 +127,9 @@ export default function LoginPage() {
     }
 
     if (!unes.trim()) {
-      // Talento Humano entra sin UNES. Si el cargo no lo permite, el servidor
-      // responde UNES_REQUERIDA y aquí se muestra el campo como pendiente.
+      // Talento Humano y el admin entran sin UNES. Si el cargo no lo permite,
+      // el servidor responde UNES_REQUERIDA y aquí se muestra el campo como
+      // pendiente.
       setUnesError(null)
     } else if (!/^\d{3}$/.test(unes.trim())) {
       setUnesError('La UNES son tres dígitos, sin puntos ni guiones.')
@@ -256,7 +257,7 @@ export default function LoginPage() {
           <h1 className="login__title">Inicia sesión</h1>
           <p className="login__lead">
             Usa tu correo corporativo y tu contraseña institucional para entrar. Si tu perfil no es
-            de Talento Humano, escribe además tu UNES.
+            de Talento Humano ni admin, escribe además tu UNES.
           </p>
 
           {notice ? (

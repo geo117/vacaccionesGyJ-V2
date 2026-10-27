@@ -69,6 +69,16 @@ def _recortar(texto: str, maximo: int) -> str:
     return texto if len(texto) <= maximo else texto[: maximo - 1] + "…"
 
 
+def _fecha_reintegro(asignacion: dict[str, Any]) -> str:
+    """Fecha de regreso a labores del aviso.
+
+    Sale de ``asignacion_vacaciones.fecha_reintegro_lab`` (``fechaReintegroLab``),
+    la fecha que se elige a mano para el reintegro, y **no** de
+    ``fecha_regreso`` (``fechaIngreso``), que es la que se deriva de los períodos.
+    """
+    return str(asignacion.get("fechaReintegroLab") or "por definir")
+
+
 class NotificationRepository:
     """Único punto que lee y escribe ``dbo.notificaciones``."""
 
@@ -151,7 +161,7 @@ class NotificationService:
         mensaje = (
             f"{autor.nombre} asignó las fechas de vacaciones de "
             f"{asignacion['empleado']} ({asignacion['totalDias']} días, "
-            f"regreso el {asignacion['fechaIngreso'] or 'por definir'})."
+            f"regreso el {_fecha_reintegro(asignacion)})."
         )
         self._registrar(
             mensaje,
@@ -165,7 +175,7 @@ class NotificationService:
             mensaje = (
                 f"{autor.nombre} aprobó las vacaciones de {asignacion['empleado']} "
                 f"({asignacion['totalDias']} días, regreso el "
-                f"{asignacion['fechaIngreso'] or 'por definir'})."
+                f"{_fecha_reintegro(asignacion)})."
             )
         else:
             motivo = (asignacion.get("motivoRechazo") or "").strip()

@@ -2,11 +2,12 @@
  * Asignaciones de vacaciones.
  *
  * La tabla es **la plantilla que corresponde a la sesión**: una fila por
- * colaborador de la vista corporativa `PBI_Colaborador_Vacaciones`, con la
- * asignación que tenga (o ninguna). Talento Humano entra sin UNES y ve toda la
- * plantilla de la empresa; los demás cargos, sólo la de su UNES. Los que todavía
- * no tienen fechas aparecen igual, porque son justamente a quienes hay que
- * programárselas.
+ * colaborador de la vista corporativa `PBI_Colaborador_Vacaciones_V2`, con la
+ * asignación que tenga (o ninguna). La vista reúne las tres empresas del grupo,
+ * así que siempre se acota a la empresa de la cuenta (`Usuarios.company`).
+ * Talento Humano y el admin entran sin UNES y ven toda la plantilla de **su**
+ * empresa; los demás cargos, sólo la de su UNES. Los que todavía no tienen
+ * fechas aparecen igual, porque son justamente a quienes hay que programárselas.
  *
  * Columnas y de dónde sale cada dato:
  *   Desc. Unes     ← DescCO
@@ -21,8 +22,8 @@
  *
  * El filtro por UNES lo aplica el **servidor** con la UNES de la sesión: a quien
  * entra con una UNES no le llega la plantilla de otras, así que no hay nada que
- * filtrar en el navegador. Talento Humano sí recibe todo y por eso tiene el
- * filtro de UNES en la barra.
+ * filtrar en el navegador. Quien ve toda la plantilla (Talento Humano y el
+ * admin) tiene por eso el filtro de UNES en la barra.
  *
  * La tabla se pagina **de a 20 registros**. La búsqueda y los filtros se aplican
  * antes de paginar: el total que se ve es el de los filtros, no el de la vista.
@@ -35,9 +36,10 @@
  * El botón «Descargar» abre un submenú con dos documentos que genera el
  * **servidor** con las plantillas oficiales:
  *
- *   - «Descargar planilla»    → la planilla de vacaciones en PDF. Talento Humano
- *     elige la UNES en un modal; los demás cargos descargan la suya sin pasar
- *     por el modal, porque el servidor la limita a la UNES de la sesión.
+ *   - «Descargar planilla»    → la planilla de vacaciones en PDF. Quien ve toda
+ *     la plantilla (Talento Humano y el admin) elige la UNES en un modal; los
+ *     demás cargos descargan la suya sin pasar por el modal, porque el servidor
+ *     la limita a la UNES de la sesión.
  *   - «Descargar plano UNOEE» → el plano en Excel, en un modal que elige entre
  *     el plano general o el de una UNES. Sólo lo ve Talento Humano; el backend
  *     además lo exige con `@require_talento_humano`, así que ocultar la opción
@@ -160,7 +162,7 @@ export default function AsignacionesPage() {
   const stateId = useId()
   const unesId = useId()
 
-  const { esTalentoHumano, puedeAprobar, unes } = useAuth()
+  const { esTalentoHumano, veTodaLaPlantilla, puedeAprobar, unes } = useAuth()
   const {
     filas,
     origen,
@@ -342,10 +344,13 @@ export default function AsignacionesPage() {
     }
   }
 
-  /** «Descargar planilla»: Talento Humano elige la UNES; el resto descarga directo. */
+  /**
+   * «Descargar planilla»: quien ve toda la plantilla elige la UNES; el resto
+   * descarga directo.
+   */
   function abrirDescargarPlanilla() {
     setMenuDescargaAbierto(false)
-    if (esTalentoHumano) {
+    if (veTodaLaPlantilla) {
       setModalPlanillaAbierto(true)
       return
     }

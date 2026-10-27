@@ -96,8 +96,9 @@ class DatabaseSettings:
 class Settings:
     database: DatabaseSettings
     # Segunda conexión: el servidor corporativo donde vive la vista
-    # `PBI_Colaborador_Vacaciones`. Es opcional para que el backend pueda
-    # arrancar (y todo lo demás funcionar) aunque ese servidor no esté accesible.
+    # `PBI_Colaborador_Vacaciones_V2` (plantilla de las tres empresas del grupo).
+    # Es opcional para que el backend pueda arrancar (y todo lo demás funcionar)
+    # aunque ese servidor no esté accesible.
     directorio: DatabaseSettings | None
     debug: bool
     port: int

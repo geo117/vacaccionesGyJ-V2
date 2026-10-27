@@ -1,23 +1,26 @@
 """Colaboradores de la empresa, leídos de la vista corporativa.
 
-Fuente: ``BD_Integraciones.dbo.PBI_Colaborador_Vacaciones``, en el servidor
+Fuente: ``BD_Integraciones.dbo.PBI_Colaborador_Vacaciones_V2``, en el servidor
 corporativo (la conexión **sin** sufijo del ``.env``). Es una vista de solo
 lectura mantenida por otro proceso: aquí no se escribe nada.
 
-El filtro por UNES
-------------------
-``IDCia_CO`` viene como ``'2-109'`` y el login pide la UNES al usuario. Se
-comparan los **tres últimos dígitos**, como pide el negocio. Se verificó contra
-la vista real que ese sufijo es inequívoco: ningún sufijo apunta a dos
-``DescCO`` distintos.
+El filtro por empresa y por UNES
+--------------------------------
+La vista reúne la plantilla de las tres empresas del grupo. ``IDCia_CO`` viene
+como ``'2-109'``, ``'3-…'`` o ``'4-301'``: el **primer dígito** identifica la
+empresa y los **tres últimos** la UNES. El login guarda la empresa en
+``Usuarios.company`` (2 = GyJ Ferreterías, 3 = Almasa, 4 = Colmena) y aquí se
+traduce a ese primer dígito.
 
-El filtro se aplica en el ``WHERE`` de SQL y no en Python: traer 1081 filas para
-descartar la mayoría no escala, y además el filtro es una regla de acceso —un
-usuario no debería recibir por la API la plantilla de otras UNES—.
+Los dos filtros se aplican en el ``WHERE`` de SQL y no en Python: traer toda la
+vista para descartar la mayoría no escala, y además son reglas de acceso —un
+usuario no debería recibir por la API la plantilla de otra empresa ni de otra
+UNES—.
 
-Talento Humano es la excepción: entra sin digitar UNES y su tablero es la
-plantilla completa (:meth:`EmployeeDirectory.listar_todos`). El permiso lo
-decide el servidor con el cargo de la sesión, nunca la petición.
+Talento Humano es la excepción a la UNES: entra sin digitarla y su tablero es la
+plantilla completa **de su empresa** (:meth:`EmployeeDirectory.listar_todos`).
+El permiso lo decide el servidor con la empresa y el cargo de la sesión, nunca
+la petición.
 """
 
 from __future__ import annotations
@@ -32,7 +35,7 @@ from security import ValidationError
 
 logger = logging.getLogger(__name__)
 
-VISTA = "dbo.PBI_Colaborador_Vacaciones"
+VISTA = "dbo.PBI_Colaborador_Vacaciones_V2"
 
 # La UNES que se digita en el login. Se aceptan las formas "109" y "2-109"
 # porque en la vista el identificador viene completo y el usuario puede escribir
@@ -58,8 +61,12 @@ FROM {VISTA}
 """
 
 # `RTRIM(LTRIM(...))` porque `IDCia_CO` es VARCHAR y podría venir con espacios;
-# sin eso, `RIGHT(x, 3)` devolvería espacios en lugar de dígitos.
-_FILTRO_UNES = "RIGHT(RTRIM(LTRIM(IDCia_CO)), 3) = ?"
+# sin eso, `RIGHT(x, 3)` devolvería espacios en lugar de dígitos. El `CAST`
+# protege el caso de una columna numérica y no cambia el resultado para texto.
+_IDCIA = "RTRIM(LTRIM(CAST(IDCia_CO AS VARCHAR(20))))"
+_FILTRO_UNES = f"RIGHT({_IDCIA}, 3) = ?"
+# Empresa = primer dígito de `IDCia_CO`: '4-301' → '4' (Colmena).
+_FILTRO_EMPRESA = f"LEFT({_IDCIA}, 1) = ?"
 _ORDER = "ORDER BY Empleado"
 
 
@@ -72,6 +79,28 @@ def normalizar_unes(valor: object) -> str:
     if valor is None:
         return ""
     coincidencia = UNES_RE.match(str(valor).strip())
+    return coincidencia.group(1) if coincidencia else ""
+
+
+def normalizar_empresa(valor: object) -> str:
+    """Empresa (2, 3 o 4) como el dígito que se compara en la vista.
+
+    Devuelve ``''`` cuando no hay empresa: quien llama decide si eso significa
+    "sin filtro". En la API siempre llega una empresa, porque las cuentas
+    anteriores a la columna `company` se asumen de GyJ.
+    """
+    texto = str(valor or "").strip()
+    return texto if texto.isdigit() else ""
+
+
+def empresa_de_unes(valor: object) -> str:
+    """Primer dígito de un ``IDCia_CO`` ya almacenado (``'4-301'`` → ``'4'``).
+
+    Se usa para filtrar las asignaciones guardadas cuando la vista corporativa
+    no responde: el registro local conserva la UNES completa, así que la empresa
+    sigue siendo deducible sin consultar el directorio.
+    """
+    coincidencia = re.match(r"^(\d)\s*-\s*\d{3}$", str(valor or "").strip())
     return coincidencia.group(1) if coincidencia else ""
 
 
@@ -205,35 +234,59 @@ class EmployeeDirectory:
             )
         return self._database
 
-    def listar_por_unes(self, unes: str, *, limite: int = 2000) -> list[Colaborador]:
-        """Colaboradores de una UNES, ordenados por nombre."""
+    def listar_por_unes(
+        self, unes: str, *, empresa: object = 0, limite: int = 2000
+    ) -> list[Colaborador]:
+        """Colaboradores de una UNES (y de una empresa, si se indica)."""
         database = self._exigir_conexion()
         if not unes:
             raise ValidationError("UNES_INVALIDA", "La UNES no es válida.")
 
-        sql = f"{_SELECT} WHERE {_FILTRO_UNES} {_ORDER}"
-        filas = database.query_named(sql, (unes,), limit=limite)
+        condiciones = [_FILTRO_UNES]
+        parametros: list[Any] = [unes]
+        digito_empresa = normalizar_empresa(empresa)
+        if digito_empresa:
+            condiciones.append(_FILTRO_EMPRESA)
+            parametros.append(digito_empresa)
+
+        sql = f"{_SELECT} WHERE {' AND '.join(condiciones)} {_ORDER}"
+        filas = database.query_named(sql, tuple(parametros), limit=limite)
         return [_fila_a_colaborador(fila) for fila in filas]
 
-    def listar_todos(self, *, limite: int = 5000) -> list[Colaborador]:
+    def listar_todos(self, *, empresa: object = 0, limite: int = 5000) -> list[Colaborador]:
         """Toda la plantilla, sin filtrar por UNES, ordenada por nombre.
 
         Talento Humano entra sin digitar una UNES: su tablero es la plantilla
-        completa de la empresa, no la de una unidad concreta. El límite es un
-        techo de seguridad —la vista tiene del orden de mil filas— y no un
-        filtro de negocio.
+        completa **de su empresa**, no la de una unidad concreta. El límite es un
+        techo de seguridad —la vista tiene del orden de mil filas— y no un filtro
+        de negocio.
         """
         database = self._exigir_conexion()
-        filas = database.query_named(f"{_SELECT} {_ORDER}", limit=limite)
+        digito_empresa = normalizar_empresa(empresa)
+        if digito_empresa:
+            sql = f"{_SELECT} WHERE {_FILTRO_EMPRESA} {_ORDER}"
+            filas = database.query_named(sql, (digito_empresa,), limit=limite)
+        else:
+            filas = database.query_named(f"{_SELECT} {_ORDER}", limit=limite)
         return [_fila_a_colaborador(fila) for fila in filas]
 
-    def buscar(self, unes: str, identificacion: str) -> Colaborador | None:
-        """Un colaborador concreto dentro de su UNES."""
+    def buscar(
+        self, unes: str, identificacion: str, *, empresa: object = 0
+    ) -> Colaborador | None:
+        """Un colaborador concreto dentro de su UNES y su empresa."""
         database = self._exigir_conexion()
         if not unes or not identificacion:
             return None
-        sql = f"{_SELECT} WHERE {_FILTRO_UNES} AND RTRIM(LTRIM(cedula)) = ?"
-        filas = database.query_named(sql, (unes, str(identificacion).strip()), limit=1)
+
+        condiciones = [_FILTRO_UNES, "RTRIM(LTRIM(cedula)) = ?"]
+        parametros: list[Any] = [unes, str(identificacion).strip()]
+        digito_empresa = normalizar_empresa(empresa)
+        if digito_empresa:
+            condiciones.insert(1, _FILTRO_EMPRESA)
+            parametros.insert(1, digito_empresa)
+
+        sql = f"{_SELECT} WHERE {' AND '.join(condiciones)}"
+        filas = database.query_named(sql, tuple(parametros), limit=1)
         return _fila_a_colaborador(filas[0]) if filas else None
 
     def unes_disponibles(self) -> list[dict[str, str]]:

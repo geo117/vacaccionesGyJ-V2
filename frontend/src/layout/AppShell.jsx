@@ -45,7 +45,7 @@ function textoBadge(total) {
 }
 
 export default function AppShell() {
-  const { user, logout, esTalentoHumano } = useAuth()
+  const { user, logout, esAdmin, veTodaLaPlantilla } = useAuth()
   const { pendientes } = useNotificaciones()
   const location = useLocation()
   const navigate = useNavigate()
@@ -54,8 +54,8 @@ export default function AppShell() {
   const [navAbierto, setNavAbierto] = useState(false)
 
   // El menú se arma con el cargo que confirmó el servidor: «Administración»
-  // sólo existe en la lista para Talento Humano.
-  const items = useMemo(() => navItemsPara(esTalentoHumano), [esTalentoHumano])
+  // sólo existe en la lista para el admin.
+  const items = useMemo(() => navItemsPara(esAdmin), [esAdmin])
   const currentItem = useMemo(
     () => items.find((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)) ?? null,
     [items, location.pathname],
@@ -186,7 +186,7 @@ export default function AppShell() {
             <p className="sidebar__foot-line">
               {user?.cargo ? `Cargo: ${user.cargo}` : 'Sesión validada contra la base institucional.'}
             </p>
-            {esTalentoHumano ? (
+            {veTodaLaPlantilla ? (
               <p className="sidebar__foot-line">Plantilla completa de la empresa</p>
             ) : null}
             <p className="sidebar__foot-line">Versión 2.0</p>

@@ -30,18 +30,26 @@ from auth import AuthService
 from config import ConfigError, Settings, load_settings
 from dashboard import DashboardService
 from db import Database, DatabaseUnavailable
-from employees import EmployeeDirectory, normalizar_unes, validar_unes_login
+from employees import (
+    EmployeeDirectory,
+    empresa_de_unes,
+    normalizar_unes,
+    validar_unes_login,
+)
 from filial import filtrar_por_filial
 from notifications import NotificationService
 from reports import generar_pdf_reporte_vacaciones, generar_plano_unoee
 from security import ValidationError, hash_password, normalize_email, validate_password
 from users import (
+    CARGO_ADMIN,
     CARGO_TALENTO_HUMANO,
     User,
     UserRepository,
     a_booleano,
+    company_desde_bd,
     normalizar_cargo,
     validar_cargo,
+    validar_company,
     validar_nombre,
     validar_usuario_nuevo,
 )
@@ -161,6 +169,9 @@ def require_talento_humano(view: F) -> F:
     navegador, y ocultar la opción en la interfaz no es el control: esto sí lo
     es. Sin este decorador, cualquiera con una sesión válida podría llamar a la
     API directamente.
+
+    Se usa para las decisiones sobre asignaciones y el plano UNOEE, que siguen
+    siendo exclusivos de Talento Humano.
     """
 
     @require_auth
@@ -168,11 +179,37 @@ def require_talento_humano(view: F) -> F:
     def wrapper(*args: Any, **kwargs: Any):
         if not current_user().es_talento_humano:
             logger.warning(
-                "Acceso denegado a una ruta de administración para el cargo %r.",
+                "Acceso denegado a una ruta de Talento Humano para el cargo %r.",
                 current_user().cargo,
             )
             return fail(
                 "Esta opción es exclusiva de Talento Humano.",
+                code="FORBIDDEN_ROLE",
+                status=403,
+            )
+        return view(*args, **kwargs)
+
+    return wrapper  # type: ignore[return-value]
+
+
+def require_admin(view: F) -> F:
+    """Exige que el usuario autenticado tenga el cargo ``admin``.
+
+    Administración de usuarios es exclusiva del administrador. Igual que el
+    resto de guardas, el cargo se lee de la base en cada petición y no de nada
+    que envíe el navegador.
+    """
+
+    @require_auth
+    @wraps(view)
+    def wrapper(*args: Any, **kwargs: Any):
+        if not current_user().es_admin:
+            logger.warning(
+                "Acceso denegado a una ruta de administración para el cargo %r.",
+                current_user().cargo,
+            )
+            return fail(
+                "Esta opción es exclusiva del administrador.",
                 code="FORBIDDEN_ROLE",
                 status=403,
             )
@@ -188,6 +225,16 @@ def current_user() -> User:
 def current_unes() -> str:
     """UNES con la que se inició sesión. Cadena vacía si no se digitó."""
     return getattr(g.current_session, "unes", "") or ""
+
+
+def current_company() -> int:
+    """Empresa de la cuenta (``Usuarios.company``), leída de la base.
+
+    Es la que decide qué plantilla se devuelve. Se refresca en cada petición
+    porque ``authenticate`` vuelve a leer el usuario, así que cambiarla desde
+    Administración surte efecto sin pedir un nuevo inicio de sesión.
+    """
+    return company_desde_bd(getattr(current_user(), "company", None))
 
 
 # --------------------------------------------------------------------------
@@ -489,16 +536,16 @@ def create_app(settings: Settings | None = None) -> Flask:
     def me():
         return ok({"usuario": {**current_user().to_public_dict(), "unes": current_unes()}})
 
-    # -- administración de usuarios (sólo Talento Humano) -------------------
+    # -- administración de usuarios (sólo admin) ----------------------------
 
     @app.get("/api/usuarios")
-    @require_talento_humano
+    @require_admin
     def listar_usuarios():
         usuarios = servicios().users.listar()
         return ok({"usuarios": usuarios, "total": len(usuarios)})
 
     @app.post("/api/usuarios")
-    @require_talento_humano
+    @require_admin
     def crear_usuario():
         payload = _json_body()
         datos = validar_usuario_nuevo(payload)
@@ -516,13 +563,14 @@ def create_app(settings: Settings | None = None) -> Flask:
             correo=datos["correo"],
             password_hash=hash_password(datos["password"]),
             cargo=datos["cargo"],
+            company=datos["company"],
             activo=datos["activo"],
         )
         creado = repositorio.find_by_id(nuevo_id)
         return ok({"usuario": creado.to_public_dict() if creado else None}, 201)
 
     @app.put("/api/usuarios/<int:user_id>")
-    @require_talento_humano
+    @require_admin
     def actualizar_usuario(user_id: int):
         payload = _json_body()
         repositorio: UserRepository = servicios().users
@@ -535,6 +583,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         nombre = validar_nombre(payload.get("nombre", actual.nombre))
         cargo = validar_cargo(payload.get("cargo", actual.cargo))
         correo = normalize_email(payload.get("correo", actual.correo))
+        company = validar_company(payload.get("company", actual.company))
 
         if repositorio.correo_en_uso(correo, excluir_id=user_id):
             return fail(
@@ -543,9 +592,17 @@ def create_app(settings: Settings | None = None) -> Flask:
                 status=409,
             )
 
-        # Evita que Talento Humano se deje sin acceso por error. Se cuentan los
-        # que están **activos**: degradar a un Talento Humano ya desactivado no
-        # deja el sistema sin administración.
+        # Evita quedarse sin quien administre las cuentas ni sin quien apruebe.
+        # Se cuentan los que están **activos**: degradar a alguien ya desactivado
+        # no cambia nada.
+        if actual.es_admin and normalizar_cargo(cargo) != CARGO_ADMIN:
+            if repositorio.contar_admin_activo(excluir_id=user_id) == 0:
+                return fail(
+                    "Debe quedar al menos un usuario administrador activo con acceso.",
+                    code="ULTIMO_ADMIN",
+                    status=409,
+                )
+
         if actual.es_talento_humano and normalizar_cargo(cargo) != CARGO_TALENTO_HUMANO:
             if repositorio.contar_talento_humano_activo(excluir_id=user_id) == 0:
                 return fail(
@@ -554,7 +611,9 @@ def create_app(settings: Settings | None = None) -> Flask:
                     status=409,
                 )
 
-        repositorio.actualizar(user_id, nombre=nombre, correo=correo, cargo=cargo)
+        repositorio.actualizar(
+            user_id, nombre=nombre, correo=correo, cargo=cargo, company=company
+        )
 
         if payload.get("password"):
             repositorio.actualizar_password_hash(
@@ -565,7 +624,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         return ok({"usuario": actualizado.to_public_dict() if actualizado else None})
 
     @app.patch("/api/usuarios/<int:user_id>/activo")
-    @require_talento_humano
+    @require_admin
     def activar_usuario(user_id: int):
         """Activa o desactiva una cuenta.
 
@@ -588,7 +647,19 @@ def create_app(settings: Settings | None = None) -> Flask:
                 status=409,
             )
 
-        # Sin esto se podría dejar el sistema sin nadie que administre.
+        # Sin esto se podría dejar el sistema sin quien administre las cuentas o
+        # sin quien apruebe las asignaciones.
+        if (
+            not activo
+            and actual.es_admin
+            and repositorio.contar_admin_activo(excluir_id=user_id) == 0
+        ):
+            return fail(
+                "Debe quedar al menos un usuario administrador activo con acceso.",
+                code="ULTIMO_ADMIN",
+                status=409,
+            )
+
         if (
             not activo
             and actual.es_talento_humano
@@ -614,14 +685,14 @@ def create_app(settings: Settings | None = None) -> Flask:
         )
 
     @app.delete("/api/usuarios/<int:user_id>")
-    @require_talento_humano
+    @require_admin
     def eliminar_usuario(user_id: int):
         repositorio: UserRepository = servicios().users
         actual = repositorio.find_by_id(user_id)
         if actual is None:
             return fail("El usuario no existe.", code="USUARIO_NO_EXISTE", status=404)
 
-        # Dos protecciones que evitan dejar el sistema sin administración o
+        # Tres protecciones que evitan dejar el sistema sin administración o
         # cerrar la propia sesión sin querer.
         if actual.id == current_user().id:
             return fail(
@@ -629,6 +700,13 @@ def create_app(settings: Settings | None = None) -> Flask:
                 code="NO_SE_PUEDE_ELIMINAR_A_SI_MISMO",
                 status=409,
             )
+        if actual.es_admin:
+            if repositorio.contar_admin_activo(excluir_id=user_id) == 0:
+                return fail(
+                    "Debe quedar al menos un usuario administrador activo con acceso.",
+                    code="ULTIMO_ADMIN",
+                    status=409,
+                )
         if actual.es_talento_humano:
             if repositorio.contar_talento_humano_activo(excluir_id=user_id) == 0:
                 return fail(
@@ -670,17 +748,21 @@ def create_app(settings: Settings | None = None) -> Flask:
 
     def _filas_tablero(
         *,
-        es_talento_humano: bool,
+        ve_toda_la_plantilla: bool,
         unes_sesion: str,
         unes_solicitada: str = "",
+        empresa: int = 0,
         con_propietarios: bool = True,
     ) -> tuple[list[dict[str, Any]], str]:
         """Colaboradores con su asignación, aplicando la regla de acceso.
 
-        Talento Humano recibe toda la plantilla; si además pidió una UNES
-        concreta, sólo esa. Cualquier otro cargo recibe exclusivamente la UNES de
-        su sesión: ``unes_solicitada`` se ignora para no ampliar lo que ve por la
-        puerta del parámetro.
+        La **empresa** de la cuenta (``Usuarios.company``) acota siempre: la
+        vista V2 reúne la plantilla de GyJ, Almasa y Colmena, y ninguna cuenta
+        debe ver la de otra. Dentro de esa empresa, Talento Humano y el admin
+        reciben toda la plantilla; si además pidieron una UNES concreta, sólo
+        esa. Cualquier otro cargo recibe exclusivamente la UNES de su sesión:
+        ``unes_solicitada`` se ignora para no ampliar lo que ve por la puerta del
+        parámetro.
 
         Además, cuando la UNES es la de filial (106), se acota a las cédulas del
         equipo del jefe de filial que inició sesión (ver :mod:`filial`).
@@ -690,22 +772,23 @@ def create_app(settings: Settings | None = None) -> Flask:
         ``(filas, origen)`` con ``origen`` en ``"vista"`` o ``"local"``.
         """
         directorio = servicios().employees
-        unes_objetivo = unes_solicitada if es_talento_humano else unes_sesion
-        ver_todo = es_talento_humano and not unes_objetivo
+        unes_objetivo = unes_solicitada if ve_toda_la_plantilla else unes_sesion
+        ver_todo = ve_toda_la_plantilla and not unes_objetivo
 
         if directorio.disponible and (ver_todo or unes_objetivo):
             try:
                 colaboradores = (
-                    directorio.listar_todos()
+                    directorio.listar_todos(empresa=empresa)
                     if ver_todo
-                    else directorio.listar_por_unes(unes_objetivo)
+                    else directorio.listar_por_unes(unes_objetivo, empresa=empresa)
                 )
                 filas = servicios().assignments.tablero_de_unes(
                     colaboradores,
                     propietarios=_propietarios_por_correo() if con_propietarios else None,
                     # Para Talento Humano sin UNES no se acota por unidad: ve
-                    # también las asignaciones huérfanas de cualquier UNES.
+                    # también las asignaciones huérfanas de su empresa.
                     unes="" if ver_todo else unes_objetivo,
+                    empresa=empresa,
                 )
                 return _solo_filial(filas, unes_objetivo), "vista"
             except DatabaseUnavailable:
@@ -713,22 +796,33 @@ def create_app(settings: Settings | None = None) -> Flask:
                 # local en lugar de dejar la pantalla en blanco.
                 logger.warning("La vista de colaboradores no respondió; se usa el listado local.")
 
-        return _solo_filial(servicios().assignments.listar(), unes_objetivo), "local"
+        locales = servicios().assignments.listar()
+        if empresa:
+            # El registro local guarda la UNES completa ('4-301'), así que la
+            # empresa se deduce de su primer dígito. Las UNES antiguas sin
+            # prefijo se consideran de GyJ, que es de donde viene la aplicación.
+            prefijo = str(empresa)
+            locales = [
+                fila
+                for fila in locales
+                if (empresa_de_unes(fila.get("unes")) or "2") == prefijo
+            ]
+        return _solo_filial(locales, unes_objetivo), "local"
 
     def _unes_para_reporte() -> str:
         """UNES que se aplica a un reporte, según el cargo de la sesión.
 
-        Talento Humano puede pedir una UNES concreta con ``?unes=``; sin ella, el
-        reporte cubre toda la plantilla. Para cualquier otro cargo el parámetro
-        se ignora y manda la UNES de la sesión: el reporte es una regla de acceso
-        y no puede ampliarse desde el navegador.
+        Talento Humano y el admin pueden pedir una UNES concreta con ``?unes=``;
+        sin ella, el reporte cubre toda la plantilla. Para cualquier otro cargo
+        el parámetro se ignora y manda la UNES de la sesión: el reporte es una
+        regla de acceso y no puede ampliarse desde el navegador.
         """
-        if current_user().es_talento_humano:
+        if current_user().ve_toda_la_plantilla:
             return normalizar_unes(request.args.get("unes"))
         return current_unes()
 
-    def _colaboradores_de_unes(unes: str) -> int:
-        """Cuántos colaboradores tiene la UNES en la vista corporativa.
+    def _colaboradores_de_unes(unes: str, empresa: int = 0) -> int:
+        """Cuántos colaboradores tiene la UNES y la empresa en la vista.
 
         ``dbo.Usuarios`` no guarda la UNES —es un dato de la sesión, no de la
         cuenta—, así que el total de colaboradores de una unidad sale del
@@ -740,7 +834,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         if not unes or not directorio.disponible:
             return 0
         try:
-            return len(directorio.listar_por_unes(unes))
+            return len(directorio.listar_por_unes(unes, empresa=empresa))
         except DatabaseUnavailable:
             logger.warning(
                 "La vista de colaboradores no respondió; el total de la UNES queda en cero."
@@ -764,8 +858,8 @@ def create_app(settings: Settings | None = None) -> Flask:
         Si hay conexión con la vista corporativa, la tabla son **los
         colaboradores** con la asignación que tengan (o ninguna):
 
-        * Talento Humano entra sin UNES y recibe **toda la plantilla de la
-          empresa**.
+        * Talento Humano y el admin entran sin UNES y reciben **toda la
+          plantilla de la empresa**.
         * Los demás cargos reciben sólo los de la UNES con la que entraron: el
           filtro es una regla de acceso y lo aplica el servidor en el ``WHERE``.
 
@@ -774,8 +868,9 @@ def create_app(settings: Settings | None = None) -> Flask:
         """
         unes = current_unes()
         filas, origen = _filas_tablero(
-            es_talento_humano=current_user().es_talento_humano,
+            ve_toda_la_plantilla=current_user().ve_toda_la_plantilla,
             unes_sesion=unes,
+            empresa=current_company(),
         )
         return ok(
             {
@@ -841,9 +936,10 @@ def create_app(settings: Settings | None = None) -> Flask:
         """
         unes_filtro = _unes_para_reporte()
         filas, _origen = _filas_tablero(
-            es_talento_humano=current_user().es_talento_humano,
+            ve_toda_la_plantilla=current_user().ve_toda_la_plantilla,
             unes_sesion=current_unes(),
             unes_solicitada=unes_filtro,
+            empresa=current_company(),
             con_propietarios=False,
         )
 
@@ -938,17 +1034,18 @@ def create_app(settings: Settings | None = None) -> Flask:
     def resumen():
         """Totales del resumen.
 
-        Talento Humano ve la empresa completa. Cualquier otro cargo recibe sólo
-        los de la UNES con la que entró: el alcance es una regla de acceso y lo
-        aplica el servidor, no la interfaz.
+        Talento Humano y el admin ven la empresa completa. Cualquier otro cargo
+        recibe sólo los de la UNES con la que entró: el alcance es una regla de
+        acceso y lo aplica el servidor, no la interfaz.
         """
-        if current_user().es_talento_humano:
+        if current_user().ve_toda_la_plantilla:
             return ok(servicios().dashboard.resumen())
 
         unes = current_unes()
         datos = servicios().dashboard.resumen(unes=unes)
-        # «Usuarios registrados» para una UNES es su plantilla de colaboradores.
-        datos["totales"]["usuarios"] = _colaboradores_de_unes(unes)
+        # «Usuarios registrados» para una UNES es su plantilla de colaboradores
+        # dentro de la empresa de la cuenta.
+        datos["totales"]["usuarios"] = _colaboradores_de_unes(unes, current_company())
         return ok(datos)
 
     return app
