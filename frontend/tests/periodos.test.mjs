@@ -11,12 +11,14 @@
  */
 
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 import { addDays, daysInclusive, formatIsoDate, parseIsoDate, toIsoDate } from '../src/utils/fechas.js'
 import { buildAssignmentsCsv, buildReportFilename } from '../src/utils/reporte.js'
 import {
   calcularDias,
+  diasHabiles,
   resumirPeriodos,
   semaforoDiasAUsar,
   ultimoDiaProgramado,
@@ -63,6 +65,52 @@ test('muestra el mismo día que se eligió, sin correrse por la zona horaria', (
   // El formato corto cambia con la versión de ICU; basta con que no reste un día.
   assert.match(formatIsoDate('2026-11-10'), /10/)
   assert.equal(formatIsoDate('2027-01-01', 'long'), '1 de enero de 2027')
+})
+
+test('descuenta las fechas inactivas del rango', () => {
+  const inhabiles = ['2026-12-06', '2026-12-08']
+  // Del 5 al 8 son 4 días calendario; el domingo 6 y el festivo 8 no cuentan.
+  assert.equal(diasHabiles('2026-12-05', '2026-12-08', inhabiles), 2)
+  // Un rango que sólo cae en fechas inactivas deja 0 días, no null.
+  assert.equal(diasHabiles('2026-12-06', '2026-12-06', inhabiles), 0)
+  // Sin lista se comporta como siempre: días calendario.
+  assert.equal(diasHabiles('2026-12-05', '2026-12-08'), 4)
+  // Un rango invertido sigue siendo inválido.
+  assert.equal(diasHabiles('2026-12-08', '2026-12-05', inhabiles), null)
+})
+
+test('el resumen descuenta las fechas inactivas en cada período', () => {
+  const resumen = resumirPeriodos(
+    [{ inicio: '2026-12-05', fin: '2026-12-08' }],
+    ['2026-12-06', '2026-12-08'],
+  )
+  assert.deepEqual(resumen.dias, [2])
+  assert.equal(resumen.totalDias, 2)
+  assert.equal(resumen.periodosProgramados, 1)
+})
+
+/* La lista real vive en el backend (`backend/fechas_inactivas.json`) y la
+   consumen las dos partes: el servidor en `dias_inhabiles.py` y la interfaz en
+   `src/hooks/fechas_inactivas.js`. Se valida aquí porque una fecha mal escrita
+   descuadraría los totales sin dar ningún error. */
+const LISTA = new URL('../../backend/fechas_inactivas.json', import.meta.url)
+
+async function listaReal() {
+  return JSON.parse(await readFile(LISTA, 'utf8')).diasInhabiles
+}
+
+test('la lista de fechas inactivas está en ISO, ordenada y sin repetidas', async () => {
+  const dias = await listaReal()
+  assert.ok(dias.length > 0, 'la lista no puede quedar vacía')
+  assert.equal(new Set(dias).size, dias.length, 'no debe haber fechas repetidas')
+  assert.deepEqual(dias, [...dias].sort(), 'debe venir ordenada para poder leerla')
+  for (const fecha of dias) {
+    assert.match(fecha, /^\d{4}-\d{2}-\d{2}$/, `fecha con formato inválido: ${fecha}`)
+  }
+})
+
+test('con la lista real, diciembre de 2026 suma 25 días de 31', async () => {
+  assert.equal(diasHabiles('2026-12-01', '2026-12-31', await listaReal()), 25)
 })
 
 /* -- Resumen de los tres períodos ------------------------------------------ */

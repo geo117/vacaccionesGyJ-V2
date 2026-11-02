@@ -16,6 +16,12 @@ export default defineConfig(({ mode }) => {
       host: env.VITE_DEV_HOST || '127.0.0.1',
       port: Number(env.VITE_DEV_PORT) || 5173,
       strictPort: true,
+      // La lista de fechas inactivas vive en `backend/` (fuente única para el
+      // servidor y la interfaz). En desarrollo Vite debe poder servirla desde
+      // fuera de la raíz del proyecto; en el build queda empaquetada en el JS.
+      fs: {
+        allow: ['..'],
+      },
       proxy: env.VITE_API_BASE_URL
         ? undefined
         : {

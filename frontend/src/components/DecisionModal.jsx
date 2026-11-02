@@ -23,6 +23,7 @@ import Form from 'react-bootstrap/Form'
 import Modal from 'react-bootstrap/Modal'
 import Icon from './Icon'
 import StatusChip from './StatusChip'
+import { diasInhabiles } from '../hooks/fechas_inactivas'
 import { formatIsoDate, NUMERO } from '../utils/fechas'
 import { resumirPeriodos } from '../utils/periodos'
 
@@ -44,7 +45,12 @@ export default function DecisionModal({ show, asignacion, onHide, onConfirmar, s
   const [observaciones, setObservaciones] = useState(asignacion?.observaciones ?? '')
   const [errorMotivo, setErrorMotivo] = useState(null)
 
-  const resumen = useMemo(() => resumirPeriodos(asignacion?.periodos ?? []), [asignacion])
+  // Días hábiles: la misma lista de fechas inactivas que usa el servidor, para
+  // que la decisión se tome sobre el total que quedó guardado.
+  const resumen = useMemo(
+    () => resumirPeriodos(asignacion?.periodos ?? [], diasInhabiles),
+    [asignacion],
+  )
 
   const motivoValido = motivo.trim().length > 0
   const puedeGuardar = decision === 'aprobada' || motivoValido

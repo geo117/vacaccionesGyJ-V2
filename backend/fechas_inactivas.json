@@ -1,0 +1,33 @@
+{
+  "nota": "Fechas que NO cuentan como días de vacaciones (domingos y festivos). Fuente única: la leen el backend (backend/dias_inhabiles.py) y la interfaz (frontend/src/hooks/fechas_inactivas.js). Al agregar o quitar fechas aquí, la pantalla y la base siguen calculando lo mismo; el backend cachea la lista, así que hay que reiniciarlo.",
+  "detalle": {
+    "2026-12-06": "Domingo",
+    "2026-12-08": "Martes (Inmaculada Concepción - Festivo)",
+    "2026-12-13": "Domingo",
+    "2026-12-20": "Domingo",
+    "2026-12-25": "Viernes (Navidad - Festivo)",
+    "2026-12-27": "Domingo",
+    "2027-01-01": "Viernes (Año Nuevo - Festivo)",
+    "2027-01-03": "Domingo",
+    "2027-01-10": "Domingo",
+    "2027-01-11": "Lunes (Día de los Reyes Magos - Festivo trasladado)",
+    "2027-01-17": "Domingo",
+    "2027-01-24": "Domingo",
+    "2027-01-31": "Domingo"
+  },
+  "diasInhabiles": [
+    "2026-12-06",
+    "2026-12-08",
+    "2026-12-13",
+    "2026-12-20",
+    "2026-12-25",
+    "2026-12-27",
+    "2027-01-01",
+    "2027-01-03",
+    "2027-01-10",
+    "2027-01-11",
+    "2027-01-17",
+    "2027-01-24",
+    "2027-01-31"
+  ]
+}

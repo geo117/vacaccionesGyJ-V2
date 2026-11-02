@@ -74,6 +74,10 @@ Cada ítem lleva icono **y** texto, nunca sólo el icono.
 Los días **nunca** se escriben a mano: se derivan de las fechas.
 
 * Un rango cuenta ambos extremos: del 1 al 5 de marzo son **5** días.
+* **No cuentan los domingos ni los festivos** de `fechas_inactivas`: un domingo
+  dentro del período no es un día de vacaciones. La lista es la misma que usa el
+  backend (`backend/fechas_inactivas.json`), así que la previsualización y el
+  total guardado coinciden; `src/hooks/fechas_inactivas.js` sólo la reexporta.
 * El cálculo se hace en UTC, para que el cambio de horario de verano no añada ni
   quite un día.
 * Un período a medias se muestra como "Incompleto", no como 0: "no programado" y

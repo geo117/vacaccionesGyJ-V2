@@ -4,9 +4,10 @@
  * Lo que resuelve:
  *  - Tres períodos con fecha de inicio y de fin. Un período se puede dejar
  *    vacío: no todo el mundo parte sus vacaciones en tres.
- *  - **Cálculo de días en vivo**, por período y en total. El total incluye
- *    ambos extremos de cada rango (del 1 al 5 son 5 días), que es la convención
- *    de una asignación de vacaciones.
+ *  - **Cálculo de días en vivo**, por período y en total. Se cuentan ambos
+ *    extremos de cada rango (del 1 al 5 son 5 días) pero **se descuentan las
+ *    fechas inactivas** de `hooks/fechas_inactivas.js` (domingos y festivos),
+ *    que no se disfrutan como vacaciones.
  *  - Fecha de ingreso (reintegro a labores) editable: viene de la columna
  *    `fecha_reintegro_lab` y, si no hay ninguna guardada, se sugiere el día
  *    siguiente al último período con un botón para aplicarla.
@@ -24,6 +25,7 @@ import Button from 'react-bootstrap/Button'
 import Form from 'react-bootstrap/Form'
 import Modal from 'react-bootstrap/Modal'
 import Icon from './Icon'
+import { diasInhabiles } from '../hooks/fechas_inactivas'
 import { addDays, formatIsoDate, NUMERO } from '../utils/fechas'
 import { resumirPeriodos, semaforoDiasAUsar, validarPeriodos } from '../utils/periodos'
 
@@ -59,7 +61,9 @@ export default function AsignarPeriodosModal({ show, asignacion, onHide, onGuard
      `fecha_reintegro_lab`, no `fecha_regreso`. */
   const [fechaIngreso, setFechaIngreso] = useState(asignacion?.fechaReintegroLab ?? '')
 
-  const resumen = useMemo(() => resumirPeriodos(periodos), [periodos])
+  /* El total y el detalle por período descuentan las fechas inactivas: un
+     domingo o un festivo dentro del rango no es un día de vacaciones. */
+  const resumen = useMemo(() => resumirPeriodos(periodos, diasInhabiles), [periodos])
 
   /* Último día programado: base para sugerir la fecha de ingreso. */
   const ultimoDia = useMemo(() => {
@@ -248,7 +252,9 @@ export default function AsignarPeriodosModal({ show, asignacion, onHide, onGuard
                 ? 'Programa un período para calcular los días.'
                 : `${resumen.periodosProgramados} de 3 períodos programados.`}
             </p>
-            <p className="resumen-calculo__nota">Cuenta el día de inicio y el de fin.</p>
+            <p className="resumen-calculo__nota">
+              Cuenta el día de inicio y el de fin; no los domingos ni los festivos.
+            </p>
 
             {/* Mismo cálculo que la tabla y el modal de creación: días a corte
                 menos días asignados. Al editar los períodos el número se mueve,

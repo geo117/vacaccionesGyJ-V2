@@ -128,6 +128,25 @@ base contradiría a la pantalla.
 
 La columna es `DECIMAL(6,1)` porque el corte de la vista trae un decimal (7.2) y
 con `INT` el resultado se truncaba en silencio.
+
+### Los días se cuentan sin domingos ni festivos
+
+Un domingo o un festivo dentro de un período no se disfruta como vacaciones, así
+que no suma al total. Esa lista de fechas inactivas vive en
+**`backend/fechas_inactivas.json`** y es la **fuente única** para todo el
+sistema:
+
+* el backend la lee en `dias_inhabiles.py` y la aplica en `normalizar_periodos`
+  (de ahí salen `periodo*_dias*`, `total_dias_empleado` y `dias_a_corte`);
+* la interfaz la importa en `frontend/src/hooks/fechas_inactivas.js`, y con ella
+  previsualiza los mismos días en los modales de alta, edición, detalle y
+  decisión.
+
+Si la lista estuviera duplicada, la pantalla y la base podrían calcular totales
+distintos para las mismas fechas. Para agregar un festivo se edita el JSON y se
+**reinicia el backend**: la lista se cachea al primer uso para no leer el archivo
+en cada petición. `test_backend.py` comprueba un caso fijo (diciembre de 2026:
+25 días de 31).
 ```
 
 La tabla es "aplanada" (los tres períodos en columnas), pero la API trabaja con

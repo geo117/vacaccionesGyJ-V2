@@ -25,6 +25,7 @@ import Table from 'react-bootstrap/Table'
 import Button from 'react-bootstrap/Button'
 import Icon from './Icon'
 import StatusChip from './StatusChip'
+import { diasInhabiles } from '../hooks/fechas_inactivas'
 import { formatIsoDate, NUMERO } from '../utils/fechas'
 import { calcularDias, semaforoDiasAUsar } from '../utils/periodos'
 
@@ -68,8 +69,15 @@ export default function EmpleadoDetalleModal({ show, asignacion, onHide, onAsign
 
   const estado = ETIQUETA_ESTADO[asignacion.estado] ?? ETIQUETA_ESTADO.pendiente
   const periodos = asignacion.periodos ?? []
-  const totalDias = periodos.reduce((suma, periodo) => suma + (calcularDias(periodo) ?? 0), 0)
-  const programados = periodos.filter((periodo) => calcularDias(periodo) !== null).length
+  /* Los días se muestran descontando las fechas inactivas: es el mismo total
+     que calcula y guarda el servidor. */
+  const totalDias = periodos.reduce(
+    (suma, periodo) => suma + (calcularDias(periodo, diasInhabiles) ?? 0),
+    0,
+  )
+  const programados = periodos.filter(
+    (periodo) => calcularDias(periodo, diasInhabiles) !== null,
+  ).length
   const responsable = responsableDe(asignacion.estado, asignacion.thAsignacion)
   const licencia = licenciaDe(asignacion.diasAUsar)
 
@@ -119,7 +127,7 @@ export default function EmpleadoDetalleModal({ show, asignacion, onHide, onAsign
             </thead>
             <tbody>
               {periodos.map((periodo, indice) => {
-                const dias = calcularDias(periodo)
+                const dias = calcularDias(periodo, diasInhabiles)
                 return (
                   <tr key={`periodo-${indice + 1}`}>
                     <td>Período {indice + 1}</td>

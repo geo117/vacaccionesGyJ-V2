@@ -17,6 +17,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from db import Database, DatabaseUnavailable
+from dias_inhabiles import dias_habiles
 from employees import empresa_de_unes
 from security import ValidationError
 
@@ -272,9 +273,11 @@ def normalizar_periodos(periodos: Any, *, minimo: int = 1) -> tuple[list[dict[st
                 "RANGO_INVERTIDO",
                 f"La fecha de fin del período {indice + 1} es anterior a la de inicio.",
             )
-        # Días inclusivos: del 1 al 5 son 5 días, que es la convención de una
-        # asignación de vacaciones.
-        normalizados.append({"inicio": inicio, "fin": fin, "dias": (fin - inicio).days + 1})
+        # Días inclusivos (del 1 al 5 son 5 días) menos los domingos y festivos
+        # de `fechas_inactivas.json`: los inactivos no se disfrutan como
+        # vacaciones. Es la misma regla que aplica la interfaz, con la misma
+        # lista, para que lo guardado y lo mostrado no puedan discrepar.
+        normalizados.append({"inicio": inicio, "fin": fin, "dias": dias_habiles(inicio, fin)})
 
     while len(normalizados) < 3:
         normalizados.append({"inicio": None, "fin": None, "dias": None})

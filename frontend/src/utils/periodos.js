@@ -11,7 +11,31 @@
  * períodos se cruzan, cuándo vuelve la persona—.
  */
 
-import { daysInclusive, parseIsoDate } from '../utils/fechas.js'
+import { addDays, daysInclusive, parseIsoDate } from '../utils/fechas.js'
+
+/**
+ * Días de un rango descontando las fechas inactivas.
+ *
+ * Se cuentan ambos extremos (del 1 al 5 son 5 días), como el resto del módulo,
+ * y a ese total se le restan las fechas de `inhabiles` que caigan dentro del
+ * rango: domingos y festivos de la lista de `hooks/fechas_inactivas.js`. Sin
+ * lista se comporta igual que `daysInclusive`, y un rango invertido o
+ * incompleto sigue devolviendo `null`.
+ */
+export function diasHabiles(inicio, fin, inhabiles = []) {
+  const total = daysInclusive(inicio, fin)
+  if (total === null) return null
+  if (!inhabiles?.length) return total
+
+  const excluidos = new Set(inhabiles)
+  let dias = total
+  let cursor = inicio
+  for (let i = 0; i < total; i += 1) {
+    if (excluidos.has(cursor)) dias -= 1
+    cursor = addDays(cursor, 1)
+  }
+  return dias
+}
 
 /**
  * Días de un período.
@@ -19,15 +43,23 @@ import { daysInclusive, parseIsoDate } from '../utils/fechas.js'
  * Devuelve `null` mientras falte una fecha o el rango esté invertido. Es
  * importante no devolver `0`: "no programado" y "cero días" son cosas distintas
  * y confundirlas produciría un total creíble pero falso.
+ *
+ * Con `inhabiles` se descuentan esas fechas del total (ver `diasHabiles`); sin
+ * lista, el resultado es el de siempre: días calendario del rango.
  */
-export function calcularDias(periodo) {
+export function calcularDias(periodo, inhabiles = []) {
   if (!periodo?.inicio || !periodo?.fin) return null
-  return daysInclusive(periodo.inicio, periodo.fin)
+  return diasHabiles(periodo.inicio, periodo.fin, inhabiles)
 }
 
-/** Suma los días programados y cuenta cuántos períodos tienen fechas. */
-export function resumirPeriodos(periodos) {
-  const dias = (periodos ?? []).map(calcularDias)
+/**
+ * Suma los días programados y cuenta cuántos períodos tienen fechas.
+ *
+ * `inhabiles` se propaga a `calcularDias`, de modo que el total y el detalle por
+ * período descuentan las mismas fechas.
+ */
+export function resumirPeriodos(periodos, inhabiles = []) {
+  const dias = (periodos ?? []).map((periodo) => calcularDias(periodo, inhabiles))
   const programados = dias.filter((valor) => valor !== null)
   return {
     totalDias: programados.reduce((suma, valor) => suma + valor, 0),

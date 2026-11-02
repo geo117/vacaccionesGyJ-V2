@@ -20,6 +20,7 @@ import Button from 'react-bootstrap/Button'
 import Form from 'react-bootstrap/Form'
 import Modal from 'react-bootstrap/Modal'
 import Icon from './Icon'
+import { diasInhabiles } from '../hooks/fechas_inactivas'
 import { addDays, formatIsoDate, NUMERO } from '../utils/fechas'
 import { resumirPeriodos, semaforoDiasAUsar, validarPeriodos } from '../utils/periodos'
 
@@ -85,7 +86,9 @@ export default function NuevaAsignacionModal({
   const [periodos, setPeriodos] = useState(PERIODOS_VACIOS)
   const [errores, setErrores] = useState({})
 
-  const resumen = useMemo(() => resumirPeriodos(periodos), [periodos])
+  /* Mismo cálculo que el servidor: se descuentan las fechas inactivas (domingos
+     y festivos) para que la previsualización coincida con lo que se guarda. */
+  const resumen = useMemo(() => resumirPeriodos(periodos, diasInhabiles), [periodos])
 
   const ultimoDia = useMemo(() => {
     const fines = periodos.map((p) => p.fin).filter(Boolean).sort()

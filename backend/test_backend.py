@@ -19,6 +19,7 @@ from datetime import date, timedelta
 from app import create_app
 from config import load_settings
 from db import Database
+from dias_inhabiles import dias_habiles
 from security import hash_password, looks_hashed
 
 PASSED: list[str] = []
@@ -308,6 +309,18 @@ def main() -> int:
     check("cualquier sesión puede listar asignaciones", respuesta.status_code == 200, str(respuesta.status_code))
 
     hoy = date.today()
+
+    # Regla de días: los domingos y festivos de `fechas_inactivas.json` no suman.
+    # Se comprueba con fechas fijas para no depender del día en que se ejecute.
+    check(
+        "un rango sin fechas inactivas cuenta todos sus días",
+        dias_habiles(date(2026, 3, 2), date(2026, 3, 6)) == 5,
+    )
+    check(
+        "diciembre 2026 descuenta sus domingos y festivos (25 de 31)",
+        dias_habiles(date(2026, 12, 1), date(2026, 12, 31)) == 25,
+    )
+
     payload = {
         "identificacion": f"9{sufijo[:6]}",
         "empleado": "Empleado De Prueba",
@@ -329,9 +342,25 @@ def main() -> int:
     creada = (respuesta.get_json() or {}).get("asignacion") or {}
     check("crear asignación con tres períodos", respuesta.status_code == 201, f"{respuesta.status_code} {respuesta.get_data(as_text=True)[:160]}")
     asignacion_id = creada.get("id")
-    check("los días se calculan del período 1 (5)", creada.get("periodos", [{}])[0].get("dias") == 5)
-    check("los días se calculan del período 2 (3)", creada.get("periodos", [{}, {}])[1].get("dias") == 3)
-    check("el total es la suma (8)", creada.get("totalDias") == 8, str(creada.get("totalDias")))
+    # Los días son hábiles: se descuentan los inactivos que caigan en el rango,
+    # por eso el esperado se calcula con la misma regla y no con días calendario.
+    esperado_p1 = dias_habiles(hoy, hoy + timedelta(days=4))
+    esperado_p2 = dias_habiles(hoy + timedelta(days=10), hoy + timedelta(days=12))
+    check(
+        f"los días del período 1 descuentan inactivos ({esperado_p1})",
+        creada.get("periodos", [{}])[0].get("dias") == esperado_p1,
+        str(creada.get("periodos")),
+    )
+    check(
+        f"los días del período 2 descuentan inactivos ({esperado_p2})",
+        creada.get("periodos", [{}, {}])[1].get("dias") == esperado_p2,
+        str(creada.get("periodos")),
+    )
+    check(
+        f"el total es la suma ({esperado_p1 + esperado_p2})",
+        creada.get("totalDias") == esperado_p1 + esperado_p2,
+        str(creada.get("totalDias")),
+    )
     check("el estado inicial es pendiente", creada.get("estado") == "pendiente")
     check("la fecha de regreso se calcula", bool(creada.get("fechaRegreso")), str(creada.get("fechaRegreso")))
 
@@ -355,7 +384,12 @@ def main() -> int:
     )
     actualizada = (respuesta.get_json() or {}).get("asignacion") or {}
     check("guardar períodos", respuesta.status_code == 200, str(respuesta.status_code))
-    check("el total se recalcula y no se acepta el del cliente", actualizada.get("totalDias") == 20, str(actualizada.get("totalDias")))
+    esperado20 = dias_habiles(hoy, hoy + timedelta(days=19))
+    check(
+        f"el total se recalcula y no se acepta el del cliente ({esperado20})",
+        actualizada.get("totalDias") == esperado20,
+        str(actualizada.get("totalDias")),
+    )
 
     respuesta = client.put(
         f"/api/asignaciones/{asignacion_id}/periodos",
