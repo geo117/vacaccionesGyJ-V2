@@ -25,6 +25,7 @@ import pyodbc
 from flask import Flask, Response, g, jsonify, request, send_file
 from flask_cors import CORS
 
+from areas import anotar_areas, cargar_indice
 from assignments import AssignmentService
 from auth import AuthService
 from config import ConfigError, Settings, load_settings
@@ -874,12 +875,23 @@ def create_app(settings: Settings | None = None) -> Flask:
             unes_sesion=unes,
             empresa=current_company(),
         )
+
+        # El filtro por área es una herramienta de Talento Humano y del admin:
+        # sólo a ellos se les anotan las filas y se les envía la lista de áreas.
+        # Para el resto de cargos la respuesta queda exactamente como antes.
+        areas: list[str] = []
+        if current_user().ve_toda_la_plantilla:
+            indice = cargar_indice()
+            filas = anotar_areas(filas, indice)
+            areas = list(indice.areas)
+
         return ok(
             {
                 "asignaciones": filas,
                 "total": len(filas),
                 "origen": origen,
                 "unes": unes,
+                "areas": areas,
             }
         )
 
@@ -937,13 +949,29 @@ def create_app(settings: Settings | None = None) -> Flask:
         unidad; Talento Humano, la que pida o toda la plantilla.
         """
         unes_filtro = _unes_para_reporte()
-        filas, _origen = _filas_tablero(
+        filas, origen = _filas_tablero(
             ve_toda_la_plantilla=current_user().ve_toda_la_plantilla,
             unes_sesion=current_unes(),
             unes_solicitada=unes_filtro,
             empresa=current_company(),
             con_propietarios=False,
         )
+
+        # Quien entra con una UNES sólo descarga su planilla cuando todo su
+        # personal tiene las vacaciones aprobadas. Talento Humano y el admin
+        # están exentos: generan el documento de cualquier UNES. El botón de la
+        # interfaz se desactiva por la misma regla, pero el control real es este:
+        # una llamada directa a la API no puede saltárselo.
+        if not current_user().ve_toda_la_plantilla:
+            if origen != "vista" or not filas or any(
+                fila.get("estado") != "aprobada" for fila in filas
+            ):
+                return fail(
+                    "La planilla estará disponible cuando todas las vacaciones "
+                    "de tu UNES estén aprobadas.",
+                    code="PLANILLA_PENDIENTE_APROBACION",
+                    status=409,
+                )
 
         # La descripción sólo tiene sentido cuando el reporte es de una UNES.
         desc_unes = ""

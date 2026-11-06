@@ -23,6 +23,8 @@ export const MENSAJES_ASIGNACIONES = {
   MOTIVO_REQUERIDO: 'Escribe el motivo del rechazo antes de continuar.',
   DECISION_INVALIDA: 'La decisión debe ser aprobar o rechazar.',
   ASIGNACION_NO_EXISTE: 'La asignación ya no existe. Actualiza la lista.',
+  PLANILLA_PENDIENTE_APROBACION:
+    'La planilla estará disponible cuando todas las vacaciones de tu UNES estén aprobadas.',
   FORBIDDEN_ROLE: 'Aprobar o rechazar está reservado a Talento Humano y administración.',
   CAMPO_LARGO: 'Uno de los textos supera el largo permitido.',
   CAMPO_REQUERIDO: 'Falta un dato obligatorio.',
@@ -43,6 +45,9 @@ export function mensajeDeError(error) {
 export default function useAsignaciones() {
   const [filas, setFilas] = useState([])
   const [origen, setOrigen] = useState(null)
+  /* Áreas del archivo de filial. Sólo llegan para Talento Humano y el admin;
+     para los demás cargos el servidor devuelve una lista vacía. */
+  const [areas, setAreas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState(null)
 
@@ -56,18 +61,21 @@ export default function useAsignaciones() {
         // "local" = sólo las asignaciones registradas, porque la vista no
         // respondió. La pantalla avisa cuando es "local".
         origen: datos.origen ?? null,
+        areas: datos.areas ?? [],
         error: null,
       }
     } catch (error) {
-      return { filas: null, origen: null, error: mensajeDeError(error) }
+      return { filas: null, origen: null, areas: [], error: mensajeDeError(error) }
     }
   }, [])
 
   const recargar = useCallback(async () => {
-    const { filas: lista, origen: nuevoOrigen, error } = await traerAsignaciones()
+    const { filas: lista, origen: nuevoOrigen, areas: nuevasAreas, error } =
+      await traerAsignaciones()
     if (lista) {
       setFilas(lista)
       setOrigen(nuevoOrigen)
+      setAreas(nuevasAreas)
     }
     setErrorCarga(error)
     setCargando(false)
@@ -75,11 +83,12 @@ export default function useAsignaciones() {
 
   useEffect(() => {
     let vigente = true
-    traerAsignaciones().then(({ filas: lista, origen: nuevoOrigen, error }) => {
+    traerAsignaciones().then(({ filas: lista, origen: nuevoOrigen, areas: nuevasAreas, error }) => {
       if (!vigente) return
       if (lista) {
         setFilas(lista)
         setOrigen(nuevoOrigen)
+        setAreas(nuevasAreas)
       }
       setErrorCarga(error)
       setCargando(false)
@@ -124,6 +133,7 @@ export default function useAsignaciones() {
 
   return {
     filas,
+    areas,
     origen,
     cargando,
     errorCarga,

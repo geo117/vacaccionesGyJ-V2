@@ -100,6 +100,24 @@ test('el contador de pendientes sale del contexto compartido', async () => {
   )
 })
 
+test('la campana del topbar lleva a la bandeja y usa el mismo contador', async () => {
+  const fuente = await readFile(SHELL, 'utf8')
+
+  assert.ok(fuente.includes('className="topbar__bell"'), 'debe existir la campana en la barra')
+  assert.ok(
+    fuente.includes("navigate('/app/notificaciones')"),
+    'la campana debe abrir la vista de notificaciones',
+  )
+  assert.ok(
+    fuente.includes('topbar__bell-badge'),
+    'la campana muestra la cantidad de avisos pendientes',
+  )
+  assert.ok(
+    fuente.indexOf('className="topbar__bell"') < fuente.indexOf('className="topbar__logout"'),
+    'la campana va a la izquierda del botón de salir',
+  )
+})
+
 test('abrir la bandeja apaga el contador', async () => {
   const bandeja = await readFile(BANDEJA, 'utf8')
 

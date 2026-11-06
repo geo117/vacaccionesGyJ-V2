@@ -85,6 +85,27 @@ test('el botón de motivo va debajo del estado, no al lado', async () => {
   )
 })
 
+test('la planilla de una UNES se desactiva hasta que todo esté aprobado', async () => {
+  const fuente = await readFile(RUTA, 'utf8')
+
+  assert.ok(
+    fuente.includes('const planillaHabilitada = useMemo'),
+    'la habilitación debe calcularse sobre la lista completa',
+  )
+  assert.ok(
+    fuente.includes('if (puedeAprobar) return true'),
+    'Talento Humano y el admin descargan siempre',
+  )
+  assert.ok(
+    fuente.includes("fila.estado === 'aprobada'"),
+    'la planilla de la UNES exige vacaciones aprobadas',
+  )
+  assert.ok(
+    fuente.includes('disabled={descargando !== null || !planillaHabilitada}'),
+    'la opción de descargar la planilla debe quedar desactivada mientras falte aprobar',
+  )
+})
+
 test('la tabla se pagina de a 20 con los controles de react-bootstrap', async () => {
   const fuente = await readFile(RUTA, 'utf8')
 

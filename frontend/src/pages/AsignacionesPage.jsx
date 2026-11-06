@@ -25,6 +25,12 @@
  * filtrar en el navegador. Quien ve toda la plantilla (Talento Humano y el
  * admin) tiene por eso el filtro de UNES en la barra.
  *
+ * Además, Talento Humano y el admin tienen el filtro por **área**. El servidor
+ * anota cada fila con el área que le corresponde según la cédula en
+ * `data filial/areas_filial.json` y devuelve la lista de áreas; la pantalla
+ * cruza las filas con esa área. Los demás cargos no reciben ni el dato ni el
+ * desplegable.
+ *
  * La tabla se pagina **de a 20 registros**. La búsqueda y los filtros se aplican
  * antes de paginar: el total que se ve es el de los filtros, no el de la vista.
  *
@@ -37,9 +43,10 @@
  * **servidor** con las plantillas oficiales:
  *
  *   - «Descargar planilla»    → la planilla de vacaciones en PDF. Quien ve toda
- *     la plantilla (Talento Humano y el admin) elige la UNES en un modal; los
- *     demás cargos descargan la suya sin pasar por el modal, porque el servidor
- *     la limita a la UNES de la sesión.
+ *     la plantilla (Talento Humano y el admin) elige la UNES en un modal y puede
+ *     descargar siempre. Los demás cargos descargan la suya sin pasar por el
+ *     modal, pero la opción queda desactivada hasta que **todas** las vacaciones
+ *     de su UNES estén aprobadas; el backend aplica la misma regla.
  *   - «Descargar plano UNOEE» → el plano en Excel, en un modal que elige entre
  *     el plano general o el de una UNES. Lo ven Talento Humano y el admin; el
  *     backend además lo exige con `@require_talento_humano`, así que ocultar la
@@ -161,10 +168,12 @@ export default function AsignacionesPage() {
   const searchId = useId()
   const stateId = useId()
   const unesId = useId()
+  const areaId = useId()
 
-  const { veTodaLaPlantilla, puedeAprobar, unes } = useAuth()
+  const { veTodaLaPlantilla, puedeAprobar, esAdmin, esTalentoHumano, unes } = useAuth()
   const {
     filas,
+    areas,
     origen,
     cargando,
     errorCarga,
@@ -180,6 +189,7 @@ export default function AsignacionesPage() {
   const [query, setQuery] = useState('')
   const [estado, setEstado] = useState('todas')
   const [filtroUnes, setFiltroUnes] = useState('todas')
+  const [filtroArea, setFiltroArea] = useState('todas')
   const [pagina, setPagina] = useState(1)
 
   const [empleadoAbierto, setEmpleadoAbierto] = useState(null)
@@ -215,11 +225,20 @@ export default function AsignacionesPage() {
 
   const unesDisponibles = useMemo(() => opcionesUnes.map((opcion) => opcion.value), [opcionesUnes])
 
+  /* El filtro por área sólo lo ven Talento Humano y el admin. El servidor sólo
+     les manda la lista; si el archivo no está o no tiene áreas, no se muestra. */
+  const opcionesArea = useMemo(
+    () => [...areas].sort((a, b) => a.localeCompare(b, 'es')),
+    [areas],
+  )
+  const verFiltroArea = (esAdmin || esTalentoHumano) && opcionesArea.length > 0
+
   const filtradas = useMemo(() => {
     const needle = deferredQuery.trim().toLowerCase()
     return filas.filter((row) => {
       if (estado !== 'todas' && row.estado !== estado) return false
       if (filtroUnes !== 'todas' && row.unes !== filtroUnes) return false
+      if (verFiltroArea && filtroArea !== 'todas' && row.area !== filtroArea) return false
       if (!needle) return true
       return (
         String(row.empleado || '').toLowerCase().includes(needle) ||
@@ -229,9 +248,29 @@ export default function AsignacionesPage() {
         String(row.descUnes || '').toLowerCase().includes(needle)
       )
     })
-  }, [filas, deferredQuery, estado, filtroUnes])
+  }, [filas, deferredQuery, estado, filtroUnes, filtroArea, verFiltroArea])
 
-  const hayFiltros = query.trim() !== '' || estado !== 'todas' || filtroUnes !== 'todas'
+  const hayFiltros =
+    query.trim() !== '' ||
+    estado !== 'todas' ||
+    filtroUnes !== 'todas' ||
+    (verFiltroArea && filtroArea !== 'todas')
+
+  /* La planilla de una UNES sólo se libera cuando **todas** sus vacaciones
+     están aprobadas. Talento Humano y el admin quedan exentos: ellos generan el
+     documento de cualquier UNES. Se mira la lista completa y no `filtradas`:
+     esconder filas con un filtro no puede habilitar la descarga. */
+  const planillaHabilitada = useMemo(() => {
+    if (puedeAprobar) return true
+    if (!unes || origen !== 'vista') return false
+    return (
+      filas.length > 0 &&
+      filas.every((fila) => fila.estado === 'aprobada' && !fila.sinAsignacion)
+    )
+  }, [puedeAprobar, unes, origen, filas])
+
+  const motivoPlanillaDeshabilitada =
+    'La planilla se habilita cuando todas las vacaciones de la UNES estén aprobadas.'
 
   /* Paginación sobre lo ya filtrado: la búsqueda y los filtros mandan; la página
      sólo recorta lo que se ve. */
@@ -271,6 +310,11 @@ export default function AsignacionesPage() {
     setPagina(1)
   }
 
+  function cambiarFiltroArea(valor) {
+    setFiltroArea(valor)
+    setPagina(1)
+  }
+
   const resumen = useMemo(() => {
     const conAsignacion = filtradas.filter((f) => !f.sinAsignacion)
     return {
@@ -285,6 +329,7 @@ export default function AsignacionesPage() {
     setQuery('')
     setEstado('todas')
     setFiltroUnes('todas')
+    setFiltroArea('todas')
     setPagina(1)
   }
 
@@ -563,12 +608,16 @@ export default function AsignacionesPage() {
                   <button
                     type="button"
                     className="acciones__item"
-                    disabled={descargando !== null}
+                    disabled={descargando !== null || !planillaHabilitada}
+                    title={planillaHabilitada ? undefined : motivoPlanillaDeshabilitada}
                     onClick={abrirDescargarPlanilla}
                   >
                     <Icon name="planilla" size={16} />
                     Descargar planilla
                   </button>
+                  {!planillaHabilitada ? (
+                    <p className="acciones__nota">{motivoPlanillaDeshabilitada}</p>
+                  ) : null}
                 </Popover.Body>
               </Popover>
             }
@@ -683,6 +732,24 @@ export default function AsignacionesPage() {
                   {unesDisponibles.map((option) => (
                     <option key={option} value={option}>
                       {option}
+                    </option>
+                  ))}
+                </Form.Select>
+              </div>
+            ) : null}
+
+            {verFiltroArea ? (
+              <div className="toolbar__field">
+                <Form.Label htmlFor={areaId}>Área</Form.Label>
+                <Form.Select
+                  id={areaId}
+                  value={filtroArea}
+                  onChange={(event) => cambiarFiltroArea(event.target.value)}
+                >
+                  <option value="todas">Todas las áreas</option>
+                  {opcionesArea.map((area) => (
+                    <option key={area} value={area}>
+                      {area}
                     </option>
                   ))}
                 </Form.Select>

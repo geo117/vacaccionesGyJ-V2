@@ -711,6 +711,16 @@ textarea.form-control {
   color: var(--line-strong);
 }
 
+.acciones__nota {
+  max-width: 240px;
+  padding: 0 var(--space-3) var(--space-2);
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--ink-muted);
+  white-space: normal;
+}
+
 .acciones__separador {
   margin: var(--space-2) var(--space-1);
   border: 0;

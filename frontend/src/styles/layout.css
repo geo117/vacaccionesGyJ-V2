@@ -313,6 +313,48 @@
   border-radius: var(--radius-pill);
 }
 
+.topbar__bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--ink-inverse);
+  background: transparent;
+  border: 1px solid var(--brand-800);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
+}
+
+.topbar__bell:hover,
+.topbar__bell:focus-visible {
+  background-color: var(--brand-800);
+  border-color: var(--brand-600);
+}
+
+.topbar__bell-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--brand-900);
+  background-color: var(--accent-color);
+  border: 1px solid var(--brand-900);
+  border-radius: var(--radius-pill);
+}
+
 .topbar__logout {
   display: inline-flex;
   align-items: center;

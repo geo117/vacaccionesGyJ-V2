@@ -188,12 +188,12 @@ la interfaz.
 | `POST` | `/api/auth/logout` | Sesión | Revoca el token actual |
 | `GET` | `/api/auth/session` | Sesión | Confirma la sesión y devuelve el usuario con su cargo |
 | `GET` | `/api/resumen` | Sesión | Totales de la empresa para Talento Humano y admin; los de la UNES de la sesión para el resto |
-| `GET` | `/api/asignaciones` | Sesión | Colaboradores de la UNES de la sesión; **toda la plantilla** para Talento Humano y admin |
+| `GET` | `/api/asignaciones` | Sesión | Colaboradores de la UNES de la sesión; **toda la plantilla** para Talento Humano y admin. Para esos dos cargos incluye `areas` y el `area` de cada fila (`data filial/areas_filial.json`) |
 | `GET` | `/api/asignaciones/{id}` | Sesión | Una asignación |
 | `POST` | `/api/asignaciones` | Sesión | Registra una asignación nueva |
 | `PUT` | `/api/asignaciones/{id}/periodos` | Sesión | Programa los tres períodos |
 | `POST` | `/api/asignaciones/{id}/decision` | **Talento Humano o admin** | Aprueba o rechaza |
-| `GET` | `/api/reportes/planilla` | Sesión | Planilla de vacaciones en PDF (plantilla institucional). Filtra por la UNES pedida (`?unes=`) o por la de la sesión |
+| `GET` | `/api/reportes/planilla` | Sesión | Planilla de vacaciones en PDF (plantilla institucional). Filtra por la UNES pedida (`?unes=`) o por la de la sesión. Quien entra con UNES sólo puede generarla cuando todas las vacaciones de su UNES están aprobadas |
 | `GET` | `/api/reportes/plano-unoee` | **Talento Humano o admin** | Plano UNOEE en Excel sobre la plantilla oficial |
 | `GET` | `/api/notificaciones` | Sesión | Bandeja del cargo: Talento Humano y admin ven todas; el resto, ninguna |
 | `GET` | `/api/notificaciones/mias` | Sesión | Avisos generados por quien consulta (`usuario_id`) |
@@ -219,6 +219,11 @@ La segunda es **opcional a propósito**: si el servidor corporativo no responde,
 el backend arranca igual y `/api/asignaciones` degrada al listado local de
 asignaciones en lugar de dejar la pantalla en blanco. La respuesta lo dice en
 `origen` (`"vista"` o `"local"`) y la interfaz lo avisa.
+
+Para Talento Humano y el admin, `/api/asignaciones` anota además cada fila con su
+`area` y devuelve la lista `areas`, tomadas de `data filial/areas_filial.json` y
+cruzadas por **cédula**. El resto de cargos no recibe ese dato ni el filtro en la
+pantalla.
 
 `/api/health` informa del estado de las dos:
 

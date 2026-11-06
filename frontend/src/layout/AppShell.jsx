@@ -15,8 +15,9 @@
  *    al tocar fuera, foco atrapado y devuelto al disparador, y bloqueo del
  *    scroll de la página. La accesibilidad no se reimplementa.
  *  - El contador de notificaciones pendientes sale del contexto compartido, el
- *    mismo que usa la bandeja: el número del menú y lo que se ve al abrirlo no
- *    pueden discrepar.
+ *    mismo que usa la bandeja: el número del menú, la campana de la barra y lo
+ *    que se ve al abrirlo no pueden discrepar. La campana lleva a la bandeja;
+ *    allí se marcan como vistas y el contador se apaga.
  *  - El contenido arranca con `id="contenido"` para que el enlace de salto
  *    funcione desde el primer tabulador.
  */
@@ -69,6 +70,13 @@ export default function AppShell() {
   const handleNavClick = useCallback(() => {
     setNavAbierto(false)
   }, [])
+
+  /* La campana lleva a la bandeja. El contador no se apaga aquí: lo hace la
+     propia bandeja cuando termina de cargar, que es la misma regla que usa el
+     menú lateral. */
+  const abrirNotificaciones = useCallback(() => {
+    navigate('/app/notificaciones')
+  }, [navigate])
 
   const handleLogout = useCallback(async () => {
     const confirmation = await Swal.fire({
@@ -132,6 +140,25 @@ export default function AppShell() {
             {initials(user?.nombre)}
           </span>
         </div>
+
+        <button
+          type="button"
+          className="topbar__bell"
+          onClick={abrirNotificaciones}
+          aria-label={
+            pendientes > 0
+              ? `Notificaciones: ${pendientes} ${pendientes === 1 ? 'aviso pendiente' : 'avisos pendientes'}`
+              : 'Notificaciones'
+          }
+          title="Notificaciones"
+        >
+          <Icon name="notificaciones" size={20} />
+          {pendientes > 0 ? (
+            <span className="topbar__bell-badge tabular" aria-hidden="true">
+              {textoBadge(pendientes)}
+            </span>
+          ) : null}
+        </button>
 
         <button type="button" className="topbar__logout" onClick={handleLogout}>
           <Icon name="salir" size={18} />
