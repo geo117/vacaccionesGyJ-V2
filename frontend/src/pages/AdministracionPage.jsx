@@ -451,7 +451,7 @@ export default function AdministracionPage() {
               </caption>
               <thead>
                 <tr>
-                  <th scope="col">Usuario</th>
+                  <th scope="col" style={{ Width: '10px' }}>Usuario</th>
                   <th scope="col">Correo</th>
                   <th scope="col">Empresa</th>
                   <th scope="col">Cargo</th>
@@ -480,7 +480,7 @@ export default function AdministracionPage() {
 
                   return (
                     <tr key={usuario.id} data-inactivo={estaActivo ? undefined : 'si'}>
-                      <td>
+                      <td style={{ Width: '10px' }}>
                         <div className="usuario-celda">
                           <span
                             className="usuario-avatar"

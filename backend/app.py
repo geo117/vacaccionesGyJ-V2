@@ -162,7 +162,7 @@ def require_auth(view: F) -> F:
 
 
 def require_talento_humano(view: F) -> F:
-    """Exige que el usuario autenticado sea de Talento Humano.
+    """Exige el cargo de Talento Humano o de administración.
 
     La decisión se toma con el ``cargo`` que está **en la base**, leído en cada
     petición a través de la sesión. No se acepta un cargo enviado por el
@@ -170,20 +170,22 @@ def require_talento_humano(view: F) -> F:
     es. Sin este decorador, cualquiera con una sesión válida podría llamar a la
     API directamente.
 
-    Se usa para las decisiones sobre asignaciones y el plano UNOEE, que siguen
-    siendo exclusivos de Talento Humano.
+    Se usa para las decisiones sobre asignaciones y el plano UNOEE. El admin
+    puede hacer lo mismo que Talento Humano en esas operaciones; administrar
+    cuentas sigue siendo exclusivo del admin (``require_admin``).
     """
 
     @require_auth
     @wraps(view)
     def wrapper(*args: Any, **kwargs: Any):
-        if not current_user().es_talento_humano:
+        usuario = current_user()
+        if not (usuario.es_talento_humano or usuario.es_admin):
             logger.warning(
                 "Acceso denegado a una ruta de Talento Humano para el cargo %r.",
-                current_user().cargo,
+                usuario.cargo,
             )
             return fail(
-                "Esta opción es exclusiva de Talento Humano.",
+                "Esta opción es exclusiva de Talento Humano y administración.",
                 code="FORBIDDEN_ROLE",
                 status=403,
             )
@@ -912,7 +914,7 @@ def create_app(settings: Settings | None = None) -> Flask:
     @app.post("/api/asignaciones/<int:assignment_id>/decision")
     @require_talento_humano
     def decidir_asignacion(assignment_id: int):
-        """Aprobar o rechazar. Exclusivo de Talento Humano.
+        """Aprobar o rechazar. Talento Humano y el admin pueden hacerlo.
 
         El decorador es el control real: ocultar la opción en la interfaz no
         impide que alguien llame a la API directamente.
@@ -975,8 +977,9 @@ def create_app(settings: Settings | None = None) -> Flask:
           tres últimos dígitos de la UNES (acepta ``106`` y ``2-106``), igual que
           el resto del sistema.
 
-        Exclusivo de Talento Humano. El decorador es el control real: ocultar la
-        opción en la interfaz no impide que alguien llame a la API directamente.
+        Talento Humano y el admin pueden generarlo. El decorador es el control
+        real: ocultar la opción en la interfaz no impide que alguien llame a la
+        API directamente.
         """
         unes_filtro = _unes_para_reporte()
         filas = servicios().assignments.listar()
@@ -1013,8 +1016,8 @@ def create_app(settings: Settings | None = None) -> Flask:
     def listar_notificaciones():
         """Bandeja de avisos.
 
-        Los avisos de asignación, aprobación y rechazo son sólo para Talento
-        Humano; para el resto de cargos la lista llega vacía. Lo decide el
+        Los avisos de asignación, aprobación y rechazo son para Talento Humano
+        y el admin; para el resto de cargos la lista llega vacía. Lo decide el
         servicio con el cargo de la sesión, no la petición.
         """
         avisos = servicios().notifications.listar_para(current_user())

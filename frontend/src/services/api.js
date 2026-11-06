@@ -309,8 +309,13 @@ export const asignacionesApi = {
     return request(`/api/asignaciones/${id}/periodos`, { method: 'PUT', body: datos, auth: true })
   },
   /**
-   * Aprobar o rechazar. El servidor exige el cargo de Talento Humano: si el
-   * usuario no lo tiene, responde 403 aunque la interfaz no ofrezca la opción.
+   * Aprobar o rechazar. El servidor exige el cargo de Talento Humano o de
+   * administración: si el usuario no lo tiene, responde 403 aunque la interfaz
+   * no ofrezca la opción.
+   *
+   * `datos.decisionesPeriodos` es opcional: una lista alineada con los tres
+   * períodos (`aprobada`, `rechazada` o `null`) que se guarda en
+   * `aprobacion_rechazo_f1..f3`.
    */
   decidir(id, datos) {
     return request(`/api/asignaciones/${id}/decision`, { method: 'POST', body: datos, auth: true })
@@ -320,16 +325,17 @@ export const asignacionesApi = {
 /**
  * Descargas generadas por el servidor.
  *
- * El `unes` es opcional: Talento Humano puede pedir una UNES concreta; para el
- * resto de cargos el servidor ignora el parámetro y usa la UNES de la sesión, de
- * modo que el reporte no se puede ampliar desde el navegador.
+ * El `unes` es opcional: Talento Humano y el admin pueden pedir una UNES
+ * concreta; para el resto de cargos el servidor ignora el parámetro y usa la
+ * UNES de la sesión, de modo que el reporte no se puede ampliar desde el
+ * navegador.
  */
 export const reportesApi = {
   /** Planilla de vacaciones en PDF, con la plantilla institucional. */
   planilla(unes) {
     return requestBlob(`/api/reportes/planilla${consultaUnes(unes)}`)
   },
-  /** Plano UNOEE en Excel. El backend exige el cargo de Talento Humano. */
+  /** Plano UNOEE en Excel. El backend exige Talento Humano o administración. */
   planoUnoee(unes) {
     return requestBlob(`/api/reportes/plano-unoee${consultaUnes(unes)}`)
   },
@@ -341,7 +347,7 @@ function consultaUnes(unes) {
 }
 
 export const notificacionesApi = {
-  /** Bandeja general: sólo Talento Humano recibe avisos. */
+  /** Bandeja general: Talento Humano y el admin reciben los avisos. */
   listar() {
     return request('/api/notificaciones', { auth: true })
   },

@@ -26,10 +26,11 @@ USERS_TABLE = "dbo.Usuarios"
 # sobrantes) porque en la base están capturados a mano.
 #
 #   talento humano → aprueba/rechaza asignaciones y ve toda la plantilla.
-#   admin          → administra las cuentas y también ve toda la plantilla.
+#   admin          → administra las cuentas y además puede hacer lo mismo que
+#                    Talento Humano sobre las asignaciones.
 #
-# Administración de usuarios es exclusiva de «admin»; Talento Humano conserva la
-# decisión sobre las asignaciones.
+# Administración de usuarios es exclusiva de «admin»; el admin hereda las
+# capacidades operativas de Talento Humano.
 CARGO_TALENTO_HUMANO = "talento humano"
 CARGO_ADMIN = "admin"
 
@@ -186,8 +187,13 @@ class User:
 
     @property
     def puede_aprobar(self) -> bool:
-        """Quién puede aprobar o rechazar una asignación."""
-        return self.es_talento_humano and self.activo
+        """Quién puede aprobar o rechazar una asignación.
+
+        El admin hereda las capacidades operativas de Talento Humano: además de
+        administrar las cuentas, puede decidir sobre las asignaciones y usar las
+        descargas reservadas a ese rol.
+        """
+        return (self.es_talento_humano or self.es_admin) and self.activo
 
     def to_public_dict(self) -> dict[str, Any]:
         """Lo único que puede viajar al navegador."""

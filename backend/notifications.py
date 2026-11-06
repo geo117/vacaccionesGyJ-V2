@@ -8,9 +8,9 @@ Quién recibe qué
 ----------------
 La regla del negocio es explícita:
 
-* **Los avisos de asignación de fechas, aprobación y rechazo los ve únicamente
-  Talento Humano.** Son las tres acciones que existen hoy, así que en la
-  práctica Talento Humano ve todo y los demás cargos no ven ninguno.
+* **Los avisos de asignación de fechas, aprobación y rechazo los ven Talento
+  Humano y el admin.** Son las tres acciones que existen hoy, así que en la
+  práctica esos dos cargos ven todo y los demás no ven ninguno.
 * **``usuario_id`` guarda el id del usuario que hizo la acción** (quien asigna
   las fechas, aprueba o rechaza), como pide el negocio. Es el dato con el que
   cada quien puede contar sus avisos pendientes.
@@ -133,16 +133,19 @@ class NotificationService:
     def listar_para(self, usuario: Any) -> list[dict[str, Any]]:
         """Qué avisos puede ver este usuario.
 
-        Los avisos de asignación, aprobación y rechazo son **sólo para Talento
-        Humano**. Para el resto de cargos devuelve la lista vacía: no hay hoy
-        ningún tipo de aviso que les corresponda ver en esta bandeja general (los
-        que generaron se consultan por ``usuario_id``, que guarda quién hizo la
-        acción).
+        Los avisos de asignación, aprobación y rechazo son **para Talento
+        Humano y el admin**. Para el resto de cargos devuelve la lista vacía: no
+        hay hoy ningún tipo de aviso que les corresponda ver en esta bandeja
+        general (los que generaron se consultan por ``usuario_id``, que guarda
+        quién hizo la acción).
 
         La comprobación se hace con el cargo de la sesión, no con nada que
         llegue en la petición.
         """
-        if not getattr(usuario, "es_talento_humano", False):
+        if not (
+            getattr(usuario, "es_talento_humano", False)
+            or getattr(usuario, "es_admin", False)
+        ):
             return []
         return self._repository.listar()
 

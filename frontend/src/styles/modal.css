@@ -725,6 +725,27 @@ table.data th:last-child {
   padding-left: var(--space-3);
 }
 
+/* En la tabla de períodos del modal de decisión la última columna sólo lleva
+   el menú de tres puntos, centrado. */
+.periodo-tabla td.periodo-tabla__acciones,
+.periodo-tabla th.periodo-tabla__acciones {
+  width: 88px;
+  min-width: 88px;
+  padding-right: var(--space-3);
+  padding-left: var(--space-3);
+}
+
+.periodo-tabla__decision {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.periodo-tabla__decision .acciones__toggle {
+  width: 36px;
+  height: 36px;
+}
+
 /* --------------------------------------------------------------------------
    Grupos de opciones excluyentes
    --------------------------------------------------------------------------

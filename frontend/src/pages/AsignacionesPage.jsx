@@ -41,9 +41,9 @@
  *     demás cargos descargan la suya sin pasar por el modal, porque el servidor
  *     la limita a la UNES de la sesión.
  *   - «Descargar plano UNOEE» → el plano en Excel, en un modal que elige entre
- *     el plano general o el de una UNES. Sólo lo ve Talento Humano; el backend
- *     además lo exige con `@require_talento_humano`, así que ocultar la opción
- *     no es el control.
+ *     el plano general o el de una UNES. Lo ven Talento Humano y el admin; el
+ *     backend además lo exige con `@require_talento_humano`, así que ocultar la
+ *     opción no es el control.
  *
  * La búsqueda y el filtro de estado del navegador no viajan: los documentos son
  * por UNES, que es como están definidos.
@@ -162,7 +162,7 @@ export default function AsignacionesPage() {
   const stateId = useId()
   const unesId = useId()
 
-  const { esTalentoHumano, veTodaLaPlantilla, puedeAprobar, unes } = useAuth()
+  const { veTodaLaPlantilla, puedeAprobar, unes } = useAuth()
   const {
     filas,
     origen,
@@ -192,7 +192,7 @@ export default function AsignacionesPage() {
   const [menuDescargaAbierto, setMenuDescargaAbierto] = useState(false)
   /* Qué documento se está generando: 'planilla' | 'plano' | null. */
   const [descargando, setDescargando] = useState(null)
-  /* Modales de descarga: planilla (Talento Humano) y plano UNOEE. */
+  /* Modales de descarga: planilla (Talento Humano y admin) y plano UNOEE. */
   const [modalPlanillaAbierto, setModalPlanillaAbierto] = useState(false)
   const [modalPlanoAbierto, setModalPlanoAbierto] = useState(false)
 
@@ -331,11 +331,12 @@ export default function AsignacionesPage() {
         ...SWAL_BASE,
         icon: 'error',
         title: 'No se pudo generar la descarga',
-        // «Prohibido» aquí significa que el cargo no es de Talento Humano: el
-        // mensaje del backend es genérico, así que se concreta para la descarga.
+        // «Prohibido» aquí significa que el cargo no es de Talento Humano ni
+        // admin: el mensaje del backend es genérico, así que se concreta para
+        // la descarga.
         text:
           error?.code === 'FORBIDDEN_ROLE'
-            ? 'El plano UNOEE es exclusivo de Talento Humano.'
+            ? 'El plano UNOEE está reservado a Talento Humano y administración.'
             : mensajeDeError(error),
         confirmButtonText: 'Entendido',
       })
@@ -449,7 +450,12 @@ export default function AsignacionesPage() {
     }
   }
 
-  async function handleConfirmarDecision({ decision, motivo, observaciones }) {
+  async function handleConfirmarDecision({
+    decision,
+    motivo,
+    observaciones,
+    decisionesPeriodos,
+  }) {
     const fila = decisionAbierta
     const aprobando = decision === 'aprobada'
 
@@ -471,7 +477,12 @@ export default function AsignacionesPage() {
 
     setGuardando(true)
     try {
-      await registrarDecision(fila.id, { decision, motivo, observaciones })
+      await registrarDecision(fila.id, {
+        decision,
+        motivo,
+        observaciones,
+        decisionesPeriodos,
+      })
       setDecisionAbierta(null)
       await Swal.fire({
         ...SWAL_BASE,
@@ -506,7 +517,7 @@ export default function AsignacionesPage() {
             {unes
               ? `Colaboradores de la UNES ${unes} con sus días de vacaciones.`
               : 'Toda la plantilla de la empresa con sus días de vacaciones.'}{' '}
-            {puedeAprobar ? 'Registra aquí la decisión de Talento Humano.' : ''}
+            {puedeAprobar ? 'Registra aquí la aprobación o el rechazo.' : ''}
           </p>
         </div>
         <div className="page__actions">
@@ -536,9 +547,9 @@ export default function AsignacionesPage() {
             overlay={
               <Popover id="menu-descargas" className="acciones__popover">
                 <Popover.Body className="acciones__cuerpo">
-                  {/* El plano UNOEE es exclusivo de Talento Humano. Además de
-                      ocultarlo aquí, el backend lo exige con 403. */}
-                  {esTalentoHumano ? (
+                  {/* El plano UNOEE está reservado a Talento Humano y admin.
+                      Además de ocultarlo aquí, el backend lo exige con 403. */}
+                  {puedeAprobar ? (
                     <button
                       type="button"
                       className="acciones__item"
@@ -597,8 +608,8 @@ export default function AsignacionesPage() {
         <Alert variant="info" className="d-flex align-items-start gap-2" role="note">
           <Icon name="info" size={18} />
           <span>
-            Tu cargo permite <strong>consultar</strong> y programar períodos. Aprobar o rechazar es
-            exclusivo de Talento Humano.
+            Tu cargo permite <strong>consultar</strong> y programar períodos. Aprobar o rechazar está
+            reservado a Talento Humano y administración.
           </span>
         </Alert>
       ) : null}
@@ -805,8 +816,9 @@ export default function AsignacionesPage() {
                                     {fila.sinAsignacion ? 'Asignar fechas' : 'Editar fechas'}
                                   </button>
 
-                                  {/* Sólo Talento Humano puede aprobar o rechazar.
-                                    El backend responde 403 si otro cargo lo llama. */}
+                                  {/* Talento Humano y el admin pueden aprobar o
+                                    rechazar. El backend responde 403 si otro
+                                    cargo lo llama. */}
                                   {puedeAprobar ? (
                                     <button
                                       type="button"
@@ -996,8 +1008,8 @@ export default function AsignacionesPage() {
         onCrear={handleCrear}
       />
 
-      {/* Descargas: dos modales, uno por documento. El de la planilla sólo se
-          abre para Talento Humano (los demás descargan su UNES directo). La
+      {/* Descargas: dos modales, uno por documento. El de la planilla se abre
+          para Talento Humano y admin (los demás descargan su UNES directo). La
           `key` reinicia el estado interno en cada apertura. */}
       <DescargarPlanillaModal
         key={modalPlanillaAbierto ? 'planilla-abierta' : 'planilla-cerrada'}

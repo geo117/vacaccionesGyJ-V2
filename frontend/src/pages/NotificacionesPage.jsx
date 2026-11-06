@@ -11,7 +11,7 @@
  * propia copia, el número del menú y lo que se ve al abrirlo podrían discrepar.
  *
  * Qué ve cada quien lo decide el backend en el `WHERE` de la consulta:
- *  - Talento Humano ve todas (bandeja general).
+ *  - Talento Humano y el admin ven todas (bandeja general).
  *  - Los demás ven las que ellos mismos generaron (`usuario_id`).
  *
  * La tabla `dbo.notificaciones` no tiene columna de "leída". Entrar aquí marca
@@ -44,7 +44,7 @@ const ETIQUETA_TONO = {
 }
 
 export default function NotificacionesPage() {
-  const { esTalentoHumano } = useAuth()
+  const { veTodaLaPlantilla } = useAuth()
   const { avisos, idsMios, cargando, errorCarga, recargar, marcarVistas } = useNotificaciones()
   const [filtro, setFiltro] = useState('todas')
 
@@ -107,7 +107,7 @@ export default function NotificacionesPage() {
               {cargando
                 ? 'Consultando la base de datos…'
                 : avisos.length === 0
-                  ? esTalentoHumano
+                  ? veTodaLaPlantilla
                     ? 'Todavía no hay avisos registrados.'
                     : 'No tienes avisos por ahora.'
                   : `${avisos.length} ${avisos.length === 1 ? 'aviso' : 'avisos'} · ${conteo.info} de asignación, ${conteo.ok} de aprobación y ${conteo.danger} de rechazo.`}
@@ -181,7 +181,7 @@ export default function NotificacionesPage() {
                 cargando
                   ? 'Un momento.'
                   : avisos.length === 0
-                    ? esTalentoHumano
+                    ? veTodaLaPlantilla
                       ? 'Cada vez que se programen fechas, se apruebe o se rechace una asignación, el aviso aparecerá aquí.'
                       : 'Aquí aparecerán los avisos que generes al programar las fechas de vacaciones.'
                     : 'Prueba con otro filtro para ver el resto de los avisos.'

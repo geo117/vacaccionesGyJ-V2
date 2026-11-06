@@ -188,8 +188,8 @@ def main() -> int:
         usuario_admin.get("veTodaLaPlantilla") is True,
     )
     check(
-        "aprobar sigue siendo exclusivo de Talento Humano",
-        usuario_admin.get("puedeAprobar") is False,
+        "el admin también puede aprobar y rechazar",
+        usuario_admin.get("puedeAprobar") is True,
     )
     token_admin = cuerpo_admin.get("token")
     if not token_admin:
@@ -442,12 +442,49 @@ def main() -> int:
     respuesta = client.post(
         f"/api/asignaciones/{asignacion_id}/decision",
         headers=auth_th,
-        json={"decision": "aprobada"},
+        json={"decision": "aprobada", "decisionesPeriodos": ["aprobada", None, None]},
     )
     aprobada = (respuesta.get_json() or {}).get("asignacion") or {}
+    periodos_aprobados = aprobada.get("periodos") or []
     check("aprobar", respuesta.status_code == 200, str(respuesta.status_code))
     check("el estado queda aprobada", aprobada.get("estado") == "aprobada")
     check("al aprobar se limpia el motivo de rechazo", aprobada.get("motivoRechazo") is None)
+    check(
+        "la decisión del período 1 se guarda",
+        periodos_aprobados[0].get("decision") == "aprobada",
+        str(periodos_aprobados),
+    )
+    check(
+        "los períodos sin decisión quedan vacíos",
+        periodos_aprobados[1].get("decision") is None
+        and periodos_aprobados[2].get("decision") is None,
+        str(periodos_aprobados),
+    )
+    guardado_decision = database.query_one(
+        "SELECT aprobacion_rechazo_f1, aprobacion_rechazo_f2, aprobacion_rechazo_f3 "
+        "FROM dbo.asignacion_vacaciones WHERE id = ?",
+        (asignacion_id,),
+    )
+    check(
+        "las decisiones quedan en las columnas aprobacion_rechazo_f1..f3",
+        guardado_decision is not None
+        and guardado_decision[0] == "aprobada"
+        and guardado_decision[1] is None
+        and guardado_decision[2] is None,
+        str(guardado_decision),
+    )
+
+    respuesta = client.post(
+        f"/api/asignaciones/{asignacion_id}/decision",
+        headers=auth_th,
+        json={"decision": "aprobada", "decisionesPeriodos": [None, "aprobada", None]},
+    )
+    check(
+        "no se puede decidir un período que no está programado",
+        respuesta.status_code == 400
+        and (respuesta.get_json() or {}).get("code") == "PERIODO_SIN_PROGRAMAR",
+        str(respuesta.status_code),
+    )
 
     filas = database.query_named(
         "SELECT TOP 10 msj_notificacion, unes, usuario_id FROM dbo.notificaciones ORDER BY id DESC"
@@ -472,6 +509,15 @@ def main() -> int:
         "el aviso es de quien lo generó",
         all(a["usuarioId"] == th_id for a in avisos_th[:4]),
         str([a["usuarioId"] for a in avisos_th[:4]]),
+    )
+
+    # El admin hereda la bandeja general de Talento Humano.
+    respuesta = client.get("/api/notificaciones", headers=auth_admin)
+    avisos_admin = (respuesta.get_json() or {}).get("notificaciones", [])
+    check(
+        "el admin ve la bandeja general de notificaciones",
+        respuesta.status_code == 200 and len(avisos_admin) > 0,
+        str(len(avisos_admin)),
     )
 
     # Regla del negocio: los avisos de asignación, aprobación y rechazo son sólo

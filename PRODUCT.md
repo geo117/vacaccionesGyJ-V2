@@ -28,7 +28,7 @@ to the assignments registered locally and the API reports the origin as
 | Role | What they need | What success looks like |
 |---|---|---|
 | **Talento Humano** (`cargo = 'Talento Humano'`) | See every pending assignment, approve or reject with a motive, notify the area lead | Zero spreadsheet handoffs; every decision carries an audit trail |
-| **Admin** (`cargo = 'admin'`) | Manage application accounts and see the full company roster | User access changes without touching the database |
+| **Admin** (`cargo = 'admin'`) | Manage application accounts, see the full company roster, and perform the same assignment operations as Talento Humano (approve, reject, download the UNOEE plan) | User access changes without touching the database, and HR work is not blocked when only an admin is available |
 | **Gerente UNES** (`cargo = 'gerente unes'`) | See only their UNES, act on the assignments routed to them | No cross-area exposure; no surprises at payroll cutoff |
 | **Soporte** | Access is granted in the database, never in the UI | No self-service role escalation from the interface |
 

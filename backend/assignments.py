@@ -30,6 +30,16 @@ ESTADO_APROBADA = "aprobada"
 ESTADO_RECHAZADA = "rechazada"
 ESTADOS_VALIDOS = (ESTADO_PENDIENTE, ESTADO_APROBADA, ESTADO_RECHAZADA)
 
+# Decisión por período. Se guarda en las columnas
+# ``aprobacion_rechazo_f1``...``f3`` (VARCHAR(50)) y sólo admite estos dos
+# valores; vacío significa que ese período todavía no tiene decisión.
+DECISIONES_PERIODO_VALIDAS = (ESTADO_APROBADA, ESTADO_RECHAZADA)
+COLUMNAS_DECISION_PERIODO = (
+    "aprobacion_rechazo_f1",
+    "aprobacion_rechazo_f2",
+    "aprobacion_rechazo_f3",
+)
+
 # Anchos reales de las columnas de texto que recibe este módulo.
 IDENTIFICACION_MAX = 50
 EMPLEADO_MAX = 150
@@ -47,6 +57,7 @@ _COLUMNAS = (
     "periodo1_fecha1, periodo1_fecha2, periodo1_dias1, "
     "periodo2_fecha1, periodo2_fecha2, periodo2_dias2, "
     "periodo3_fecha1, periodo3_fecha2, periodo3_dias3, "
+    "aprobacion_rechazo_f1, aprobacion_rechazo_f2, aprobacion_rechazo_f3, "
     "fecha_regreso, fecha_reintegro_lab, total_dias_empleado, motivo_rechazo, th_asignacion, "
     "fecha_registro, fecha_update"
 )
@@ -61,10 +72,11 @@ _INSERT = (
     "periodo1_fecha1, periodo1_fecha2, periodo1_dias1, "
     "periodo2_fecha1, periodo2_fecha2, periodo2_dias2, "
     "periodo3_fecha1, periodo3_fecha2, periodo3_dias3, "
+    "aprobacion_rechazo_f1, aprobacion_rechazo_f2, aprobacion_rechazo_f3, "
     "fecha_regreso, fecha_reintegro_lab, "
     "total_dias_empleado, motivo_rechazo, th_asignacion, "
     "fecha_registro, fecha_update"
-    ") OUTPUT INSERTED.id VALUES (" + ", ".join(["?"] * 25) + ")"
+    ") OUTPUT INSERTED.id VALUES (" + ", ".join(["?"] * 28) + ")"
 )
 
 _UPDATE_PERIODOS = (
@@ -73,6 +85,8 @@ _UPDATE_PERIODOS = (
     "periodo1_fecha1 = ?, periodo1_fecha2 = ?, periodo1_dias1 = ?, "
     "periodo2_fecha1 = ?, periodo2_fecha2 = ?, periodo2_dias2 = ?, "
     "periodo3_fecha1 = ?, periodo3_fecha2 = ?, periodo3_dias3 = ?, "
+    "aprobacion_rechazo_f1 = NULL, aprobacion_rechazo_f2 = NULL, "
+    "aprobacion_rechazo_f3 = NULL, "
     "fecha_regreso = ?, fecha_reintegro_lab = ?, total_dias_empleado = ?, dias_a_corte = ?, "
     "estado_asignacion = ?, motivo_rechazo = NULL, "
     "th_asignacion = ?, fecha_update = GETDATE() "
@@ -82,6 +96,7 @@ _UPDATE_PERIODOS = (
 _UPDATE_DECISION = (
     f"UPDATE {TABLA} SET estado_asignacion = ?, motivo_rechazo = ?, "
     "observaciones = COALESCE(?, observaciones), th_asignacion = ?, "
+    "aprobacion_rechazo_f1 = ?, aprobacion_rechazo_f2 = ?, aprobacion_rechazo_f3 = ?, "
     "fecha_update = GETDATE() WHERE id = ?"
 )
 
@@ -172,6 +187,22 @@ class Periodo:
     inicio: str | None
     fin: str | None
     dias: int | None
+    decision: str | None = None
+
+
+def _normalizar_decision_periodo(valor: Any) -> str | None:
+    """Valor de la columna → ``aprobada``/``rechazada``/``None``.
+
+    Se toleran mayúsculas, espacios y las variantes ``aprobado``/``rechazado``
+    porque las columnas son VARCHAR y pueden haberse llenado a mano; cualquier
+    valor desconocido se trata como «sin decisión» en lugar de inventar estado.
+    """
+    texto = str(valor or "").strip().lower()
+    if texto.startswith("aprob"):
+        return ESTADO_APROBADA
+    if texto.startswith("rechaz"):
+        return ESTADO_RECHAZADA
+    return None
 
 
 def _periodos_desde_fila(fila: Any) -> list[Periodo]:
@@ -183,6 +214,9 @@ def _periodos_desde_fila(fila: Any) -> list[Periodo]:
                 inicio=_a_iso(fila[f"periodo{numero}_fecha1"]),
                 fin=_a_iso(fila[f"periodo{numero}_fecha2"]),
                 dias=fila[col_dias],
+                decision=_normalizar_decision_periodo(
+                    fila[COLUMNAS_DECISION_PERIODO[numero - 1]]
+                ),
             )
         )
     return generados
@@ -219,8 +253,14 @@ def fila_a_dict(fila: Any) -> dict[str, Any]:
         "diasAUsar": round(dias_a_corte, 1),
         "observaciones": fila["observaciones"],
         "periodos": [
-            {"inicio": p.inicio, "fin": p.fin, "dias": p.dias} for p in _periodos_desde_fila(fila)
+            {"inicio": p.inicio, "fin": p.fin, "dias": p.dias, "decision": p.decision}
+            for p in _periodos_desde_fila(fila)
         ],
+        # Las mismas decisiones con el nombre de la columna, para quien consuma
+        # la API sin recorrer la lista de períodos.
+        "aprobacionRechazoF1": _normalizar_decision_periodo(fila["aprobacion_rechazo_f1"]),
+        "aprobacionRechazoF2": _normalizar_decision_periodo(fila["aprobacion_rechazo_f2"]),
+        "aprobacionRechazoF3": _normalizar_decision_periodo(fila["aprobacion_rechazo_f3"]),
         "fechaRegreso": _a_iso(fila["fecha_regreso"]),
         # El mismo valor con el nombre que usa la interfaz, que es también el que
         # acepta el payload de entrada.
@@ -354,6 +394,61 @@ def validar_periodos_entrantes(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def normalizar_decisiones_periodo(
+    payload: dict[str, Any], actual: dict[str, Any]
+) -> list[str | None]:
+    """Valida la decisión de cada período y devuelve siempre tres posiciones.
+
+    La clave ``decisionesPeriodos`` es una lista alineada con los tres períodos:
+    ``"aprobada"``, ``"rechazada"`` o ``None``. Si el cliente no la envía se
+    conservan las decisiones que ya estaban guardadas, para que una llamada
+    antigua que sólo manda la decisión global no borre el detalle por período.
+
+    Sólo se admite decidir períodos que tengan fechas: aprobar un período vacío
+    dejaría un registro que no corresponde a ninguna vacación.
+    """
+    periodos_actuales = actual.get("periodos") or []
+    if "decisionesPeriodos" not in payload or payload.get("decisionesPeriodos") is None:
+        guardadas = [
+            _normalizar_decision_periodo((periodos_actuales[i] or {}).get("decision"))
+            if i < len(periodos_actuales)
+            else None
+            for i in range(3)
+        ]
+        return guardadas
+
+    bruto = payload.get("decisionesPeriodos")
+    if not isinstance(bruto, list) or len(bruto) > 3:
+        raise ValidationError(
+            "DECISIONES_PERIODO_INVALIDAS",
+            "La decisión por período debe tener hasta tres valores.",
+        )
+
+    decisiones: list[str | None] = []
+    for indice in range(3):
+        valor = bruto[indice] if indice < len(bruto) else None
+        if isinstance(valor, dict):
+            valor = valor.get("decision")
+        texto = str(valor or "").strip().lower()
+        if not texto:
+            decisiones.append(None)
+            continue
+        canonica = _normalizar_decision_periodo(texto)
+        if canonica is None:
+            raise ValidationError(
+                "DECISION_PERIODO_INVALIDA",
+                f"La decisión del período {indice + 1} debe ser aprobar o rechazar.",
+            )
+        periodo = periodos_actuales[indice] if indice < len(periodos_actuales) else None
+        if not periodo or periodo.get("dias") is None:
+            raise ValidationError(
+                "PERIODO_SIN_PROGRAMAR",
+                f"El período {indice + 1} no está programado y no admite una decisión.",
+            )
+        decisiones.append(canonica)
+    return decisiones
+
+
 # --------------------------------------------------------------------------
 # Repositorio
 # --------------------------------------------------------------------------
@@ -386,6 +481,7 @@ class AssignmentRepository:
             periodos[0]["inicio"], periodos[0]["fin"], periodos[0]["dias"],
             periodos[1]["inicio"], periodos[1]["fin"], periodos[1]["dias"],
             periodos[2]["inicio"], periodos[2]["fin"], periodos[2]["dias"],
+            None, None, None,
             fecha_regreso,
             datos.get("fecha_reintegro_lab"),
             total,
@@ -434,10 +530,29 @@ class AssignmentRepository:
         )
 
     def registrar_decision(
-        self, assignment_id: int, *, estado: str, motivo: str | None, observaciones: str | None, th: str
+        self,
+        assignment_id: int,
+        *,
+        estado: str,
+        motivo: str | None,
+        observaciones: str | None,
+        th: str,
+        decisiones_periodo: list[str | None] | None = None,
     ) -> int:
+        decisiones = list(decisiones_periodo or [])[:3]
+        decisiones += [None] * (3 - len(decisiones))
         return self._database.execute(
-            _UPDATE_DECISION, (estado, motivo, observaciones, th, assignment_id)
+            _UPDATE_DECISION,
+            (
+                estado,
+                motivo,
+                observaciones,
+                th,
+                decisiones[0],
+                decisiones[1],
+                decisiones[2],
+                assignment_id,
+            ),
         )
 
     def eliminar(self, assignment_id: int) -> int:
@@ -521,12 +636,14 @@ class AssignmentService:
             )
 
         observaciones = _texto(payload.get("observaciones"), "las observaciones", OBSERVACIONES_MAX)
+        decisiones_periodo = normalizar_decisiones_periodo(payload, actual)
         self._repository.registrar_decision(
             assignment_id,
             estado=decision,
             motivo=motivo if decision == ESTADO_RECHAZADA else None,
             observaciones=observaciones,
             th=usuario.nombre,
+            decisiones_periodo=decisiones_periodo,
         )
         return self._repository.obtener(assignment_id) or {}
 

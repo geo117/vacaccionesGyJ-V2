@@ -59,7 +59,7 @@ CREATE TABLE dbo.Usuarios (
     correo        VARCHAR(150) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     fecha_creacion DATETIME DEFAULT GETDATE(),
-    cargo         VARCHAR(60) NULL,       -- 'admin' administra cuentas; 'talento humano' aprueba
+    cargo         VARCHAR(60) NULL,       -- 'admin' administra cuentas y opera como Talento Humano; 'talento humano' aprueba
     activo        VARCHAR(10) NULL        -- 'si' / 'no': si no está activo, no puede entrar
 );
 ```
@@ -93,6 +93,10 @@ CREATE TABLE dbo.asignacion_vacaciones (
     periodo1_fecha1 DATE NULL, periodo1_fecha2 DATE NULL, periodo1_dias1 INT NULL,
     periodo2_fecha1 DATE NULL, periodo2_fecha2 DATE NULL, periodo2_dias2 INT NULL,
     periodo3_fecha1 DATE NULL, periodo3_fecha2 DATE NULL, periodo3_dias3 INT NULL,
+    -- Decisión individual del período: 'aprobada', 'rechazada' o NULL.
+    aprobacion_rechazo_f1 VARCHAR(50) NULL,
+    aprobacion_rechazo_f2 VARCHAR(50) NULL,
+    aprobacion_rechazo_f3 VARCHAR(50) NULL,
     fecha_regreso DATE NULL,
     -- Fecha de reintegro a labores elegida al crear la asignación; no se deriva
     -- de los períodos y puede diferir de fecha_regreso.
@@ -188,17 +192,17 @@ la interfaz.
 | `GET` | `/api/asignaciones/{id}` | Sesión | Una asignación |
 | `POST` | `/api/asignaciones` | Sesión | Registra una asignación nueva |
 | `PUT` | `/api/asignaciones/{id}/periodos` | Sesión | Programa los tres períodos |
-| `POST` | `/api/asignaciones/{id}/decision` | **Talento Humano** | Aprueba o rechaza |
+| `POST` | `/api/asignaciones/{id}/decision` | **Talento Humano o admin** | Aprueba o rechaza |
 | `GET` | `/api/reportes/planilla` | Sesión | Planilla de vacaciones en PDF (plantilla institucional). Filtra por la UNES pedida (`?unes=`) o por la de la sesión |
-| `GET` | `/api/reportes/plano-unoee` | **Talento Humano** | Plano UNOEE en Excel sobre la plantilla oficial |
-| `GET` | `/api/notificaciones` | Sesión | Bandeja del cargo: Talento Humano ve todas; el resto, ninguna |
+| `GET` | `/api/reportes/plano-unoee` | **Talento Humano o admin** | Plano UNOEE en Excel sobre la plantilla oficial |
+| `GET` | `/api/notificaciones` | Sesión | Bandeja del cargo: Talento Humano y admin ven todas; el resto, ninguna |
 | `GET` | `/api/notificaciones/mias` | Sesión | Avisos generados por quien consulta (`usuario_id`) |
 | `GET` | `/api/usuarios` | **Admin** | Usuarios registrados, con su estado |
 | `POST` | `/api/usuarios` | **Admin** | Crea un usuario |
 | `PUT` | `/api/usuarios/{id}` | **Admin** | Edita nombre, correo, cargo y/o contraseña |
 | `PATCH` | `/api/usuarios/{id}/activo` | **Admin** | Activa o desactiva la cuenta |
 | `DELETE` | `/api/usuarios/{id}` | **Admin** | Elimina y cierra sus sesiones |
-| `GET` | `/api/notificaciones` | Sesión | Bandeja general (sólo Talento Humano ve algo) |
+| `GET` | `/api/notificaciones` | Sesión | Bandeja general (Talento Humano y admin ven todo) |
 | `GET` | `/api/notificaciones/mias` | Sesión | Avisos dirigidos a quien consulta |
 
 ## Las dos conexiones
@@ -325,7 +329,7 @@ Quién ve qué:
 
 | Aviso | Quién lo ve |
 |---|---|
-| Asignación de fechas, aprobación, rechazo | **Sólo Talento Humano** (bandeja general, todas) |
+| Asignación de fechas, aprobación, rechazo | **Talento Humano y admin** (bandeja general, todas) |
 | Los que uno mismo generó | Quien los generó, por `usuario_id` (`/api/notificaciones/mias`) |
 
 La tabla **no tiene columna de «leída»**: el conteo de pendientes que muestra el
@@ -370,15 +374,18 @@ eliminar a alguien ya desactivado no se bloquea.
 ### El cargo manda
 
 `usuarios.cargo` se lee de la base en cada petición y viaja en la sesión. Las
-rutas de administración de usuarios están detrás de `@require_admin` y las de
-decisión y plano UNOEE, de `@require_talento_humano`: si el cargo no coincide,
-responden `403 FORBIDDEN_ROLE`. **Ocultar la opción en el navegador no es el
-control**; esto sí lo es, porque a la API se le puede llamar directamente con un
-token válido.
+rutas de administración de usuarios están detrás de `@require_admin`; las de
+decisión y plano UNOEE, de `@require_talento_humano`, que acepta tanto el cargo
+de Talento Humano como el de admin. Si el cargo no coincide, responden
+`403 FORBIDDEN_ROLE`. **Ocultar la opción en el navegador no es el control**;
+esto sí lo es, porque a la API se le puede llamar directamente con un token
+válido.
 
 El alcance del tablero es otra regla: `ve_toda_la_plantilla` es verdadero para
 Talento Humano y para el admin, que entran sin UNES y ven toda la empresa de la
-cuenta. El resto de cargos sólo ve su UNES.
+cuenta. El resto de cargos sólo ve su UNES. El admin además hereda
+`puede_aprobar`, de modo que puede decidir sobre las asignaciones y generar el
+plano UNOEE igual que Talento Humano.
 
 Tres protecciones adicionales evitan dejar el sistema sin administración:
 
@@ -394,6 +401,17 @@ el cliente: recalcula los días de cada período (contando ambos extremos) y su
 suma. Si se confiara en el número del navegador, cualquiera podría guardar
 "0 días" para un período de dos semanas. También rechaza rangos invertidos
 (`RANGO_INVERTIDO`) y períodos que se cruzan (`PERIODOS_CRUZADOS`).
+
+### La decisión por período
+
+`POST /api/asignaciones/{id}/decision` acepta, además de la decisión general,
+`decisionesPeriodos`: una lista de hasta tres valores alineada con los períodos
+(`"aprobada"`, `"rechazada"` o `null`). Se guarda en
+`aprobacion_rechazo_f1`...`f3` (VARCHAR(50)). El servidor rechaza con
+`PERIODO_SIN_PROGRAMAR` cualquier decisión sobre un período vacío. Si el cliente
+antiguo no envía la lista, se conservan las decisiones que ya estaban guardadas;
+al cambiar las fechas con `PUT /periodos`, las tres columnas se limpian porque la
+decisión anterior ya no corresponde a los nuevos períodos.
 
 ### Las notificaciones las redacta el servidor
 

@@ -23,7 +23,7 @@ export const MENSAJES_ASIGNACIONES = {
   MOTIVO_REQUERIDO: 'Escribe el motivo del rechazo antes de continuar.',
   DECISION_INVALIDA: 'La decisión debe ser aprobar o rechazar.',
   ASIGNACION_NO_EXISTE: 'La asignación ya no existe. Actualiza la lista.',
-  FORBIDDEN_ROLE: 'Aprobar o rechazar es exclusivo de Talento Humano.',
+  FORBIDDEN_ROLE: 'Aprobar o rechazar está reservado a Talento Humano y administración.',
   CAMPO_LARGO: 'Uno de los textos supera el largo permitido.',
   CAMPO_REQUERIDO: 'Falta un dato obligatorio.',
   FECHA_INVALIDA: 'Una de las fechas no es válida.',

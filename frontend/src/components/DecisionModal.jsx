@@ -2,8 +2,9 @@
  * Modal para aprobar o rechazar una asignación.
  *
  * Lo que resuelve:
- *  - La decisión se elige en un grupo de dos botones con `aria-pressed`, no en un
- *    desplegable: son dos opciones y verlas juntas evita un clic de más.
+ *  - La decisión se toma **período por período** desde el menú de tres puntos de
+ *    la tabla. Esa decisión se guarda en `aprobacion_rechazo_f1..f3` y viaja
+ *    junto con la decisión general al confirmar el modal.
  *  - **Al rechazar, el motivo es obligatorio.** Un rechazo sin motivo obliga a
  *    la persona a preguntar por correo, que es justo el trámite que esta
  *    herramienta viene a quitar. El foco se lleva al recuadro y no se guarda
@@ -21,16 +22,37 @@ import Alert from 'react-bootstrap/Alert'
 import Button from 'react-bootstrap/Button'
 import Form from 'react-bootstrap/Form'
 import Modal from 'react-bootstrap/Modal'
+import OverlayTrigger from 'react-bootstrap/OverlayTrigger'
+import Popover from 'react-bootstrap/Popover'
+import Table from 'react-bootstrap/Table'
 import Icon from './Icon'
 import StatusChip from './StatusChip'
 import { diasInhabiles } from '../hooks/fechas_inactivas'
 import { formatIsoDate, NUMERO } from '../utils/fechas'
 import { resumirPeriodos } from '../utils/periodos'
 
-const DECISIONES = [
-  { valor: 'aprobada', etiqueta: 'Aprobar', icono: 'aprobar', tono: 'ok' },
-  { valor: 'rechazada', etiqueta: 'Rechazar', icono: 'rechazar', tono: 'danger' },
-]
+/** Normaliza lo que venga de la base a los dos valores que usa la interfaz. */
+function normalizarDecisionPeriodo(valor) {
+  const texto = String(valor ?? '').trim().toLowerCase()
+  if (texto.startsWith('aprob')) return 'aprobada'
+  if (texto.startsWith('rechaz')) return 'rechazada'
+  return null
+}
+
+/** Decisiones iniciales de los tres períodos, tomadas de la asignación. */
+function decisionesIniciales(asignacion) {
+  return [0, 1, 2].map((indice) => {
+    const periodo = asignacion?.periodos?.[indice]
+    const porColumna = asignacion?.[`aprobacionRechazoF${indice + 1}`]
+    return normalizarDecisionPeriodo(periodo?.decision ?? porColumna)
+  })
+}
+
+/** La decisión general no puede contradecir un período ya rechazado. */
+function decisionInicial(asignacion) {
+  if (asignacion?.estado === 'rechazada') return 'rechazada'
+  return decisionesIniciales(asignacion).includes('rechazada') ? 'rechazada' : 'aprobada'
+}
 
 export default function DecisionModal({ show, asignacion, onHide, onConfirmar, saving = false }) {
   const baseId = useId()
@@ -38,12 +60,14 @@ export default function DecisionModal({ show, asignacion, onHide, onConfirmar, s
   // Igual que en el modal de períodos: el estado inicial sale de la asignación
   // recibida y el remontaje por `key` lo reinicia al cambiar de radicado.
   // Se abre en la decisión que ya tiene la fila; si está pendiente, en aprobar.
-  const [decision, setDecision] = useState(
-    asignacion?.estado === 'rechazada' ? 'rechazada' : 'aprobada',
-  )
+  const [decision, setDecision] = useState(() => decisionInicial(asignacion))
   const [motivo, setMotivo] = useState(asignacion?.motivoRechazo ?? '')
   const [observaciones, setObservaciones] = useState(asignacion?.observaciones ?? '')
   const [errorMotivo, setErrorMotivo] = useState(null)
+  const [decisionesPeriodo, setDecisionesPeriodo] = useState(() =>
+    decisionesIniciales(asignacion),
+  )
+  const [menuPeriodo, setMenuPeriodo] = useState(null)
 
   // Días hábiles: la misma lista de fechas inactivas que usa el servidor, para
   // que la decisión se tome sobre el total que quedó guardado.
@@ -55,6 +79,27 @@ export default function DecisionModal({ show, asignacion, onHide, onConfirmar, s
   const motivoValido = motivo.trim().length > 0
   const puedeGuardar = decision === 'aprobada' || motivoValido
 
+  /**
+   * Marcar un período concreto. La decisión general se ajusta para no quedar
+   * en contradicción: si algún período queda rechazado, la asignación se
+   * muestra como rechazada; si no, como aprobada.
+   */
+  function aplicarDecisionPeriodo(indice, valor) {
+    if (resumen.dias[indice] === null) return
+
+    const siguientes = decisionesPeriodo.map((actual, posicion) =>
+      posicion === indice ? valor : actual,
+    )
+    setDecisionesPeriodo(siguientes)
+
+    const hayRechazo = siguientes.some(
+      (valorPeriodo, posicion) =>
+        resumen.dias[posicion] !== null && valorPeriodo === 'rechazada',
+    )
+    setDecision(hayRechazo ? 'rechazada' : 'aprobada')
+    if (!hayRechazo) setErrorMotivo(null)
+  }
+
   async function handleConfirmar() {
     if (decision === 'rechazada' && !motivoValido) {
       setErrorMotivo('Escribe el motivo del rechazo antes de continuar.')
@@ -62,7 +107,12 @@ export default function DecisionModal({ show, asignacion, onHide, onConfirmar, s
       return
     }
     setErrorMotivo(null)
-    await onConfirmar({ decision, motivo, observaciones })
+    await onConfirmar({
+      decision,
+      motivo,
+      observaciones,
+      decisionesPeriodos: decisionesPeriodo,
+    })
   }
 
   if (!asignacion) return null
@@ -96,27 +146,124 @@ export default function DecisionModal({ show, asignacion, onHide, onConfirmar, s
           </div>
         </div>
 
-        <Form.Group controlId={`${baseId}-decision`}>
-          <Form.Label>Decisión</Form.Label>
-          <div className="decision" role="group" aria-labelledby={`${baseId}-decision`}>
-            {DECISIONES.map((opcion) => (
-              <button
-                key={opcion.valor}
-                type="button"
-                className="decision__opcion"
-                data-decision={opcion.valor}
-                aria-pressed={decision === opcion.valor}
-                onClick={() => {
-                  setDecision(opcion.valor)
-                  if (opcion.valor === 'aprobada') setErrorMotivo(null)
-                }}
-              >
-                <Icon name={opcion.icono} size={18} />
-                {opcion.etiqueta}
-              </button>
-            ))}
-          </div>
-        </Form.Group>
+        <h3 className="card__title" style={{ margin: 'var(--space-6) 0 var(--space-3)' }}>
+          Períodos de vacaciones
+        </h3>
+
+        <div className="table-scroll">
+          <Table className="data periodo-tabla" borderless responsive>
+            <caption className="visually-hidden">
+              Períodos programados con fecha de inicio, fecha de fin, días calculados y
+              acciones para aprobar o rechazar cada período.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Período</th>
+                <th scope="col">Desde</th>
+                <th scope="col">Hasta</th>
+                <th scope="col" className="numeric">
+                  Días
+                </th>
+                <th scope="col" className="periodo-tabla__acciones">
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {[0, 1, 2].map((indice) => {
+                const periodo = asignacion.periodos?.[indice] ?? {}
+                const dias = resumen.dias[indice]
+                const programado = dias !== null
+
+                return (
+                  <tr key={`periodo-${indice + 1}`}>
+                    <td>Período {indice + 1}</td>
+                    <td>{formatIsoDate(periodo.inicio, 'long') || 'Sin programar'}</td>
+                    <td>{formatIsoDate(periodo.fin, 'long') || 'Sin programar'}</td>
+                    <td className="numeric tabular">
+                      {dias === null ? '—' : NUMERO.format(dias)}
+                    </td>
+                    <td className="periodo-tabla__acciones">
+                      <div className="periodo-tabla__decision">
+                        {/* Mismo patrón de tres puntos que la tabla principal:
+                            Popover dentro del contenedor con scroll. */}
+                        <OverlayTrigger
+                          trigger="click"
+                          placement="left-start"
+                          rootClose
+                          show={menuPeriodo === indice}
+                          onToggle={(next) => setMenuPeriodo(next ? indice : null)}
+                          overlay={
+                            <Popover
+                              id={`${baseId}-acciones-periodo-${indice + 1}`}
+                              className="acciones__popover"
+                            >
+                              <Popover.Body className="acciones__cuerpo">
+                                <button
+                                  type="button"
+                                  className="acciones__item"
+                                  onClick={() => {
+                                    setMenuPeriodo(null)
+                                    aplicarDecisionPeriodo(indice, 'aprobada')
+                                  }}
+                                >
+                                  <Icon name="aprobar" size={16} />
+                                  Aprobar período
+                                </button>
+                                <button
+                                  type="button"
+                                  className="acciones__item acciones__item--peligro"
+                                  onClick={() => {
+                                    setMenuPeriodo(null)
+                                    aplicarDecisionPeriodo(indice, 'rechazada')
+                                  }}
+                                >
+                                  <Icon name="rechazar" size={16} />
+                                  Rechazar período
+                                </button>
+                              </Popover.Body>
+                            </Popover>
+                          }
+                        >
+                          <button
+                            type="button"
+                            className="acciones__toggle"
+                            aria-label={`Acciones del período ${indice + 1}`}
+                            aria-haspopup="menu"
+                            aria-expanded={menuPeriodo === indice}
+                            title={
+                              programado
+                                ? `Acciones del período ${indice + 1}`
+                                : 'Este período no está programado'
+                            }
+                            disabled={!programado}
+                          >
+                            <Icon name="masOpciones" size={20} />
+                          </button>
+                        </OverlayTrigger>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row">Total</th>
+                <td colSpan={2}>
+                  {resumen.periodosProgramados}{' '}
+                  {resumen.periodosProgramados === 1
+                    ? 'período programado'
+                    : 'períodos programados'}
+                </td>
+                <td className="numeric tabular">
+                  <strong>{NUMERO.format(resumen.totalDias)}</strong>
+                </td>
+                <td />
+              </tr>
+            </tfoot>
+          </Table>
+        </div>
 
         {decision === 'rechazada' ? (
           <Form.Group controlId={`${baseId}-motivo`} style={{ marginTop: 'var(--space-5)' }}>
@@ -141,7 +288,8 @@ export default function DecisionModal({ show, asignacion, onHide, onConfirmar, s
               </p>
             ) : (
               <Form.Text id={`${baseId}-motivo-ayuda`}>
-                Este texto es el que verá quien radicó la solicitud. {motivo.length}/500 caracteres.
+                Este texto es el que verá quien radicó la solicitud. {motivo.length}/500
+                caracteres.
               </Form.Text>
             )}
           </Form.Group>
@@ -154,7 +302,10 @@ export default function DecisionModal({ show, asignacion, onHide, onConfirmar, s
           </Alert>
         )}
 
-        <Form.Group controlId={`${baseId}-decision-observaciones`} style={{ marginTop: 'var(--space-5)' }}>
+        <Form.Group
+          controlId={`${baseId}-decision-observaciones`}
+          style={{ marginTop: 'var(--space-5)' }}
+        >
           <Form.Label>
             Observaciones <span className="opcional">(opcional)</span>
           </Form.Label>

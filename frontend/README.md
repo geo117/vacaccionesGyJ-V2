@@ -38,10 +38,10 @@ cuarta que sólo aparece en las filas rechazadas.
 
 | Acción | Qué hace |
 |---|---|
-| **Descargar** (cabecera) | Submenú con dos documentos que genera el servidor con las plantillas oficiales: la **planilla** de vacaciones en PDF y el **plano UNOEE** en Excel. El plano sólo lo ve Talento Humano. |
+| **Descargar** (cabecera) | Submenú con dos documentos que genera el servidor con las plantillas oficiales: la **planilla** de vacaciones en PDF y el **plano UNOEE** en Excel. El plano lo ven Talento Humano y el admin. |
 | **Ver empleado** | Ficha de consulta: datos del colaborador, los tres períodos con sus días calculados, total, observaciones y motivo de rechazo si lo hay. Desde aquí se puede vaciar los períodos. |
 | **Asignar fechas** | Modal con los tres períodos **en una fila de columnas**, el total como cuarta columna, fecha de ingreso sugerida y observaciones. |
-| **Aprobar / rechazar** | Modal de decisión. Al rechazar, el motivo es **obligatorio** y hay un recuadro para escribirlo. |
+| **Aprobar / rechazar** | Modal de decisión. Incluye la tabla de períodos con un menú de tres puntos por fila para **aprobar o rechazar cada período**. Al rechazar, el motivo es **obligatorio** y hay un recuadro para escribirlo. |
 | **Ver motivo del rechazo** | Sólo en filas rechazadas: muestra el motivo en una alerta. |
 
 ### El menú de acciones
@@ -106,8 +106,9 @@ abre su propio modal:
 * **Plano UNOEE** en **Excel** (`/api/reportes/plano-unoee`), sobre
   `backend/planos_unoee/ARCHIVO PLANO TNL-VACACIONES.xlsx`.
   `DescargarPlanoModal` ofrece **plano general** (toda la plantilla) o **plano por
-  UNES** (con el desplegable). **Exclusivo de Talento Humano**: además de
-  ocultarse la opción, el backend responde `403` si otro cargo llama a la API.
+  UNES** (con el desplegable). **Para Talento Humano y admin**: además de
+  ocultarse la opción a los demás cargos, el backend responde `403` si otro
+  cargo llama a la API.
 
 El desplegable de UNES se arma con las UNES de la tabla, ya cargadas
 (`opcionesUnes`), así que no hay una petición extra. La búsqueda y el filtro de
@@ -235,17 +236,19 @@ los endpoints de administración.
 ## El cargo manda
 
 `GET /api/auth/session` y el login devuelven `cargo`, `esTalentoHumano`,
-`esAdmin`, `veTodaLaPlantilla` y `puedeAprobar`. La interfaz los usa **sólo para
-mostrar u ocultar opciones**:
+`esAdmin`, `veTodaLaPlantilla` y `puedeAprobar`. El admin hereda las
+capacidades operativas de Talento Humano: el servidor le devuelve
+`veTodaLaPlantilla` y `puedeAprobar` en verdadero. La interfaz usa esos permisos
+**sólo para mostrar u ocultar opciones**:
 
 | | Admin | Talento Humano | Otro cargo |
 |---|---|---|---|
 | Opción «Administración» en el sidebar | sí | oculta | oculta |
 | Ruta `/app/administracion` | carga | muestra «Esta sección es del administrador» | igual |
-| Opción «Aprobar / rechazar» en el menú de asignaciones | no | sí | no |
-| Opción «Descargar plano UNOEE» | no | sí | no |
+| Opción «Aprobar / rechazar» en el menú de asignaciones | sí | sí | no |
+| Opción «Descargar plano UNOEE» | sí | sí | no |
 | Tablero de asignaciones | toda la plantilla | toda la plantilla | sólo su UNES |
-| Bandeja general de notificaciones | vacía | todo | vacía |
+| Bandeja general de notificaciones | todo | todo | vacía |
 | Avisos que uno mismo generó (`usuario_id`) | sí | sí | sí |
 | Aviso «tu cargo sólo consulta» | no | no | sí |
 | Opción «Desactivar» sobre su propia cuenta | no (deshabilitada) | no (deshabilitada) | — |
@@ -338,7 +341,7 @@ src/
 │   ├── EmptyState.jsx            Estado vacío con acción
 │   ├── EmpleadoDetalleModal.jsx  Ficha del colaborador
 │   ├── AsignarPeriodosModal.jsx  Los tres períodos y el cálculo
-│   ├── DecisionModal.jsx         Aprobar / rechazar con motivo
+│   ├── DecisionModal.jsx         Aprobar / rechazar con motivo y decisión por período
 │   ├── DescargarPlanillaModal.jsx  Planilla PDF por UNES (Talento Humano y admin)
 │   ├── DescargarPlanoModal.jsx   Plano UNOEE general o por UNES
 │   └── NuevaAsignacionModal.jsx  Alta de una asignación

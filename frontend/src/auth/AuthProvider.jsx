@@ -109,9 +109,12 @@ export default function AuthProvider({ children }) {
   const clearNotice = useCallback(() => setNotice(null), [])
 
   /* Los privilegios vienen del servidor (`usuario.esAdmin`,
-     `usuario.esTalentoHumano`, `usuario.veTodaLaPlantilla`). La interfaz los usa
-     para mostrar u ocultar opciones, pero el control real está en el backend:
-     ocultar un botón no impide llamar a la API. */
+     `usuario.esTalentoHumano`, `usuario.veTodaLaPlantilla` y
+     `usuario.puedeAprobar`). El admin hereda las capacidades operativas de
+     Talento Humano: el backend le devuelve `veTodaLaPlantilla` y
+     `puedeAprobar` en verdadero. La interfaz usa esos permisos para mostrar u
+     ocultar opciones, pero el control real está en el backend: ocultar un botón
+     no impide llamar a la API. */
   const esTalentoHumano = Boolean(user?.esTalentoHumano)
   const esAdmin = Boolean(user?.esAdmin)
   const veTodaLaPlantilla = Boolean(user?.veTodaLaPlantilla)
