@@ -98,6 +98,7 @@ export const ICONS = {
  */
 export const ESTADO_META = {
   pendiente: { label: 'Pendiente', tone: 'warn', icon: 'pendiente' },
+  en_verificacion: { label: 'En verificación', tone: 'warn', icon: 'pendiente' },
   aprobada: { label: 'Aprobada', tone: 'ok', icon: 'aprobada' },
   rechazada: { label: 'Rechazada', tone: 'danger', icon: 'rechazada' },
   ok: { label: 'Correcta', tone: 'ok', icon: 'aprobada' },

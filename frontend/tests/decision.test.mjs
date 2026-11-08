@@ -25,7 +25,7 @@ test('la tabla de períodos tiene la columna de acciones y las dos decisiones', 
   assert.ok(fuente.includes('masOpciones'), 'el disparador debe ser el icono de tres puntos')
 })
 
-test('la decisión por período se toma de la asignación y viaja al guardar', async () => {
+test('la decisión por período se lee de la asignación y se guarda de inmediato', async () => {
   const fuente = await readFile(MODAL, 'utf8')
 
   assert.ok(fuente.includes('periodo?.decision'), 'la decisión debe leerse de cada período')
@@ -34,17 +34,29 @@ test('la decisión por período se toma de la asignación y viaja al guardar', a
     'también debe aceptar las columnas planas aprobacion_rechazo_f1..f3',
   )
   assert.ok(
+    fuente.includes('onDecisionPeriodo(indice, valor)'),
+    'cada clic de período debe llamar al guardado inmediato',
+  )
+  assert.ok(
     fuente.includes('decisionesPeriodos: decisionesPeriodo'),
-    'el payload debe incluir las decisiones por período',
+    'la decisión general conserva el contexto de los períodos',
   )
 })
 
-test('la página no descarta las decisiones por período al confirmar', async () => {
+test('la página guarda cada período sin esperar la confirmación general', async () => {
   const fuente = await readFile(PAGINA, 'utf8')
 
   assert.ok(
+    fuente.includes('registrarDecisionPeriodo(fila.id, indice + 1, decision)'),
+    'el clic del período debe llegar al hook que llama a la API',
+  )
+  assert.ok(
+    fuente.includes('onDecisionPeriodo={handleDecisionPeriodo}'),
+    'el modal debe recibir el manejador de la decisión por período',
+  )
+  assert.ok(
     fuente.includes('decisionesPeriodos') && fuente.includes('registrarDecision(fila.id, {'),
-    'la decisión por período debe llegar al hook que llama a la API',
+    'la decisión general sigue llegando al hook que llama a la API',
   )
 })
 

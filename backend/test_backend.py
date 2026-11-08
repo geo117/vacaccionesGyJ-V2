@@ -177,7 +177,7 @@ def main() -> int:
 
     # El admin también entra sin UNES: ve toda la plantilla y administra cuentas.
     respuesta = client.post(
-        "/api/auth/login", json={"correo": admin_correo, "password": PASSWORD_ADMIN}
+        "/api/auth/login", json={"correo": correo_admin, "password": PASSWORD_ADMIN}
     )
     cuerpo_admin = respuesta.get_json() or {}
     check("el admin entra sin UNES", respuesta.status_code == 200, str(respuesta.status_code))
@@ -474,16 +474,102 @@ def main() -> int:
         str(guardado_decision),
     )
 
-    respuesta = client.post(
-        f"/api/asignaciones/{asignacion_id}/decision",
+    # ------------------------------------------------------------------
+    print("\n================ DECISIÓN POR PERÍODO ================")
+    # Dos períodos programados y uno vacío para probar las reglas de estado.
+    respuesta = client.put(
+        f"/api/asignaciones/{asignacion_id}/periodos",
         headers=auth_th,
-        json={"decision": "aprobada", "decisionesPeriodos": [None, "aprobada", None]},
+        json={
+            "periodos": [
+                {"inicio": hoy.isoformat(), "fin": (hoy + timedelta(days=17)).isoformat()},
+                {"inicio": (hoy + timedelta(days=20)).isoformat(), "fin": (hoy + timedelta(days=37)).isoformat()},
+                {"inicio": None, "fin": None},
+            ]
+        },
+    )
+    check("se reprograman dos períodos para las decisiones", respuesta.status_code == 200, str(respuesta.status_code))
+
+    respuesta = client.post(
+        f"/api/asignaciones/{asignacion_id}/periodos/1/decision",
+        headers=auth_otro,
+        json={"decision": "aprobada"},
+    )
+    check("otro cargo NO puede decidir un período (403)", respuesta.status_code == 403, str(respuesta.status_code))
+
+    respuesta = client.post(
+        f"/api/asignaciones/{asignacion_id}/periodos/2/decision",
+        headers=auth_th,
+        json={"decision": "aprobada"},
+    )
+    parcial = (respuesta.get_json() or {}).get("asignacion") or {}
+    check("aprobar un período responde 200", respuesta.status_code == 200, str(respuesta.status_code))
+    check("con un período aprobado y otro sin decidir queda pendiente", parcial.get("estado") == "pendiente", str(parcial.get("estado")))
+    check(
+        "la decisión del período 2 se guarda en su columna",
+        (parcial.get("aprobacionRechazoF2") == "aprobada"),
+        str(parcial.get("aprobacionRechazoF2")),
+    )
+
+    respuesta = client.post(
+        f"/api/asignaciones/{asignacion_id}/periodos/1/decision",
+        headers=auth_th,
+        json={"decision": "rechazada", "motivo": "El período 1 se cruza con el turno."},
+    )
+    mixta = (respuesta.get_json() or {}).get("asignacion") or {}
+    check("rechazar un período responde 200", respuesta.status_code == 200, str(respuesta.status_code))
+    check("con un rechazo y un aprobado queda en verificación", mixta.get("estado") == "en_verificacion", str(mixta.get("estado")))
+    check("la decisión del período 1 se guarda en su columna", mixta.get("aprobacionRechazoF1") == "rechazada", str(mixta.get("aprobacionRechazoF1")))
+
+    respuesta = client.post(
+        f"/api/asignaciones/{asignacion_id}/periodos/2/decision",
+        headers=auth_th,
+        json={"decision": "rechazada"},
+    )
+    todos_rechazados = (respuesta.get_json() or {}).get("asignacion") or {}
+    check("con todos los períodos rechazados queda rechazada", todos_rechazados.get("estado") == "rechazada", str(todos_rechazados.get("estado")))
+
+    respuesta = client.post(
+        f"/api/asignaciones/{asignacion_id}/periodos/1/decision",
+        headers=auth_th,
+        json={"decision": "aprobada"},
+    )
+    de_nuevo_mixta = (respuesta.get_json() or {}).get("asignacion") or {}
+    check("al aprobar uno de los rechazados vuelve a verificación", de_nuevo_mixta.get("estado") == "en_verificacion", str(de_nuevo_mixta.get("estado")))
+
+    respuesta = client.post(
+        f"/api/asignaciones/{asignacion_id}/periodos/2/decision",
+        headers=auth_th,
+        json={"decision": "aprobada"},
+    )
+    todos_aprobados = (respuesta.get_json() or {}).get("asignacion") or {}
+    check("con todos los períodos aprobados queda aprobada", todos_aprobados.get("estado") == "aprobada", str(todos_aprobados.get("estado")))
+    check("al aprobar todo se limpia el motivo", todos_aprobados.get("motivoRechazo") is None, str(todos_aprobados.get("motivoRechazo")))
+
+    respuesta = client.post(
+        f"/api/asignaciones/{asignacion_id}/periodos/3/decision",
+        headers=auth_th,
+        json={"decision": "aprobada"},
     )
     check(
         "no se puede decidir un período que no está programado",
         respuesta.status_code == 400
         and (respuesta.get_json() or {}).get("code") == "PERIODO_SIN_PROGRAMAR",
         str(respuesta.status_code),
+    )
+
+    guardado_periodos = database.query_one(
+        "SELECT aprobacion_rechazo_f1, aprobacion_rechazo_f2, aprobacion_rechazo_f3 "
+        "FROM dbo.asignacion_vacaciones WHERE id = ?",
+        (asignacion_id,),
+    )
+    check(
+        "las decisiones por período quedan persistidas en la tabla",
+        guardado_periodos is not None
+        and guardado_periodos[0] == "aprobada"
+        and guardado_periodos[1] == "aprobada"
+        and guardado_periodos[2] is None,
+        str(guardado_periodos),
     )
 
     filas = database.query_named(

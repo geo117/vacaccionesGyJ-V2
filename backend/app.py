@@ -428,6 +428,7 @@ def create_app(settings: Settings | None = None) -> Flask:
                     "POST   /api/asignaciones",
                     "PUT    /api/asignaciones/{id}/periodos",
                     "POST   /api/asignaciones/{id}/decision",
+                    "POST   /api/asignaciones/{id}/periodos/{n}/decision",
                     "GET    /api/reportes/planilla",
                     "GET    /api/reportes/plano-unoee",
                     "GET    /api/notificaciones",
@@ -936,6 +937,21 @@ def create_app(settings: Settings | None = None) -> Flask:
             assignment_id, payload, current_user()
         )
         servicios().notifications.avisar_decision(asignacion, current_user())
+        return ok({"asignacion": asignacion})
+
+    @app.post("/api/asignaciones/<int:assignment_id>/periodos/<int:numero_periodo>/decision")
+    @require_talento_humano
+    def decidir_periodo_asignacion(assignment_id: int, numero_periodo: int):
+        """Aprueba o rechaza un período concreto y guarda el estado resultante.
+
+        Se persiste en el acto, sin esperar la decisión general del modal. El
+        estado se deriva de los tres períodos: aprobada, rechazada, pendiente o
+        en verificación.
+        """
+        payload = _json_body()
+        asignacion = servicios().assignments.registrar_decision_periodo(
+            assignment_id, numero_periodo, payload, current_user()
+        )
         return ok({"asignacion": asignacion})
 
     # -- reportes descargables ----------------------------------------------

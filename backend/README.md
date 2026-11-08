@@ -192,7 +192,8 @@ la interfaz.
 | `GET` | `/api/asignaciones/{id}` | Sesión | Una asignación |
 | `POST` | `/api/asignaciones` | Sesión | Registra una asignación nueva |
 | `PUT` | `/api/asignaciones/{id}/periodos` | Sesión | Programa los tres períodos |
-| `POST` | `/api/asignaciones/{id}/decision` | **Talento Humano o admin** | Aprueba o rechaza |
+| `POST` | `/api/asignaciones/{id}/decision` | **Talento Humano o admin** | Aprueba o rechaza la asignación completa (todos los períodos) |
+| `POST` | `/api/asignaciones/{id}/periodos/{n}/decision` | **Talento Humano o admin** | Aprueba o rechaza un período concreto y recalcula el estado |
 | `GET` | `/api/reportes/planilla` | Sesión | Planilla de vacaciones en PDF (plantilla institucional). Filtra por la UNES pedida (`?unes=`) o por la de la sesión. Quien entra con UNES sólo puede generarla cuando todas las vacaciones de su UNES están aprobadas |
 | `GET` | `/api/reportes/plano-unoee` | **Talento Humano o admin** | Plano UNOEE en Excel sobre la plantilla oficial |
 | `GET` | `/api/notificaciones` | Sesión | Bandeja del cargo: Talento Humano y admin ven todas; el resto, ninguna |
@@ -409,14 +410,26 @@ suma. Si se confiara en el número del navegador, cualquiera podría guardar
 
 ### La decisión por período
 
-`POST /api/asignaciones/{id}/decision` acepta, además de la decisión general,
-`decisionesPeriodos`: una lista de hasta tres valores alineada con los períodos
-(`"aprobada"`, `"rechazada"` o `null`). Se guarda en
-`aprobacion_rechazo_f1`...`f3` (VARCHAR(50)). El servidor rechaza con
-`PERIODO_SIN_PROGRAMAR` cualquier decisión sobre un período vacío. Si el cliente
-antiguo no envía la lista, se conservan las decisiones que ya estaban guardadas;
-al cambiar las fechas con `PUT /periodos`, las tres columnas se limpian porque la
-decisión anterior ya no corresponde a los nuevos períodos.
+`POST /api/asignaciones/{id}/periodos/{n}/decision` guarda **en el acto** la
+decisión de un período (1 a 3) en `aprobacion_rechazo_f1`...`f3`
+(VARCHAR(50)). Los demás períodos conservan lo que ya tenían; al cambiar las
+fechas con `PUT /periodos`, las tres columnas se limpian porque la decisión
+anterior ya no corresponde a los nuevos períodos. El servidor rechaza con
+`PERIODO_SIN_PROGRAMAR` cualquier decisión sobre un período vacío.
+
+El estado de la asignación se deriva de los períodos **programados**:
+
+| Situación | `estado_asignacion` |
+|---|---|
+| Todos aprobados | `aprobada` |
+| Todos rechazados | `rechazada` |
+| Hay algún rechazo, pero no todos | `en_verificacion` |
+| Sin rechazos y no están todos aprobados | `pendiente` |
+
+`POST /api/asignaciones/{id}/decision` sigue existiendo para la decisión
+general: «aprobar» deja todos los períodos programados en `aprobada` y el estado
+en `aprobada`; «rechazar» los deja todos en `rechazada`, exige el motivo y deja
+el estado en `rechazada`.
 
 ### Las notificaciones las redacta el servidor
 

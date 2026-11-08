@@ -31,6 +31,7 @@ import { calcularDias, semaforoDiasAUsar } from '../utils/periodos'
 
 const ETIQUETA_ESTADO = {
   pendiente: { texto: 'Pendiente de revisión', tone: 'warn' },
+  en_verificacion: { texto: 'En verificación', tone: 'warn' },
   aprobada: { texto: 'Aprobada', tone: 'ok' },
   rechazada: { texto: 'Rechazada', tone: 'danger' },
 }

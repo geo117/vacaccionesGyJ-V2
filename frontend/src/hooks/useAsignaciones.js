@@ -131,6 +131,17 @@ export default function useAsignaciones() {
     return creada
   }, [])
 
+  /**
+   * Decide un período concreto. No toca `filas`: la tabla del tablero mezcla
+   * datos de la vista con los de la asignación y reemplazar la fila a mano
+   * borraría columnas como «días a corte». La pantalla recarga el tablero para
+   * que el estado y los días sigan saliendo del servidor.
+   */
+  const registrarDecisionPeriodo = useCallback(async (id, periodo, decision) => {
+    const respuesta = await asignacionesApi.decidirPeriodo(id, periodo, { decision })
+    return respuesta.asignacion
+  }, [])
+
   return {
     filas,
     areas,
@@ -140,6 +151,7 @@ export default function useAsignaciones() {
     recargar,
     guardarPeriodos,
     registrarDecision,
+    registrarDecisionPeriodo,
     crearAsignacion,
   }
 }

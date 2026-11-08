@@ -320,6 +320,17 @@ export const asignacionesApi = {
   decidir(id, datos) {
     return request(`/api/asignaciones/${id}/decision`, { method: 'POST', body: datos, auth: true })
   },
+  /**
+   * Aprueba o rechaza un período concreto. Se guarda en el acto y el servidor
+   * devuelve la asignación con el estado recalculado a partir de sus períodos.
+   */
+  decidirPeriodo(id, periodo, datos) {
+    return request(`/api/asignaciones/${id}/periodos/${periodo}/decision`, {
+      method: 'POST',
+      body: datos,
+      auth: true,
+    })
+  },
 }
 
 /**

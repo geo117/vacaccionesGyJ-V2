@@ -28,7 +28,15 @@ TABLA = "dbo.asignacion_vacaciones"
 ESTADO_PENDIENTE = "pendiente"
 ESTADO_APROBADA = "aprobada"
 ESTADO_RECHAZADA = "rechazada"
-ESTADOS_VALIDOS = (ESTADO_PENDIENTE, ESTADO_APROBADA, ESTADO_RECHAZADA)
+# Hay períodos decididos de forma distinta: la asignación todavía no se puede
+# dar por aprobada ni por rechazada en bloque.
+ESTADO_EN_VERIFICACION = "en_verificacion"
+ESTADOS_VALIDOS = (
+    ESTADO_PENDIENTE,
+    ESTADO_APROBADA,
+    ESTADO_RECHAZADA,
+    ESTADO_EN_VERIFICACION,
+)
 
 # Decisión por período. Se guarda en las columnas
 # ``aprobacion_rechazo_f1``...``f3`` (VARCHAR(50)) y sólo admite estos dos
@@ -449,6 +457,50 @@ def normalizar_decisiones_periodo(
     return decisiones
 
 
+def _indices_programados(periodos: list[dict[str, Any]]) -> list[int]:
+    """Posiciones de los períodos que tienen días programados."""
+    return [
+        indice
+        for indice in range(3)
+        if indice < len(periodos) and (periodos[indice] or {}).get("dias") is not None
+    ]
+
+
+def decisiones_uniformes(
+    periodos: list[dict[str, Any]], decision: str
+) -> list[str | None]:
+    """Decisión para todos los períodos programados; los vacíos quedan en ``None``."""
+    return [
+        decision if indice in _indices_programados(periodos) else None
+        for indice in range(3)
+    ]
+
+
+def estado_derivado(
+    periodos: list[dict[str, Any]], decisiones: list[str | None]
+) -> str:
+    """Estado de la asignación a partir de la decisión de sus períodos.
+
+    Reglas del negocio:
+      * todos los períodos programados aprobados → ``aprobada``;
+      * todos los períodos programados rechazados → ``rechazada``;
+      * hay al menos un rechazo, pero no todos → ``en_verificacion``;
+      * todavía no hay rechazos ni están todos aprobados → ``pendiente``.
+    """
+    indices = _indices_programados(periodos)
+    if not indices:
+        return ESTADO_PENDIENTE
+
+    valores = [decisiones[indice] if indice < len(decisiones) else None for indice in indices]
+    if all(valor == ESTADO_APROBADA for valor in valores):
+        return ESTADO_APROBADA
+    if all(valor == ESTADO_RECHAZADA for valor in valores):
+        return ESTADO_RECHAZADA
+    if any(valor == ESTADO_RECHAZADA for valor in valores):
+        return ESTADO_EN_VERIFICACION
+    return ESTADO_PENDIENTE
+
+
 # --------------------------------------------------------------------------
 # Repositorio
 # --------------------------------------------------------------------------
@@ -617,6 +669,14 @@ class AssignmentService:
     def registrar_decision(
         self, assignment_id: int, payload: dict[str, Any], usuario: Any
     ) -> dict[str, Any]:
+        """Aprobación o rechazo de la asignación completa.
+
+        «Aprobar asignación» aprueba **todos** los períodos programados y deja el
+        estado en ``aprobada``; «Rechazar asignación» los rechaza todos y deja el
+        estado en ``rechazada``. No se aceptan decisiones por período en esta
+        llamada: para eso está ``registrar_decision_periodo``, que persiste cada
+        clic de inmediato.
+        """
         actual = self._repository.obtener(assignment_id)
         if actual is None:
             raise ValidationError("ASIGNACION_NO_EXISTE", "La asignación ya no existe.")
@@ -636,14 +696,72 @@ class AssignmentService:
             )
 
         observaciones = _texto(payload.get("observaciones"), "las observaciones", OBSERVACIONES_MAX)
-        decisiones_periodo = normalizar_decisiones_periodo(payload, actual)
+        periodos = actual.get("periodos") or []
         self._repository.registrar_decision(
             assignment_id,
             estado=decision,
             motivo=motivo if decision == ESTADO_RECHAZADA else None,
             observaciones=observaciones,
             th=usuario.nombre,
-            decisiones_periodo=decisiones_periodo,
+            decisiones_periodo=decisiones_uniformes(periodos, decision),
+        )
+        return self._repository.obtener(assignment_id) or {}
+
+    def registrar_decision_periodo(
+        self,
+        assignment_id: int,
+        numero_periodo: int,
+        payload: dict[str, Any],
+        usuario: Any,
+    ) -> dict[str, Any]:
+        """Guarda la decisión de **un** período y recalcula el estado.
+
+        Se llama en el momento en que Talento Humano aprueba o rechaza el
+        período desde la tabla del modal; no espera a la confirmación general.
+        Los demás períodos conservan lo que ya tenían.
+        """
+        actual = self._repository.obtener(assignment_id)
+        if actual is None:
+            raise ValidationError("ASIGNACION_NO_EXISTE", "La asignación ya no existe.")
+
+        if numero_periodo < 1 or numero_periodo > 3:
+            raise ValidationError(
+                "PERIODO_INVALIDO", "El período debe estar entre 1 y 3."
+            )
+        indice = numero_periodo - 1
+        periodos = actual.get("periodos") or []
+        if indice >= len(periodos) or (periodos[indice] or {}).get("dias") is None:
+            raise ValidationError(
+                "PERIODO_SIN_PROGRAMAR",
+                f"El período {numero_periodo} no está programado y no admite una decisión.",
+            )
+
+        decision = str(payload.get("decision") or "").strip().lower()
+        if decision not in DECISIONES_PERIODO_VALIDAS:
+            raise ValidationError(
+                "DECISION_PERIODO_INVALIDA",
+                f"La decisión del período {numero_periodo} debe ser aprobar o rechazar.",
+            )
+
+        decisiones = normalizar_decisiones_periodo({}, actual)
+        decisiones[indice] = decision
+        estado = estado_derivado(periodos, decisiones)
+
+        # El motivo acompaña a la asignación mientras quede algún rechazo. Al
+        # aprobar todo se limpia, y un rechazo nuevo puede aportar el suyo.
+        motivo = _texto(payload.get("motivo"), "el motivo del rechazo", MOTIVO_MAX)
+        motivo = motivo or actual.get("motivoRechazo")
+        if estado not in (ESTADO_RECHAZADA, ESTADO_EN_VERIFICACION):
+            motivo = None
+
+        self._repository.registrar_decision(
+            assignment_id,
+            estado=estado,
+            motivo=motivo,
+            # ``None`` conserva las observaciones que ya tuviera la asignación.
+            observaciones=None,
+            th=usuario.nombre,
+            decisiones_periodo=decisiones,
         )
         return self._repository.obtener(assignment_id) or {}
 

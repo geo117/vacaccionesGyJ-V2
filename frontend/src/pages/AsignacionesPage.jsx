@@ -15,7 +15,8 @@
  *   Identificación ← cedula
  *   UNES           ← IDCia_CO
  *   Cargo          ← Cargo
- *   Estado         ← pendiente hasta que se apruebe o rechace
+ *   Estado         ← pendiente, en verificación, aprobada o rechazada según
+ *                    la decisión de sus períodos
  *   Días a corte   ← dias_vacaciones_corteDic
  *   Días asignados ← el total de los períodos programados
  *   Días a usar    ← días asignados − días a corte, con semáforo
@@ -88,6 +89,7 @@ const POR_PAGINA = 20
 const ESTADOS = [
   { value: 'todas', label: 'Todos los estados' },
   { value: 'pendiente', label: 'Pendientes' },
+  { value: 'en_verificacion', label: 'En verificación' },
   { value: 'aprobada', label: 'Aprobadas' },
   { value: 'rechazada', label: 'Rechazadas' },
 ]
@@ -180,6 +182,7 @@ export default function AsignacionesPage() {
     recargar,
     guardarPeriodos,
     registrarDecision,
+    registrarDecisionPeriodo,
     crearAsignacion,
   } = useAsignaciones()
   /* El contador del sidebar y esta bandeja comparten estado: tras una acción que
@@ -553,6 +556,27 @@ export default function AsignacionesPage() {
     }
   }
 
+  /**
+   * Decisión de un período desde la tabla del modal. Se guarda en el acto, sin
+   * esperar al botón general: el servidor devuelve el estado recalculado y la
+   * tabla se recarga para no mezclar los datos de la vista con los de la
+   * asignación.
+   */
+  async function handleDecisionPeriodo(indice, decision) {
+    const fila = decisionAbierta
+    if (!fila?.id) return null
+
+    setGuardando(true)
+    try {
+      const actualizada = await registrarDecisionPeriodo(fila.id, indice + 1, decision)
+      setDecisionAbierta(actualizada)
+      await recargar()
+      return actualizada
+    } finally {
+      setGuardando(false)
+    }
+  }
+
   return (
     <>
       <header className="page__header">
@@ -572,16 +596,6 @@ export default function AsignacionesPage() {
           </Button>
           <Button variant="outline-secondary" onClick={limpiarFiltros} disabled={!hayFiltros}>
             Limpiar filtros
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => {
-              setNuevaInicial(null)
-              setNuevaAbierta(true)
-            }}
-          >
-            <Icon name="crear" size={18} />
-            Nueva asignación
           </Button>
           <OverlayTrigger
             trigger="click"
@@ -1060,6 +1074,7 @@ export default function AsignacionesPage() {
           saving={guardando}
           onHide={() => setDecisionAbierta(null)}
           onConfirmar={handleConfirmarDecision}
+          onDecisionPeriodo={handleDecisionPeriodo}
         />
       ) : null}
 

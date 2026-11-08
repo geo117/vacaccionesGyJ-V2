@@ -3,8 +3,10 @@
  *
  * Lo que resuelve:
  *  - La decisión se toma **período por período** desde el menú de tres puntos de
- *    la tabla. Esa decisión se guarda en `aprobacion_rechazo_f1..f3` y viaja
- *    junto con la decisión general al confirmar el modal.
+ *    la tabla. Cada clic se guarda en el acto en `aprobacion_rechazo_f1..f3`, sin
+ *    esperar al botón general; el servidor recalcula el estado de la asignación.
+ *  - **Aprobar la asignación** aprueba todos los períodos programados y la deja
+ *    en «Aprobada». **Rechazarla** los rechaza todos y exige el motivo.
  *  - **Al rechazar, el motivo es obligatorio.** Un rechazo sin motivo obliga a
  *    la persona a preguntar por correo, que es justo el trámite que esta
  *    herramienta viene a quitar. El foco se lleva al recuadro y no se guarda
@@ -12,9 +14,9 @@
  *  - Las observaciones son independientes del motivo: acompañan la decisión,
  *    sea cual sea.
  *
- * Antes de guardar se pide confirmación con sweetalert2, mostrando el efecto
- * concreto: aprobar pasa la asignación a "Aprobada"; rechazar deja constancia
- * del motivo.
+ * La decisión general se pide con confirmación de sweetalert2, mostrando el
+ * efecto concreto: aprobar pasa la asignación a "Aprobada"; rechazar deja
+ * constancia del motivo.
  */
 
 import { useId, useMemo, useState } from 'react'
@@ -28,6 +30,7 @@ import Table from 'react-bootstrap/Table'
 import Icon from './Icon'
 import StatusChip from './StatusChip'
 import { diasInhabiles } from '../hooks/fechas_inactivas'
+import { mensajeDeError } from '../hooks/useAsignaciones'
 import { formatIsoDate, NUMERO } from '../utils/fechas'
 import { resumirPeriodos } from '../utils/periodos'
 
@@ -54,7 +57,14 @@ function decisionInicial(asignacion) {
   return decisionesIniciales(asignacion).includes('rechazada') ? 'rechazada' : 'aprobada'
 }
 
-export default function DecisionModal({ show, asignacion, onHide, onConfirmar, saving = false }) {
+export default function DecisionModal({
+  show,
+  asignacion,
+  onHide,
+  onConfirmar,
+  onDecisionPeriodo,
+  saving = false,
+}) {
   const baseId = useId()
 
   // Igual que en el modal de períodos: el estado inicial sale de la asignación
@@ -68,6 +78,9 @@ export default function DecisionModal({ show, asignacion, onHide, onConfirmar, s
     decisionesIniciales(asignacion),
   )
   const [menuPeriodo, setMenuPeriodo] = useState(null)
+  /* Período cuyo guardado está en curso y último error de guardado. */
+  const [periodoSaving, setPeriodoSaving] = useState(null)
+  const [errorPeriodo, setErrorPeriodo] = useState(null)
 
   // Días hábiles: la misma lista de fechas inactivas que usa el servidor, para
   // que la decisión se tome sobre el total que quedó guardado.
@@ -80,24 +93,32 @@ export default function DecisionModal({ show, asignacion, onHide, onConfirmar, s
   const puedeGuardar = decision === 'aprobada' || motivoValido
 
   /**
-   * Marcar un período concreto. La decisión general se ajusta para no quedar
-   * en contradicción: si algún período queda rechazado, la asignación se
-   * muestra como rechazada; si no, como aprobada.
+   * Marca un período concreto y **lo guarda de inmediato** en el servidor.
+   *
+   * La respuesta trae la asignación con las tres decisiones y el estado ya
+   * recalculado (aprobada, rechazada, pendiente o en verificación). La decisión
+   * general visible se ajusta con esa respuesta: si queda algún rechazo, el
+   * botón general ofrece rechazar; si no, aprobar.
    */
-  function aplicarDecisionPeriodo(indice, valor) {
-    if (resumen.dias[indice] === null) return
+  async function aplicarDecisionPeriodo(indice, valor) {
+    if (resumen.dias[indice] === null || saving || periodoSaving !== null) return
 
-    const siguientes = decisionesPeriodo.map((actual, posicion) =>
-      posicion === indice ? valor : actual,
-    )
-    setDecisionesPeriodo(siguientes)
+    setMenuPeriodo(null)
+    setErrorPeriodo(null)
+    setPeriodoSaving(indice)
+    try {
+      const actualizada = await onDecisionPeriodo(indice, valor)
+      if (!actualizada) return
 
-    const hayRechazo = siguientes.some(
-      (valorPeriodo, posicion) =>
-        resumen.dias[posicion] !== null && valorPeriodo === 'rechazada',
-    )
-    setDecision(hayRechazo ? 'rechazada' : 'aprobada')
-    if (!hayRechazo) setErrorMotivo(null)
+      setDecisionesPeriodo(decisionesIniciales(actualizada))
+      setDecision(decisionInicial(actualizada))
+      setMotivo((previo) => actualizada.motivoRechazo ?? previo)
+      setErrorMotivo(null)
+    } catch (error) {
+      setErrorPeriodo(mensajeDeError(error))
+    } finally {
+      setPeriodoSaving(null)
+    }
   }
 
   async function handleConfirmar() {
@@ -202,10 +223,8 @@ export default function DecisionModal({ show, asignacion, onHide, onConfirmar, s
                                 <button
                                   type="button"
                                   className="acciones__item"
-                                  onClick={() => {
-                                    setMenuPeriodo(null)
-                                    aplicarDecisionPeriodo(indice, 'aprobada')
-                                  }}
+                                  disabled={saving || periodoSaving !== null}
+                                  onClick={() => aplicarDecisionPeriodo(indice, 'aprobada')}
                                 >
                                   <Icon name="aprobar" size={16} />
                                   Aprobar período
@@ -213,10 +232,8 @@ export default function DecisionModal({ show, asignacion, onHide, onConfirmar, s
                                 <button
                                   type="button"
                                   className="acciones__item acciones__item--peligro"
-                                  onClick={() => {
-                                    setMenuPeriodo(null)
-                                    aplicarDecisionPeriodo(indice, 'rechazada')
-                                  }}
+                                  disabled={saving || periodoSaving !== null}
+                                  onClick={() => aplicarDecisionPeriodo(indice, 'rechazada')}
                                 >
                                   <Icon name="rechazar" size={16} />
                                   Rechazar período
@@ -232,13 +249,20 @@ export default function DecisionModal({ show, asignacion, onHide, onConfirmar, s
                             aria-haspopup="menu"
                             aria-expanded={menuPeriodo === indice}
                             title={
-                              programado
-                                ? `Acciones del período ${indice + 1}`
-                                : 'Este período no está programado'
+                              !programado
+                                ? 'Este período no está programado'
+                                : periodoSaving === indice
+                                  ? 'Guardando la decisión…'
+                                  : `Acciones del período ${indice + 1}`
                             }
-                            disabled={!programado}
+                            disabled={!programado || saving || periodoSaving !== null}
+                            aria-busy={periodoSaving === indice || undefined}
                           >
-                            <Icon name="masOpciones" size={20} />
+                            {periodoSaving === indice ? (
+                              <span className="btn__spinner" aria-hidden="true" />
+                            ) : (
+                              <Icon name="masOpciones" size={20} />
+                            )}
                           </button>
                         </OverlayTrigger>
                       </div>
@@ -264,6 +288,13 @@ export default function DecisionModal({ show, asignacion, onHide, onConfirmar, s
             </tfoot>
           </Table>
         </div>
+
+        {errorPeriodo ? (
+          <Alert variant="danger" className="d-flex align-items-start gap-2 mt-4" role="alert">
+            <Icon name="error" size={18} />
+            <span>{errorPeriodo}</span>
+          </Alert>
+        ) : null}
 
         {decision === 'rechazada' ? (
           <Form.Group controlId={`${baseId}-motivo`} style={{ marginTop: 'var(--space-5)' }}>
@@ -297,7 +328,8 @@ export default function DecisionModal({ show, asignacion, onHide, onConfirmar, s
           <Alert variant="success" className="d-flex align-items-start gap-2 mt-4" role="status">
             <Icon name="aprobar" size={18} />
             <span>
-              La asignación quedará <strong>aprobada</strong> con los períodos programados.
+              Todos los períodos programados quedarán <strong>aprobados</strong> y la asignación
+              pasará a «Aprobada».
             </span>
           </Alert>
         )}

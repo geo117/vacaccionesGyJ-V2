@@ -28,7 +28,7 @@ SELECT
     u.fecha_creacion          AS fecha_creacion,
     COUNT(a.id)               AS asignaciones,
     COALESCE(SUM(a.total_dias_empleado), 0) AS dias_totales,
-    COALESCE(SUM(CASE WHEN a.estado_asignacion = 'pendiente' THEN 1 ELSE 0 END), 0) AS pendientes,
+    COALESCE(SUM(CASE WHEN a.estado_asignacion IN ('pendiente', 'en_verificacion') THEN 1 ELSE 0 END), 0) AS pendientes,
     COALESCE(SUM(CASE WHEN a.estado_asignacion = 'aprobada'  THEN 1 ELSE 0 END), 0) AS aprobadas,
     COALESCE(SUM(CASE WHEN a.estado_asignacion = 'rechazada' THEN 1 ELSE 0 END), 0) AS rechazadas,
     MAX(a.fecha_update)       AS ultima_actualizacion
@@ -42,7 +42,7 @@ _SELECT_TOTALES = """
 SELECT
     COUNT(*) AS total,
     COALESCE(SUM(total_dias_empleado), 0) AS dias,
-    COALESCE(SUM(CASE WHEN estado_asignacion = 'pendiente' THEN 1 ELSE 0 END), 0) AS pendientes,
+    COALESCE(SUM(CASE WHEN estado_asignacion IN ('pendiente', 'en_verificacion') THEN 1 ELSE 0 END), 0) AS pendientes,
     COALESCE(SUM(CASE WHEN estado_asignacion = 'aprobada'  THEN 1 ELSE 0 END), 0) AS aprobadas,
     COALESCE(SUM(CASE WHEN estado_asignacion = 'rechazada' THEN 1 ELSE 0 END), 0) AS rechazadas
 FROM dbo.asignacion_vacaciones
