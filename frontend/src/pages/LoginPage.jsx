@@ -5,11 +5,13 @@
  *  - Se envía una sola petición por envío; el botón queda `aria-busy` y
  *    deshabilitado mientras viaja, de modo que no se pueda martillar el
  *    endpoint ni crear varias sesiones con un doble clic.
- *  - El correo y la contraseña se validan siempre. La **UNES es opcional**:
- *    Talento Humano y el admin entran sólo con correo y contraseña y su tablero
- *    es la plantilla completa de la empresa. Para los demás cargos el servidor
- *    responde `UNES_REQUERIDA` tras comprobar las credenciales y es entonces
- *    cuando el campo se exige, sin delatar de antemano qué correos existen.
+ *  - El correo y la contraseña se validan siempre. La **UNES es opcional** y el
+ *    cliente no le impone formato: la valida el servidor. Talento Humano y el
+ *    admin entran sólo con correo y contraseña; los **jefes de Colmena**
+ *    (`data colmena/colmena.json`) también, porque su alcance son las cédulas
+ *    de su equipo y no una unidad. Para los demás cargos el servidor responde
+ *    `UNES_REQUERIDA` tras comprobar las credenciales y es entonces cuando el
+ *    campo se exige, sin delatar de antemano qué correos existen.
  *  - Un único mensaje para todos los fallos de credenciales. La respuesta del
  *    servidor ya es indistinguible entre "correo no existe", "contraseña
  *    incorrecta" y "cuenta sin acceso"; la interfaz no reintroduce la
@@ -22,8 +24,9 @@
  *    información del usuario; el catálogo de cuentas no lo es.
  *  - Tras un fallo se limpia la contraseña y el foco vuelve al primer campo con
  *    problema: no se deja la credencial escrita en pantalla ni al usuario
- *    perdido. La excepción es `UNES_REQUERIDA`: ahí las credenciales ya eran
- *    correctas y sólo falta la UNES, así que se conserva lo escrito.
+ *    perdido. La excepción es una UNES pendiente o inválida: ahí las
+ *    credenciales ya eran correctas y sólo falta corregir ese campo, así que se
+ *    conserva lo escrito.
  *  - La contraseña se muestra sólo si el usuario lo pide, con un control real de
  *    tipo `button` y su estado en `aria-pressed`.
  */
@@ -126,17 +129,11 @@ export default function LoginPage() {
       setEmailError(null)
     }
 
-    if (!unes.trim()) {
-      // Talento Humano y el admin entran sin UNES. Si el cargo no lo permite,
-      // el servidor responde UNES_REQUERIDA y aquí se muestra el campo como
-      // pendiente.
-      setUnesError(null)
-    } else if (!/^\d{3}$/.test(unes.trim())) {
-      setUnesError('La UNES son tres dígitos, sin puntos ni guiones.')
-      firstInvalid = firstInvalid ?? unesRef
-    } else {
-      setUnesError(null)
-    }
+    // La UNES no se valida en el cliente: Talento Humano, el admin y los jefes
+    // de Colmena entran sin ella, y en Colmena el valor escrito se ignora. Si
+    // el cargo la necesita, el servidor responde UNES_REQUERIDA o UNES_INVALIDA
+    // y aquí se marca el campo.
+    setUnesError(null)
 
     if (!password) {
       setPasswordError('Escribe tu contraseña.')
@@ -149,7 +146,7 @@ export default function LoginPage() {
     }
 
     return firstInvalid
-  }, [correo, unes, password])
+  }, [correo, password])
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -172,9 +169,10 @@ export default function LoginPage() {
       const code = error instanceof ApiError ? error.code : 'INTERNAL_ERROR'
       const message = MESSAGES[code] ?? error?.message ?? MESSAGES.INTERNAL_ERROR
 
-      if (code === 'UNES_REQUERIDA') {
-        // Las credenciales eran correctas: sólo falta la UNES. No se borra la
-        // contraseña ni se pinta el error general; se señala el campo.
+      if (code === 'UNES_REQUERIDA' || code === 'UNES_INVALIDA') {
+        // Las credenciales eran correctas: sólo falta la UNES o no tiene el
+        // formato esperado. No se borra la contraseña ni se pinta el error
+        // general; se señala el campo.
         setUnesError(message)
         unesRef.current?.focus()
         return
@@ -256,8 +254,9 @@ export default function LoginPage() {
 
           <h1 className="login__title">Inicia sesión</h1>
           <p className="login__lead">
-            Usa tu correo corporativo y tu contraseña institucional para entrar. Si tu perfil no es
-            de Talento Humano ni admin, escribe además tu UNES.
+            Usa tu correo corporativo y tu contraseña institucional para entrar. La UNES sólo
+            hace falta si tu perfil la requiere: Talento Humano, administración y los jefes de
+            Colmena pueden dejarla vacía.
           </p>
 
           {notice ? (
@@ -270,9 +269,8 @@ export default function LoginPage() {
           <form className="login__form" onSubmit={handleSubmit} noValidate>
             {formError ? (
               <div
-                className={`alert ${
-                  formError.kind === 'conexion' ? 'alert--warn' : 'alert--danger'
-                } login__form-error`}
+                className={`alert ${formError.kind === 'conexion' ? 'alert--warn' : 'alert--danger'
+                  } login__form-error`}
                 role="alert"
               >
                 <Icon name="alerta" size={18} />
@@ -326,16 +324,11 @@ export default function LoginPage() {
                   if (unesError) setUnesError(null)
                   if (formError) setFormError(null)
                 }}
-                onBlur={() => {
-                  if (unes && unes.length !== 3) {
-                    setUnesError('La UNES son tres dígitos (por ejemplo, 109).')
-                  }
-                }}
                 error={unesError}
                 hint={
                   unes === '106'
                     ? 'UNES de filial: si eres jefe de filial verás únicamente los colaboradores de tu equipo.'
-                    : undefined
+                    : ''
                 }
                 inputMode="numeric"
                 autoComplete="off"

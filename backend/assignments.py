@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from colmena import sabado_habil
 from db import Database, DatabaseUnavailable
 from dias_inhabiles import dias_habiles
 from employees import empresa_de_unes
@@ -289,12 +290,18 @@ def fila_a_dict(fila: Any) -> dict[str, Any]:
 # --------------------------------------------------------------------------
 
 
-def normalizar_periodos(periodos: Any, *, minimo: int = 1) -> tuple[list[dict[str, Any]], int]:
+def normalizar_periodos(
+    periodos: Any, *, minimo: int = 1, identificacion: str = ""
+) -> tuple[list[dict[str, Any]], int]:
     """Valida los tres períodos y **calcula los días a partir de las fechas**.
 
     El total no se acepta del cliente: se recalcula aquí. Si se confiara en el
     número que envía el navegador, cualquiera podría guardar "0 días" para un
     período de dos semanas.
+
+    ``identificacion`` sirve para consultar ``SABADO HABIL`` en el archivo de
+    Colmena: si el colaborador no trabaja sábados, esos días no suman. Para
+    cualquier otra cédula el cálculo es el general.
 
     Devuelve ``(periodos, total_dias)``.
     """
@@ -323,9 +330,18 @@ def normalizar_periodos(periodos: Any, *, minimo: int = 1) -> tuple[list[dict[st
             )
         # Días inclusivos (del 1 al 5 son 5 días) menos los domingos y festivos
         # de `fechas_inactivas.json`: los inactivos no se disfrutan como
-        # vacaciones. Es la misma regla que aplica la interfaz, con la misma
-        # lista, para que lo guardado y lo mostrado no puedan discrepar.
-        normalizados.append({"inicio": inicio, "fin": fin, "dias": dias_habiles(inicio, fin)})
+        # vacaciones. Para un empleado de Colmena con `SABADO HABIL = NO`, los
+        # sábados tampoco cuentan. Es la misma regla que aplica la interfaz, con
+        # la misma lista, para que lo guardado y lo mostrado no puedan discrepar.
+        normalizados.append(
+            {
+                "inicio": inicio,
+                "fin": fin,
+                "dias": dias_habiles(
+                    inicio, fin, sabado_habil=sabado_habil(identificacion)
+                ),
+            }
+        )
 
     while len(normalizados) < 3:
         normalizados.append({"inicio": None, "fin": None, "dias": None})
@@ -388,9 +404,13 @@ def fecha_regreso_sugerida(periodos: list[dict[str, Any]]) -> date | None:
     return max(fines) + timedelta(days=1)
 
 
-def validar_periodos_entrantes(payload: dict[str, Any]) -> dict[str, Any]:
+def validar_periodos_entrantes(
+    payload: dict[str, Any], *, identificacion: str = ""
+) -> dict[str, Any]:
     """Valida lo que llega al guardar períodos de una asignación existente."""
-    periodos, total = normalizar_periodos(payload.get("periodos"))
+    periodos, total = normalizar_periodos(
+        payload.get("periodos"), identificacion=identificacion
+    )
     fecha_regreso = _a_date(payload.get("fechaIngreso"), "ingreso") or fecha_regreso_sugerida(periodos)
     return {
         "periodos": periodos,
@@ -639,7 +659,11 @@ class AssignmentService:
         ``días a corte − días asignados`` en la columna ``dias_a_corte``.
         """
         datos = validar_datos_empleado(payload)
-        periodos, total = normalizar_periodos(payload.get("periodos"), minimo=1)
+        periodos, total = normalizar_periodos(
+            payload.get("periodos"),
+            minimo=1,
+            identificacion=datos["identificacion"],
+        )
         # La fecha de regreso se toma de la petición si viene; si no, se calcula.
         fecha_regreso = (
             _a_date(payload.get("fechaIngreso"), "ingreso") or fecha_regreso_sugerida(periodos)
@@ -658,9 +682,12 @@ class AssignmentService:
         return nuevo_id, self._repository.obtener(nuevo_id) or {}
 
     def guardar_periodos(self, assignment_id: int, payload: dict[str, Any], usuario: Any) -> dict[str, Any]:
-        if self._repository.obtener(assignment_id) is None:
+        actual = self._repository.obtener(assignment_id)
+        if actual is None:
             raise ValidationError("ASIGNACION_NO_EXISTE", "La asignación ya no existe.")
-        validado = validar_periodos_entrantes(payload)
+        validado = validar_periodos_entrantes(
+            payload, identificacion=actual.get("identificacion", "")
+        )
         afectadas = self._repository.guardar_periodos(assignment_id, validado, usuario.nombre)
         if afectadas == 0:
             raise ValidationError("ASIGNACION_NO_EXISTE", "La asignación ya no existe.")
@@ -673,9 +700,13 @@ class AssignmentService:
 
         «Aprobar asignación» aprueba **todos** los períodos programados y deja el
         estado en ``aprobada``; «Rechazar asignación» los rechaza todos y deja el
-        estado en ``rechazada``. No se aceptan decisiones por período en esta
-        llamada: para eso está ``registrar_decision_periodo``, que persiste cada
-        clic de inmediato.
+        estado en ``rechazada``.
+
+        Si el cliente envía ``decisionesPeriodos`` se respetan una por una y el
+        estado se deriva de ellas. Es lo que permite guardar el motivo de unos
+        rechazos ya decididos sin aprobar ni rechazar de más los demás períodos
+        (por ejemplo, 1 rechazado y 2 aprobados queda en ``en_verificacion``).
+        Sin esa lista, la decisión se aplica de forma uniforme como antes.
         """
         actual = self._repository.obtener(assignment_id)
         if actual is None:
@@ -687,8 +718,16 @@ class AssignmentService:
                 "DECISION_INVALIDA", "La decisión debe ser aprobar o rechazar."
             )
 
+        periodos = actual.get("periodos") or []
+        if payload.get("decisionesPeriodos") is not None:
+            decisiones = normalizar_decisiones_periodo(payload, actual)
+        else:
+            decisiones = decisiones_uniformes(periodos, decision)
+        estado = estado_derivado(periodos, decisiones)
+
         motivo = _texto(payload.get("motivo"), "el motivo del rechazo", MOTIVO_MAX)
-        if decision == ESTADO_RECHAZADA and not motivo:
+        deja_rechazo = estado in (ESTADO_RECHAZADA, ESTADO_EN_VERIFICACION)
+        if deja_rechazo and not motivo:
             # Rechazar sin motivo obliga a la persona a preguntar por correo, que
             # es justo el trámite que esta herramienta viene a quitar.
             raise ValidationError(
@@ -696,14 +735,13 @@ class AssignmentService:
             )
 
         observaciones = _texto(payload.get("observaciones"), "las observaciones", OBSERVACIONES_MAX)
-        periodos = actual.get("periodos") or []
         self._repository.registrar_decision(
             assignment_id,
-            estado=decision,
-            motivo=motivo if decision == ESTADO_RECHAZADA else None,
+            estado=estado,
+            motivo=motivo if deja_rechazo else None,
             observaciones=observaciones,
             th=usuario.nombre,
-            decisiones_periodo=decisiones_uniformes(periodos, decision),
+            decisiones_periodo=decisiones,
         )
         return self._repository.obtener(assignment_id) or {}
 

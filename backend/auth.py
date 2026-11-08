@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from config import Settings
+from colmena import TIPO_EQUIPO, alcance_de
 from db import Database
 from security import (
     RateLimiter,
@@ -196,6 +197,11 @@ class AuthService:
         de cargos es obligatoria, porque su listado se filtra por ella. Cuál de
         las dos cosas aplica se decide con el cargo que está en la base, no con
         nada que mande el navegador.
+
+        Los correos de jefe de Colmena son otra excepción: se validan contra una
+        cuenta de la empresa 4 y su alcance sale de ``colmena.json`` (las
+        cédulas de su equipo), así que la UNES digitada se ignora. Los tres
+        correos de dirección del grupo ven las empresas 2 y 4 completas.
         """
         email = normalize_email(raw_email)
         password = validate_password(raw_password)
@@ -226,7 +232,21 @@ class AuthService:
             logger.info("Inicio de sesión rechazado: la cuenta está desactivada.")
             return LoginOutcome(status="invalid")
 
-        if not unes and not user.ve_toda_la_plantilla:
+        alcance = alcance_de(user.correo)
+        if alcance is not None:
+            # Jefe de Colmena: el alcance se resuelve por cédula, no por UNES.
+            # Salvo la dirección del grupo, la cuenta tiene que ser de la
+            # empresa 4; si no, las credenciales no sirven para esta regla.
+            if alcance.tipo == TIPO_EQUIPO and user.company != 4:
+                logger.info(
+                    "Inicio de sesión rechazado: jefe de Colmena con una cuenta "
+                    "que no pertenece a la empresa 4."
+                )
+                return LoginOutcome(status="invalid")
+            # La UNES digitada no se usa: el filtro real es la cédula (o el
+            # grupo, para la dirección). Se guarda vacía en la sesión.
+            unes = ""
+        elif not unes and not user.ve_toda_la_plantilla:
             # Credenciales correctas, pero el listado de esta persona se filtra
             # por UNES y no la digitó. No se crea sesión: la interfaz vuelve a
             # pedir el campo. Talento Humano y el admin ven toda la plantilla y

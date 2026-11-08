@@ -25,9 +25,16 @@ import pyodbc
 from flask import Flask, Response, g, jsonify, request, send_file
 from flask_cors import CORS
 
-from areas import anotar_areas, cargar_indice
+from areas import anotar_areas, cargar_indice_admin, cargar_indice_empresa
 from assignments import AssignmentService
 from auth import AuthService
+from colmena import (
+    TIPO_GRUPO,
+    alcance_de,
+    anotar_sabado_habil,
+    correo_en_colmena,
+    filtrar_filas,
+)
 from config import ConfigError, Settings, load_settings
 from dashboard import DashboardService
 from db import Database, DatabaseUnavailable
@@ -238,6 +245,19 @@ def current_company() -> int:
     Administración surte efecto sin pedir un nuevo inicio de sesión.
     """
     return company_desde_bd(getattr(current_user(), "company", None))
+
+
+def empresa_para_tablero() -> int:
+    """Empresa que acota el tablero y la planilla.
+
+    El **admin** ve la información de todas las empresas del grupo, sin importar
+    la empresa de su cuenta: devuelve ``0``, que en el directorio significa "sin
+    filtro". Talento Humano y los demás cargos quedan acotados a la empresa de su
+    cuenta, que es la regla de acceso que ya existía.
+    """
+    if current_user().es_admin:
+        return 0
+    return current_company()
 
 
 # --------------------------------------------------------------------------
@@ -471,15 +491,24 @@ def create_app(settings: Settings | None = None) -> Flask:
         # limitador —un formato equivocado no es un intento de adivinar la
         # contraseña—; si viene vacía, quien decide si hacía falta es el servicio,
         # que ya conoce el cargo de la cuenta.
+        #
+        # Los correos de jefe de Colmena son la excepción: su alcance sale de
+        # `colmena.json` (las cédulas de su equipo) y no de una UNES, así que el
+        # campo no se valida ni se usa. Se normaliza el correo antes para poder
+        # consultarlo.
+        correo = normalize_email(payload.get("correo"))
         unes_cruda = payload.get("unes")
-        unes = (
-            validar_unes_login(unes_cruda)
-            if unes_cruda is not None and str(unes_cruda).strip()
-            else ""
-        )
+        if correo_en_colmena(correo):
+            unes = ""
+        else:
+            unes = (
+                validar_unes_login(unes_cruda)
+                if unes_cruda is not None and str(unes_cruda).strip()
+                else ""
+            )
 
         outcome = auth_service.login(
-            payload.get("correo"),
+            correo,
             payload.get("password"),
             origin=request.remote_addr or "",
             unes=unes,
@@ -760,13 +789,14 @@ def create_app(settings: Settings | None = None) -> Flask:
     ) -> tuple[list[dict[str, Any]], str]:
         """Colaboradores con su asignación, aplicando la regla de acceso.
 
-        La **empresa** de la cuenta (``Usuarios.company``) acota siempre: la
-        vista V2 reúne la plantilla de GyJ, Almasa y Colmena, y ninguna cuenta
-        debe ver la de otra. Dentro de esa empresa, Talento Humano y el admin
-        reciben toda la plantilla; si además pidieron una UNES concreta, sólo
-        esa. Cualquier otro cargo recibe exclusivamente la UNES de su sesión:
-        ``unes_solicitada`` se ignora para no ampliar lo que ve por la puerta del
-        parámetro.
+        La **empresa** acota a Talento Humano y a los demás cargos: la vista V2
+        reúne la plantilla de GyJ, Almasa y Colmena, y ninguna cuenta debe ver la
+        de otra. El admin es la excepción: se llama con ``empresa=0`` (sin
+        filtro) y ve la plantilla de todas las empresas. Dentro de esa empresa,
+        Talento Humano y el admin reciben toda la plantilla; si además pidieron
+        una UNES concreta, sólo esa. Cualquier otro cargo recibe exclusivamente
+        la UNES de su sesión: ``unes_solicitada`` se ignora para no ampliar lo
+        que ve por la puerta del parámetro.
 
         Además, cuando la UNES es la de filial (106), se acota a las cédulas del
         equipo del jefe de filial que inició sesión (ver :mod:`filial`).
@@ -862,27 +892,68 @@ def create_app(settings: Settings | None = None) -> Flask:
         Si hay conexión con la vista corporativa, la tabla son **los
         colaboradores** con la asignación que tengan (o ninguna):
 
-        * Talento Humano y el admin entran sin UNES y reciben **toda la
-          plantilla de la empresa**.
+        * Talento Humano entra sin UNES y recibe **toda la plantilla de su
+          empresa**.
+        * El **admin** entra sin UNES y recibe la plantilla de **todas las
+          empresas del grupo**, sin acotar por la empresa de su cuenta.
         * Los demás cargos reciben sólo los de la UNES con la que entraron: el
           filtro es una regla de acceso y lo aplica el servidor en el ``WHERE``.
+        * Los **jefes de Colmena** (correos de ``data colmena/colmena.json``)
+          reciben únicamente las cédulas de su equipo. Los tres correos de
+          dirección del grupo reciben las cédulas registradas **a nombre de su
+          propio correo** en ``colmena.json`` y ``data filial/filial.json``. En
+          ambos casos manda el archivo, no la UNES ni la empresa de la cuenta.
 
         Si la vista no responde, se devuelven sólo las asignaciones registradas:
         la pantalla sigue siendo útil aunque el servidor corporativo falle.
         """
         unes = current_unes()
-        filas, origen = _filas_tablero(
-            ve_toda_la_plantilla=current_user().ve_toda_la_plantilla,
-            unes_sesion=unes,
-            empresa=current_company(),
+        correo = current_user().correo
+        alcance_colmena = alcance_de(correo)
+
+        # El alcance de Colmena manda sobre la regla del cargo: un jefe de
+        # equipo ve su lista de cédulas aunque no sea Talento Humano, y la
+        # dirección del grupo ve la unión de las dos entradas de su propio
+        # correo aunque su cuenta sea de una sola empresa. Se pide el máximo de
+        # filas y se acota después por cédula.
+        ve_toda_la_plantilla = (
+            current_user().ve_toda_la_plantilla or alcance_colmena is not None
         )
+        empresa = empresa_para_tablero()
+        if alcance_colmena is not None:
+            empresa = 0 if alcance_colmena.tipo == TIPO_GRUPO else 4
+
+        filas, origen = _filas_tablero(
+            ve_toda_la_plantilla=ve_toda_la_plantilla,
+            unes_sesion=unes,
+            empresa=empresa,
+        )
+        filas = filtrar_filas(filas, alcance_colmena)
+        # SABADO HABIL de los empleados de Colmena: la pantalla lo usa para
+        # previsualizar los días con la misma regla que el servidor.
+        filas = anotar_sabado_habil(filas)
 
         # El filtro por área es una herramienta de Talento Humano y del admin:
         # sólo a ellos se les anotan las filas y se les envía la lista de áreas.
         # Para el resto de cargos la respuesta queda exactamente como antes.
+        #
+        # El archivo de áreas depende de la empresa de la cuenta: GyJ (2) usa
+        # ``areas_filial.json`` y Colmena (4) usa ``areas_colmena.json``. El
+        # admin ve las dos plantillas, así que recibe las dos listas unidas. La
+        # dirección del grupo también, porque su conjunto mezcla colaboradores
+        # de los dos archivos.
         areas: list[str] = []
-        if current_user().ve_toda_la_plantilla:
-            indice = cargar_indice()
+        if current_user().ve_toda_la_plantilla or alcance_colmena is not None:
+            usa_las_dos_listas = current_user().es_admin or (
+                alcance_colmena is not None and alcance_colmena.tipo == TIPO_GRUPO
+            )
+            indice = (
+                cargar_indice_admin()
+                if usa_las_dos_listas
+                else cargar_indice_empresa(
+                    4 if alcance_colmena is not None else current_company()
+                )
+            )
             filas = anotar_areas(filas, indice)
             areas = list(indice.areas)
 
@@ -893,6 +964,7 @@ def create_app(settings: Settings | None = None) -> Flask:
                 "origen": origen,
                 "unes": unes,
                 "areas": areas,
+                "alcanceColmena": alcance_colmena.tipo if alcance_colmena else "",
             }
         )
 
@@ -916,12 +988,33 @@ def create_app(settings: Settings | None = None) -> Flask:
     @require_auth
     def guardar_periodos(assignment_id: int):
         payload = _json_body()
+        antes = servicios().assignments.obtener(assignment_id)
         asignacion = servicios().assignments.guardar_periodos(
             assignment_id, payload, current_user()
         )
-        # Modificar fechas u observaciones genera el aviso, con el id de quien
-        # lo hizo.
-        servicios().notifications.avisar_asignacion(asignacion, current_user())
+
+        # Cada cambio relevante deja su aviso con la UNES de la asignación:
+        # fechas distintas → aviso de asignación; observación nueva o corregida
+        # → aviso con el texto. Si no cambió nada, no se ensucia la bandeja.
+        notificaciones = servicios().notifications
+        periodos_antes = [
+            ((periodo or {}).get("inicio"), (periodo or {}).get("fin"))
+            for periodo in ((antes or {}).get("periodos") or [])
+        ]
+        periodos_despues = [
+            ((periodo or {}).get("inicio"), (periodo or {}).get("fin"))
+            for periodo in (asignacion.get("periodos") or [])
+        ]
+        periodos_cambiados = periodos_antes != periodos_despues
+        observaciones_antes = str((antes or {}).get("observaciones") or "").strip()
+        observaciones_despues = str(asignacion.get("observaciones") or "").strip()
+
+        if periodos_cambiados:
+            notificaciones.avisar_asignacion(asignacion, current_user())
+        if observaciones_despues and observaciones_despues != observaciones_antes:
+            notificaciones.avisar_observacion(
+                asignacion, current_user(), observaciones_despues
+            )
         return ok({"asignacion": asignacion})
 
     @app.post("/api/asignaciones/<int:assignment_id>/decision")
@@ -952,6 +1045,14 @@ def create_app(settings: Settings | None = None) -> Flask:
         asignacion = servicios().assignments.registrar_decision_periodo(
             assignment_id, numero_periodo, payload, current_user()
         )
+        # La aprobación o el rechazo de un período también deja constancia en la
+        # bandeja de Talento Humano y del admin, con la UNES de la asignación.
+        servicios().notifications.avisar_decision_periodo(
+            asignacion,
+            current_user(),
+            numero_periodo,
+            str(payload.get("decision") or "").strip().lower(),
+        )
         return ok({"asignacion": asignacion})
 
     # -- reportes descargables ----------------------------------------------
@@ -962,14 +1063,15 @@ def create_app(settings: Settings | None = None) -> Flask:
         """Planilla de vacaciones en PDF, con la plantilla institucional.
 
         La cubre cualquier sesión: quien entra con una UNES sólo obtiene la de su
-        unidad; Talento Humano, la que pida o toda la plantilla.
+        unidad; Talento Humano, la que pida o toda la plantilla de su empresa; y
+        el admin, la que pida o la de todas las empresas del grupo.
         """
         unes_filtro = _unes_para_reporte()
         filas, origen = _filas_tablero(
             ve_toda_la_plantilla=current_user().ve_toda_la_plantilla,
             unes_sesion=current_unes(),
             unes_solicitada=unes_filtro,
-            empresa=current_company(),
+            empresa=empresa_para_tablero(),
             con_propietarios=False,
         )
 
@@ -1064,7 +1166,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         y el admin; para el resto de cargos la lista llega vacía. Lo decide el
         servicio con el cargo de la sesión, no la petición.
         """
-        avisos = servicios().notifications.listar_para(current_user())
+        avisos = servicios().notifications.listar_para(current_user(), current_unes())
         return ok({"notificaciones": avisos, "total": len(avisos)})
 
     @app.get("/api/notificaciones/mias")

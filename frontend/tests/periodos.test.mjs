@@ -79,6 +79,55 @@ test('descuenta las fechas inactivas del rango', () => {
   assert.equal(diasHabiles('2026-12-08', '2026-12-05', inhabiles), null)
 })
 
+test('con SABADO HABIL = NO los sábados no cuentan como vacaciones', () => {
+  // Del lunes 2 al sábado 7 de marzo de 2026 hay 6 días calendario.
+  assert.equal(
+    diasHabiles('2026-03-02', '2026-03-07', [], { sabadoHabil: false }),
+    5,
+  )
+  // Con sábado hábil (o sin dato) se mantiene el cálculo general.
+  assert.equal(diasHabiles('2026-03-02', '2026-03-07', [], { sabadoHabil: true }), 6)
+  assert.equal(diasHabiles('2026-03-02', '2026-03-07', []), 6)
+
+  // Dos semanas con dos sábados: se descuentan los dos.
+  assert.equal(
+    diasHabiles('2026-03-02', '2026-03-15', [], { sabadoHabil: false }),
+    12,
+  )
+
+  assert.equal(
+    calcularDias(
+      { inicio: '2026-03-02', fin: '2026-03-07' },
+      [],
+      { sabadoHabil: false },
+    ),
+    5,
+  )
+  assert.equal(
+    resumirPeriodos(
+      [
+        { inicio: '2026-03-02', fin: '2026-03-07' },
+        { inicio: '2026-03-09', fin: '2026-03-14' },
+      ],
+      [],
+      { sabadoHabil: false },
+    ).totalDias,
+    10,
+  )
+})
+
+test('un sábado festivo se descuenta una sola vez', () => {
+  const inhabiles = ['2026-03-07'] // sábado festivo
+  assert.equal(
+    diasHabiles('2026-03-02', '2026-03-07', inhabiles, { sabadoHabil: false }),
+    5,
+  )
+  assert.equal(
+    diasHabiles('2026-03-02', '2026-03-07', inhabiles, { sabadoHabil: true }),
+    5,
+  )
+})
+
 test('el resumen descuenta las fechas inactivas en cada período', () => {
   const resumen = resumirPeriodos(
     [{ inicio: '2026-12-05', fin: '2026-12-08' }],

@@ -70,14 +70,16 @@ export default function EmpleadoDetalleModal({ show, asignacion, onHide, onAsign
 
   const estado = ETIQUETA_ESTADO[asignacion.estado] ?? ETIQUETA_ESTADO.pendiente
   const periodos = asignacion.periodos ?? []
-  /* Los días se muestran descontando las fechas inactivas: es el mismo total
-     que calcula y guarda el servidor. */
+  /* Los días se muestran descontando las fechas inactivas y, para un empleado de
+     Colmena sin sábado hábil, también los sábados: es el mismo total que calcula
+     y guarda el servidor. */
+  const opcionesDias = { sabadoHabil: asignacion.sabadoHabil }
   const totalDias = periodos.reduce(
-    (suma, periodo) => suma + (calcularDias(periodo, diasInhabiles) ?? 0),
+    (suma, periodo) => suma + (calcularDias(periodo, diasInhabiles, opcionesDias) ?? 0),
     0,
   )
   const programados = periodos.filter(
-    (periodo) => calcularDias(periodo, diasInhabiles) !== null,
+    (periodo) => calcularDias(periodo, diasInhabiles, opcionesDias) !== null,
   ).length
   const responsable = responsableDe(asignacion.estado, asignacion.thAsignacion)
   const licencia = licenciaDe(asignacion.diasAUsar)
@@ -128,7 +130,7 @@ export default function EmpleadoDetalleModal({ show, asignacion, onHide, onAsign
             </thead>
             <tbody>
               {periodos.map((periodo, indice) => {
-                const dias = calcularDias(periodo, diasInhabiles)
+                const dias = calcularDias(periodo, diasInhabiles, opcionesDias)
                 return (
                   <tr key={`periodo-${indice + 1}`}>
                     <td>Período {indice + 1}</td>

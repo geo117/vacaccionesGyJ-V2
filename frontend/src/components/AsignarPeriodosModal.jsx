@@ -62,8 +62,13 @@ export default function AsignarPeriodosModal({ show, asignacion, onHide, onGuard
   const [fechaIngreso, setFechaIngreso] = useState(asignacion?.fechaReintegroLab ?? '')
 
   /* El total y el detalle por período descuentan las fechas inactivas: un
-     domingo o un festivo dentro del rango no es un día de vacaciones. */
-  const resumen = useMemo(() => resumirPeriodos(periodos, diasInhabiles), [periodos])
+     domingo o un festivo dentro del rango no es un día de vacaciones. Para los
+     empleados de Colmena sin sábado hábil, el sábado tampoco cuenta. */
+  const sabadoHabil = asignacion?.sabadoHabil
+  const resumen = useMemo(
+    () => resumirPeriodos(periodos, diasInhabiles, { sabadoHabil }),
+    [periodos, sabadoHabil],
+  )
 
   /* Último día programado: base para sugerir la fecha de ingreso. */
   const ultimoDia = useMemo(() => {

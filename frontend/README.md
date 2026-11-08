@@ -41,7 +41,7 @@ cuarta que sólo aparece en las filas rechazadas.
 | **Descargar** (cabecera) | Submenú con dos documentos que genera el servidor con las plantillas oficiales: la **planilla** de vacaciones en PDF y el **plano UNOEE** en Excel. El plano lo ven Talento Humano y el admin. |
 | **Ver empleado** | Ficha de consulta: datos del colaborador, los tres períodos con sus días calculados, total, observaciones y motivo de rechazo si lo hay. Desde aquí se puede vaciar los períodos. |
 | **Asignar fechas** | Modal con los tres períodos **en una fila de columnas**, el total como cuarta columna, fecha de ingreso sugerida y observaciones. |
-| **Aprobar / rechazar** | Modal de decisión. Incluye la tabla de períodos con un menú de tres puntos por fila para **aprobar o rechazar cada período**. Al rechazar, el motivo es **obligatorio** y hay un recuadro para escribirlo. |
+| **Aprobar / rechazar** | Modal de decisión. Incluye la tabla de períodos con un menú de tres puntos por fila para **aprobar o rechazar cada período**. El botón **«Rechazar todo»**, a la izquierda del principal, rechaza los tres períodos y activa el campo del motivo completo. Al rechazar períodos sueltos se abre un recuadro con el contador de rechazos y un motivo por período; se guardan concatenados en `motivo_rechazo`. Si **todos** los períodos quedan rechazados, aparece **«Aprobar todo»** para revertir el rechazo y aprobar la asignación completa. |
 | **Ver motivo del rechazo** | Sólo en filas rechazadas: muestra el motivo en una alerta. |
 
 ### El menú de acciones
@@ -78,6 +78,10 @@ Los días **nunca** se escriben a mano: se derivan de las fechas.
   dentro del período no es un día de vacaciones. La lista es la misma que usa el
   backend (`backend/fechas_inactivas.json`), así que la previsualización y el
   total guardado coinciden; `src/hooks/fechas_inactivas.js` sólo la reexporta.
+* Para los empleados de **Colmena**, el campo `SABADO HABIL` decide si el sábado
+  cuenta: `NO` lo descuenta (como un domingo) y `SI` lo cuenta. La fila trae
+  `sabadoHabil` y `utils/periodos.js` lo aplica; el backend recalcula con la
+  misma regla al guardar.
 * El cálculo se hace en UTC, para que el cambio de horario de verano no añada ni
   quite un día.
 * Un período a medias se muestra como "Incompleto", no como 0: "no programado" y
@@ -139,7 +143,7 @@ llamará directo a esa URL y el origen del frontend debe estar en
 | `/` | — | Redirige a `/app/resumen` |
 | `/login` | Público | Correo y contraseña; **UNES** sólo si el cargo la necesita |
 | `/app/resumen` | Sesión | Indicadores de toda la empresa (Talento Humano y admin) o de la UNES de la sesión |
-| `/app/asignaciones` | Sesión | Plantilla de la UNES —**toda la empresa de la cuenta** para Talento Humano y admin— con búsqueda, filtros, paginación y las tres operaciones |
+| `/app/asignaciones` | Sesión | Plantilla de la UNES —**toda su empresa** para Talento Humano y **todas las empresas** para el admin— con búsqueda, filtros, paginación y las tres operaciones |
 | `/app/notificaciones` | Sesión | Bandeja del cargo y los avisos que uno mismo generó |
 | `/app/administracion` | **Admin** | Usuarios: crear, editar, activar/desactivar y eliminar |
 | `*` | — | Vista de "no encontrada" |
@@ -147,14 +151,16 @@ llamará directo a esa URL y el origen del frontend debe estar en
 ## El campo UNES del login
 
 Va **a la izquierda de la contraseña**: son tres dígitos y no necesita el ancho
-completo. El campo filtra a dígitos mientras se escribe y exige tres **si se
-escribe algo**.
+completo. El campo filtra a dígitos mientras se escribe, pero **no valida el
+largo en el formulario**: la UNES la valida el servidor, porque hay cuentas que
+no la necesitan.
 
-Es **opcional**: Talento Humano y el admin entran sólo con correo y contraseña,
-porque su tablero es la plantilla completa y no hay unidad que elegir. Para los
+Es **opcional** para Talento Humano, el admin y los **jefes de Colmena**. Los dos
+primeros ven toda la plantilla; los jefes de Colmena no usan una unidad: su
+alcance son las cédulas de su equipo en `data colmena/colmena.json`. Para los
 demás cargos el servidor responde `400 UNES_REQUERIDA` tras comprobar las
 credenciales —nunca antes, para no delatar qué correos existen— y el formulario
-señala el campo sin borrar lo ya escrito.
+señala el campo sin borrar lo ya escrito. `UNES_INVALIDA` se trata igual.
 
 La UNES **no se guarda en la base**: viaja en el login, el servidor la mete en la
 sesión y la usa para filtrar. Se acepta `109` y `2-109`.
@@ -176,9 +182,16 @@ programárselas. Sobre ellos, «Asignar fechas» abre el modal de creación **co
 datos ya precargados** desde la vista de la empresa.
 
 La tabla muestra la plantilla de la UNES de la sesión, siempre acotada a la
-**empresa de la cuenta** (`Usuarios.company`); Talento Humano y el admin, que
-entran sin UNES, reciben toda la plantilla de su empresa y por eso tienen
-disponible el filtro de UNES en la barra.
+**empresa de la cuenta** (`Usuarios.company`); Talento Humano, que entra sin
+UNES, recibe toda la plantilla de su empresa. El **admin** también entra sin
+UNES y recibe la plantilla de **todas las empresas del grupo**, así que ve el
+filtro de UNES con unidades de las tres empresas.
+
+Los correos de **jefe de Colmena** tienen su propio alcance: el servidor limita
+las filas a las cédulas de `data colmena/colmena.json` y la vista lo anuncia con
+un aviso. La dirección del grupo (`director.riesgos@`, `direcciontic@`,
+`direccion_th@`) ve la unión de las entradas de su propio correo en
+`colmena.json` y `filial.json`. No se filtra en el navegador.
 
 Se pagina **de a 20 registros** con el `Pagination` de react-bootstrap, debajo de
 la tabla: primera, anterior, números, siguiente y última. La búsqueda y los
@@ -247,8 +260,8 @@ capacidades operativas de Talento Humano: el servidor le devuelve
 | Ruta `/app/administracion` | carga | muestra «Esta sección es del administrador» | igual |
 | Opción «Aprobar / rechazar» en el menú de asignaciones | sí | sí | no |
 | Opción «Descargar plano UNOEE» | sí | sí | no |
-| Tablero de asignaciones | toda la plantilla | toda la plantilla | sólo su UNES |
-| Bandeja general de notificaciones | todo | todo | vacía |
+| Tablero de asignaciones | todas las empresas | toda su empresa | sólo su UNES |
+| Bandeja general de notificaciones | todo | todo | las de su UNES |
 | Avisos que uno mismo generó (`usuario_id`) | sí | sí | sí |
 | Aviso «tu cargo sólo consulta» | no | no | sí |
 | Opción «Desactivar» sobre su propia cuenta | no (deshabilitada) | no (deshabilitada) | — |
@@ -256,16 +269,24 @@ capacidades operativas de Talento Humano: el servidor le devuelve
 Ocultar una opción es comodidad, no seguridad: el backend responde `403` si
 cualquier otro cargo llama a la API directamente. Está comprobado en las pruebas.
 
+Los correos listados en `data colmena/colmena.json` tienen un alcance propio
+independiente del cargo: las cédulas de su equipo, o la unión de las entradas de
+su propio correo en `colmena.json` y `filial.json` para los tres correos de
+dirección.
+
 ## Administración de usuarios
 
 La tabla de usuarios usa el mismo menú de tres puntos que la de asignaciones:
 **Editar**, **Activar / Desactivar** y **Eliminar**. La columna **Estado** muestra
-`Activo` o `Inactivo`, y las filas inactivas se atenúan.
+`Activo` o `Inactivo`, y las filas inactivas se atenúan. Se pagina **de a 10
+usuarios**: abajo a la izquierda dice cuántos se ven de la totalidad y a la
+derecha están los controles para ir al inicio, retroceder, avanzar e ir al final.
 
 El modal de crear/editar pide la **empresa** de la cuenta a la derecha de la
 contraseña: GyJ Ferreterías (`2`), Almasa (`3`) o Colmena (`4`). No es un dato
 decorativo: el servidor lo usa para acotar la plantilla de colaboradores a esa
-empresa y la tabla de usuarios lo muestra en la columna **Empresa**.
+empresa (salvo el admin, que ve todas) y la tabla de usuarios lo muestra en la
+columna **Empresa**.
 
 Dos opciones quedan deshabilitadas con el motivo en el `title`, y el backend
 también las rechaza:
@@ -279,8 +300,16 @@ también las rechaza:
 
 ## Notificaciones
 
-Los avisos **los redacta y guarda el servidor** al programar fechas, aprobar o
-rechazar, y en `usuario_id` queda el id de **quien hizo la acción**.
+Los avisos **los redacta y guarda el servidor** al programar fechas, aprobar,
+rechazar (por período o total) o agregar una observación, y en `usuario_id` queda
+el id de **quien hizo la acción**. La columna `unes` guarda la unidad de la
+asignación (`2-115`), que es la que se muestra en la bandeja.
+
+La bandeja muestra **hasta 10 avisos por página**, con los controles de primera,
+anterior, siguiente y última debajo de la lista, y se refresca **cada 5 segundos**
+desde el contexto compartido: las notificaciones aparecen casi en tiempo real sin
+recargar la página. El refresco es silencioso (no enciende «Consultando…») y se
+pausa con la pestaña oculta.
 
 El contador que aparece en la opción «Notificaciones» del sidebar es el número de
 avisos que la persona **todavía no ha revisado**, y se apaga al abrir la bandeja.
@@ -292,9 +321,11 @@ usuario.
 `dbo.notificaciones` **no tiene columna de «leída»**, y por eso el estado de
 revisión vive en el navegador: no se simula una verdad del servidor. La
 consecuencia, dicha en voz alta, es que en otro equipo los avisos vuelven a contar
-como pendientes. Lo que sí es del servidor es el filtrado por cargo, en el `WHERE`
-de la consulta. Dentro de la bandeja sólo se pueden filtrar por tipo (asignación,
-aprobación, rechazo), que se deduce del texto que redactó el servidor.
+como pendientes. Lo que sí es del servidor es el filtrado por cargo y UNES, en el
+`WHERE` de la consulta: Talento Humano y admin ven todo; los demás cargos ven los
+avisos de la UNES con la que entraron. Dentro de la bandeja se puede filtrar por
+tipo (asignación, aprobación, rechazo, observación), que se deduce del texto que
+redactó el servidor.
 
 ## Cómo funciona la autenticación
 

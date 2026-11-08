@@ -21,6 +21,7 @@ import Button from 'react-bootstrap/Button'
 import Form from 'react-bootstrap/Form'
 import Modal from 'react-bootstrap/Modal'
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger'
+import Pagination from 'react-bootstrap/Pagination'
 import Popover from 'react-bootstrap/Popover'
 import Table from 'react-bootstrap/Table'
 import Swal from 'sweetalert2'
@@ -39,6 +40,9 @@ const SWAL_BASE = {
 
 const CARGO_TALENTO_HUMANO = 'talento humano'
 const CARGO_ADMIN = 'admin'
+
+/** Filas por página de la tabla de usuarios. */
+const POR_PAGINA = 10
 
 /** Mensajes por código de error del backend. */
 const MENSAJES = {
@@ -109,6 +113,7 @@ export default function AdministracionPage() {
   const [errorCarga, setErrorCarga] = useState(null)
   const [busqueda, setBusqueda] = useState('')
   const [filtroCargo, setFiltroCargo] = useState('todos')
+  const [pagina, setPagina] = useState(1)
 
   const [editando, setEditando] = useState(null) // usuario | 'nuevo'
   const [guardando, setGuardando] = useState(false)
@@ -175,6 +180,22 @@ export default function AdministracionPage() {
       )
     })
   }, [usuarios, busqueda, filtroCargo])
+
+  /* Paginación sobre lo ya filtrado: la búsqueda y el filtro de cargo mandan;
+     la página sólo recorta lo que se ve. La página se acota a la última para que
+     borrar o desactivar la última fila de una página no deje la tabla vacía. */
+  const totalPaginas = Math.max(1, Math.ceil(visibles.length / POR_PAGINA))
+  const paginaActual = Math.min(pagina, totalPaginas)
+  const visiblesPagina = useMemo(
+    () => visibles.slice((paginaActual - 1) * POR_PAGINA, paginaActual * POR_PAGINA),
+    [visibles, paginaActual],
+  )
+  const primerVisible = visibles.length === 0 ? 0 : (paginaActual - 1) * POR_PAGINA + 1
+  const ultimoVisible = Math.min(paginaActual * POR_PAGINA, visibles.length)
+
+  function irAPagina(destino) {
+    setPagina(Math.min(Math.max(1, destino), totalPaginas))
+  }
 
   /**
    * Talento Humano **activo**. Es el número que decide si se puede desactivar o
@@ -396,7 +417,10 @@ export default function AdministracionPage() {
                   id={searchId}
                   type="search"
                   value={busqueda}
-                  onChange={(event) => setBusqueda(event.target.value)}
+                  onChange={(event) => {
+                    setBusqueda(event.target.value)
+                    setPagina(1)
+                  }}
                   placeholder="Nombre, correo o cargo"
                   autoComplete="off"
                 />
@@ -419,7 +443,10 @@ export default function AdministracionPage() {
               <Form.Select
                 id={filtroId}
                 value={filtroCargo}
-                onChange={(event) => setFiltroCargo(event.target.value)}
+                onChange={(event) => {
+                  setFiltroCargo(event.target.value)
+                  setPagina(1)
+                }}
               >
                 {ESTADOS.map((opcion) => (
                   <option key={opcion.value} value={opcion.value}>
@@ -434,6 +461,7 @@ export default function AdministracionPage() {
               onClick={() => {
                 setBusqueda('')
                 setFiltroCargo('todos')
+                setPagina(1)
               }}
               disabled={!hayFiltros}
             >
@@ -444,17 +472,18 @@ export default function AdministracionPage() {
 
         <div className="card__body card__body--flush">
           {visibles.length > 0 ? (
-            <Table className="data" borderless responsive>
+            <>
+              <Table className="data admin-tabla" borderless responsive>
               <caption className="visually-hidden">
                 Usuarios registrados con su correo, empresa, cargo, fecha de creación y acciones
                 de administración.
               </caption>
               <thead>
                 <tr>
-                  <th scope="col" style={{ Width: '10px' }}>Usuario</th>
+                  <th scope="col" className="col-usuario">Usuario</th>
                   <th scope="col">Correo</th>
                   <th scope="col">Empresa</th>
-                  <th scope="col">Cargo</th>
+                  <th scope="col" className="col-cargo">Cargo</th>
                   <th scope="col">Acceso</th>
                   <th scope="col">Estado</th>
                   <th scope="col">Creado</th>
@@ -462,7 +491,7 @@ export default function AdministracionPage() {
                 </tr>
               </thead>
               <tbody>
-                {visibles.map((usuario) => {
+                {visiblesPagina.map((usuario) => {
                   const soyYo = usuario.id === user?.id
                   const esTh = esTalentoHumano(usuario)
                   const esAdm = esAdministrador(usuario)
@@ -480,7 +509,7 @@ export default function AdministracionPage() {
 
                   return (
                     <tr key={usuario.id} data-inactivo={estaActivo ? undefined : 'si'}>
-                      <td style={{ Width: '10px' }}>
+                      <td className="col-usuario">
                         <div className="usuario-celda">
                           <span
                             className="usuario-avatar"
@@ -489,7 +518,7 @@ export default function AdministracionPage() {
                           >
                             {iniciales(usuario.nombre)}
                           </span>
-                          <span>
+                          <span className="usuario-celda__nombre">
                             {usuario.nombre}
                             {soyYo ? <span className="chip chip--info">Tú</span> : null}
                           </span>
@@ -497,7 +526,7 @@ export default function AdministracionPage() {
                       </td>
                       <td>{usuario.correo}</td>
                       <td>{usuario.empresa || etiquetaEmpresa(usuario.company)}</td>
-                      <td>{usuario.cargo || '—'}</td>
+                      <td className="col-cargo">{usuario.cargo || '—'}</td>
                       <td>
                         {esTh ? (
                           <StatusChip estado="ok" label="Talento Humano" />
@@ -611,6 +640,43 @@ export default function AdministracionPage() {
                 })}
               </tbody>
             </Table>
+
+              <div className="tabla-paginador">
+                <p className="tabla-paginador__info">
+                  Mostrando {NUMERO.format(primerVisible)}–{NUMERO.format(ultimoVisible)} de{' '}
+                  {NUMERO.format(visibles.length)}{' '}
+                  {visibles.length === 1 ? 'usuario' : 'usuarios'}
+                  {totalPaginas > 1 ? ` · página ${paginaActual} de ${totalPaginas}` : ''}
+                </p>
+
+                <Pagination
+                  className="tabla-paginador__controles"
+                  aria-label="Paginación de la tabla de usuarios"
+                  size="sm"
+                >
+                  <Pagination.First
+                    onClick={() => irAPagina(1)}
+                    disabled={paginaActual === 1}
+                    aria-label="Ir a la primera página"
+                  />
+                  <Pagination.Prev
+                    onClick={() => irAPagina(paginaActual - 1)}
+                    disabled={paginaActual === 1}
+                    aria-label="Página anterior"
+                  />
+                  <Pagination.Next
+                    onClick={() => irAPagina(paginaActual + 1)}
+                    disabled={paginaActual === totalPaginas}
+                    aria-label="Página siguiente"
+                  />
+                  <Pagination.Last
+                    onClick={() => irAPagina(totalPaginas)}
+                    disabled={paginaActual === totalPaginas}
+                    aria-label="Ir a la última página"
+                  />
+                </Pagination>
+              </div>
+            </>
           ) : (
             <EmptyState
               icon="buscarPersona"
@@ -627,6 +693,7 @@ export default function AdministracionPage() {
                     onClick={() => {
                       setBusqueda('')
                       setFiltroCargo('todos')
+                      setPagina(1)
                     }}
                   >
                     Limpiar filtros

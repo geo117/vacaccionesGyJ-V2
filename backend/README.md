@@ -188,7 +188,7 @@ la interfaz.
 | `POST` | `/api/auth/logout` | Sesión | Revoca el token actual |
 | `GET` | `/api/auth/session` | Sesión | Confirma la sesión y devuelve el usuario con su cargo |
 | `GET` | `/api/resumen` | Sesión | Totales de la empresa para Talento Humano y admin; los de la UNES de la sesión para el resto |
-| `GET` | `/api/asignaciones` | Sesión | Colaboradores de la UNES de la sesión; **toda la plantilla** para Talento Humano y admin. Para esos dos cargos incluye `areas` y el `area` de cada fila (`data filial/areas_filial.json`) |
+| `GET` | `/api/asignaciones` | Sesión | Colaboradores de la UNES de la sesión; **toda la plantilla de su empresa** para Talento Humano y **la de todas las empresas** para el admin. Los correos de `data colmena/colmena.json` reciben sólo las cédulas de su equipo; la dirección, la unión de sus propias entradas en `colmena.json` y `filial.json`. Para Talento Humano y el admin incluye `areas` y el `area` de cada fila (GyJ: `data filial/areas_filial.json`; Colmena: `data colmena/areas_colmena.json`) |
 | `GET` | `/api/asignaciones/{id}` | Sesión | Una asignación |
 | `POST` | `/api/asignaciones` | Sesión | Registra una asignación nueva |
 | `PUT` | `/api/asignaciones/{id}/periodos` | Sesión | Programa los tres períodos |
@@ -196,15 +196,13 @@ la interfaz.
 | `POST` | `/api/asignaciones/{id}/periodos/{n}/decision` | **Talento Humano o admin** | Aprueba o rechaza un período concreto y recalcula el estado |
 | `GET` | `/api/reportes/planilla` | Sesión | Planilla de vacaciones en PDF (plantilla institucional). Filtra por la UNES pedida (`?unes=`) o por la de la sesión. Quien entra con UNES sólo puede generarla cuando todas las vacaciones de su UNES están aprobadas |
 | `GET` | `/api/reportes/plano-unoee` | **Talento Humano o admin** | Plano UNOEE en Excel sobre la plantilla oficial |
-| `GET` | `/api/notificaciones` | Sesión | Bandeja del cargo: Talento Humano y admin ven todas; el resto, ninguna |
+| `GET` | `/api/notificaciones` | Sesión | Bandeja del cargo: Talento Humano y admin ven todas; los demás, las de la UNES de su sesión |
 | `GET` | `/api/notificaciones/mias` | Sesión | Avisos generados por quien consulta (`usuario_id`) |
 | `GET` | `/api/usuarios` | **Admin** | Usuarios registrados, con su estado |
 | `POST` | `/api/usuarios` | **Admin** | Crea un usuario |
 | `PUT` | `/api/usuarios/{id}` | **Admin** | Edita nombre, correo, cargo y/o contraseña |
 | `PATCH` | `/api/usuarios/{id}/activo` | **Admin** | Activa o desactiva la cuenta |
 | `DELETE` | `/api/usuarios/{id}` | **Admin** | Elimina y cierra sus sesiones |
-| `GET` | `/api/notificaciones` | Sesión | Bandeja general (Talento Humano y admin ven todo) |
-| `GET` | `/api/notificaciones/mias` | Sesión | Avisos dirigidos a quien consulta |
 
 ## Las dos conexiones
 
@@ -222,9 +220,18 @@ asignaciones en lugar de dejar la pantalla en blanco. La respuesta lo dice en
 `origen` (`"vista"` o `"local"`) y la interfaz lo avisa.
 
 Para Talento Humano y el admin, `/api/asignaciones` anota además cada fila con su
-`area` y devuelve la lista `areas`, tomadas de `data filial/areas_filial.json` y
-cruzadas por **cédula**. El resto de cargos no recibe ese dato ni el filtro en la
-pantalla.
+`area` y devuelve la lista `areas`, cruzadas por **cédula**. El archivo depende de
+la empresa de la cuenta (`Usuarios.company`):
+
+| `company` | Empresa | Archivo de áreas |
+|---|---|---|
+| `2` | GyJ Ferreterías | `data filial/areas_filial.json` |
+| `3` | Almasa | (sin archivo todavía: no se envía filtro) |
+| `4` | Colmena | `data colmena/areas_colmena.json` |
+
+El **admin** ve la plantilla de las dos empresas que tienen archivo, así que
+recibe las dos listas unidas en el mismo desplegable. El resto de cargos no
+recibe ese dato ni el filtro en la pantalla.
 
 `/api/health` informa del estado de las dos:
 
@@ -267,6 +274,11 @@ de Colmena nunca recibe por la API la plantilla de GyJ ni la de Almasa, ni
 siquiera cuando la vista corporativa falla y se degrada al listado local: el
 registro guarda la UNES completa (`'4-301'`) y permite aplicar el mismo filtro.
 
+La única excepción es el **admin**: su cargo implica ver toda la información de
+los colaboradores del grupo, así que su tablero y su planilla **no se acotan por
+empresa** (`empresa_para_tablero()` devuelve `0`, que en el directorio significa
+"sin filtro"). Sí sigue acotado por UNES cuando pide una concreta.
+
 Las cuentas anteriores a la columna (o con el valor vacío) se asumen de GyJ
 (`2`), que es la empresa para la que nació la aplicación. Cambiar la empresa de
 un usuario surte efecto en su siguiente petición: `authenticate` vuelve a leer
@@ -277,14 +289,16 @@ la fila en cada llamada.
 La UNES se **digita en el login** y no se guarda en `dbo.Usuarios`: vive en la
 sesión. Se aceptan `109` y `2-109`.
 
-**Talento Humano y el admin entran sin UNES.** Su tablero es la plantilla
-completa **de su empresa** (`EmployeeDirectory.listar_todos`), así que el campo es
-opcional para esos cargos: si las credenciales son correctas y no se envió UNES,
-la sesión se emite con `unes` vacío. Para cualquier otro cargo la UNES es
-obligatoria, porque su listado se filtra por ella; si falta, el login responde
-`400 UNES_REQUERIDA` **después** de comprobar la contraseña, no antes. Cuál de las
-dos cosas aplica lo decide el `cargo` que está en la base, nunca un valor de la
-petición.
+**Talento Humano y el admin entran sin UNES.** El tablero de Talento Humano es la
+plantilla completa **de su empresa** y el del admin, la de **todas las empresas
+del grupo** (`EmployeeDirectory.listar_todos`), así que el campo es opcional para
+esos cargos: si las credenciales son correctas y no se envió UNES, la sesión se
+emite con `unes` vacío. Los **jefes de Colmena** también entran sin UNES: su
+alcance sale de `data colmena/colmena.json`, no de una unidad digitada. Para
+cualquier otro cargo la UNES es obligatoria, porque su listado se filtra por
+ella; si falta, el login responde `400 UNES_REQUERIDA` **después** de comprobar
+la contraseña, no antes. Cuál de las dos cosas aplica lo decide el `cargo` (y el
+correo) que están en la base, nunca un valor de la petición.
 
 El filtro se aplica en el `WHERE` de SQL, comparando los **tres últimos dígitos**
 de `IDCia_CO`, y acota **las dos** cosas: los colaboradores de la vista y las
@@ -293,8 +307,28 @@ sólo lo primero dejaría ver movimientos de otras UNES por esa puerta.
 
 No es cosmético: es una regla de acceso. Un usuario no debe recibir por la API
 la plantilla de otras UNES, así que el filtro no puede hacerse en el navegador.
-Talento Humano y el admin son la excepción declarada: su cargo ya implica ver
-toda la plantilla de **su empresa**.
+Talento Humano es la excepción declarada: su cargo implica ver toda la plantilla
+de **su empresa**. El admin va un paso más allá y ve la de **todas las empresas**.
+
+## Los jefes de Colmena
+
+`data colmena/colmena.json` asocia cada correo de jefe con las cédulas de su
+equipo. Es un alcance **independiente de la UNES**: estas cuentas entran sin
+digitarla y el servidor acota el tablero por la **cédula**
+(`identificacion`), que es la llave que comparte con la vista corporativa.
+
+| Regla | Comportamiento |
+|---|---|
+| Empresa de la cuenta | Debe ser `company = 4` (Colmena). Si las credenciales son correctas pero la cuenta es de otra empresa, el login responde `INVALID_CREDENTIALS` sin revelar el motivo. |
+| UNES | No se valida ni se usa. Si se escribe algo, se ignora. |
+| Alcance | Sólo las cédulas de la lista de ese correo. |
+| Sábado | `SABADO HABIL`: `SI` cuenta el sábado como vacaciones; `NO` lo descuenta. |
+| Dirección del grupo | `director.riesgos@gyj.com.co`, `direcciontic@gyj.com.co` y `direccion_th@gyj.com.co` ven la **unión de sus propias entradas** en `colmena.json` y `filial.json` (las cédulas registradas a nombre de ese correo), sin importar la empresa de la cuenta. |
+| Caché | El archivo se lee una vez; si se edita, hay que reiniciar el backend. |
+
+El filtro se aplica en el servidor (una fila que no sea de la lista no llega al
+navegador). El tablero sólo lo refleja y lo anuncia en `alcanceColmena`
+(`equipo` o `grupo`).
 
 ## Los días a usar
 
@@ -324,6 +358,21 @@ Los días a corte **no se editan** en el modal de nueva asignación: salen de la
 vista del colaborador y sólo alimentan el cálculo. Si una fila no los trajera, la
 interfaz lo dice en lugar de calcular sobre cero.
 
+### SÁBADO HÁBIL
+
+Cada colaborador de `data colmena/colmena.json` trae el campo `SABADO HABIL`:
+
+| Valor | Cómo se calcula |
+|---|---|
+| `SI` | El sábado es día hábil: **cuenta** como día de vacaciones. |
+| `NO` | El sábado no se trabaja: **se descuenta**, igual que un domingo. |
+| Sin dato o cédula fuera del archivo | Se mantiene el cálculo general (el sábado cuenta). |
+
+La regla se aplica en `dias_habiles(..., sabado_habil=...)` al crear y al guardar
+períodos, así que el total persistido y el que calcula la interfaz coinciden. Las
+filas de `/api/asignaciones` llevan `sabadoHabil` para que el navegador
+previsualice con el mismo criterio; el servidor vuelve a recalcular al guardar.
+
 ## Notificaciones
 
 `dbo.notificaciones` tiene `id`, `unes`, `msj_notificacion`, `usuario_id`,
@@ -335,8 +384,12 @@ Quién ve qué:
 
 | Aviso | Quién lo ve |
 |---|---|
-| Asignación de fechas, aprobación, rechazo | **Talento Humano y admin** (bandeja general, todas) |
+| Asignación de fechas, aprobación, rechazo por período, rechazo total, observación | **Talento Humano y admin** (todas) y **los usuarios de la UNES de la asignación** |
 | Los que uno mismo generó | Quien los generó, por `usuario_id` (`/api/notificaciones/mias`) |
+
+Cada aviso guarda en la columna **`unes`** la UNES de la asignación (por ejemplo
+`2-115`), no la del usuario que actuó. Así la bandeja muestra a qué unidad
+corresponde el movimiento aunque lo haya aprobado Talento Humano o el admin.
 
 La tabla **no tiene columna de «leída»**: el conteo de pendientes que muestra el
 sidebar lo lleva el navegador (ids ya vistos, por usuario). No es una verdad del
@@ -388,10 +441,10 @@ esto sí lo es, porque a la API se le puede llamar directamente con un token
 válido.
 
 El alcance del tablero es otra regla: `ve_toda_la_plantilla` es verdadero para
-Talento Humano y para el admin, que entran sin UNES y ven toda la empresa de la
-cuenta. El resto de cargos sólo ve su UNES. El admin además hereda
-`puede_aprobar`, de modo que puede decidir sobre las asignaciones y generar el
-plano UNOEE igual que Talento Humano.
+Talento Humano y para el admin, que entran sin UNES. Talento Humano ve toda su
+empresa; el admin, la de todas las empresas del grupo. El resto de cargos sólo ve
+su UNES. El admin además hereda `puede_aprobar`, de modo que puede decidir sobre
+las asignaciones y generar el plano UNOEE igual que Talento Humano.
 
 Tres protecciones adicionales evitan dejar el sistema sin administración:
 
@@ -431,12 +484,34 @@ general: «aprobar» deja todos los períodos programados en `aprobada` y el est
 en `aprobada`; «rechazar» los deja todos en `rechazada`, exige el motivo y deja
 el estado en `rechazada`.
 
+Ese mismo endpoint puede recibir `decisionesPeriodos` (una lista de hasta tres
+valores `aprobada` / `rechazada` / `null`). Cuando viene, el servidor respeta la
+decisión de cada período y **deriva** el estado con la tabla de arriba, en lugar
+de aplicar una decisión uniforme. Es lo que permite guardar el motivo de unos
+rechazos ya decididos sin aprobar ni rechazar de más los demás períodos: 1
+rechazado y 2 aprobados queda en `en_verificacion`. El motivo se exige siempre
+que la decisión deje algún rechazo.
+
+En la interfaz, el modal de decisión ofrece «Rechazar todo» (rechaza los tres
+períodos y pide un motivo único) y, cuando hay rechazos individuales, un
+recuadro con una fila de motivo por período. Al guardar, los motivos se
+concatenan en `motivo_rechazo` («Período 1: … | Período 2: …»); con un solo
+rechazo se guarda su texto tal cual.
+
+### Migración de bases anteriores
+
+Si la base se creó con una versión anterior del esquema, puede faltar la decisión
+por período. El script `migrations/20261108_aprobacion_rechazo.sql` agrega
+`aprobacion_rechazo_f1..f3` de forma idempotente (`VARCHAR(50) NULL`). El
+diagnóstico `python health.py` avisa si faltan.
+
 ### Las notificaciones las redacta el servidor
 
 El aviso se etiqueta con la UNES de la asignación y guarda en `usuario_id` el id
-de **quien hizo la acción**. El filtro por cargo se aplica en el `WHERE` de la
-consulta, nunca en el navegador: Talento Humano ve la bandeja completa y cada
-quien puede pedir las que generó (`/api/notificaciones/mias`).
+de **quien hizo la acción**. El filtro se aplica en el `WHERE` de la consulta,
+nunca en el navegador: Talento Humano y el admin ven la bandeja completa; los
+demás cargos ven los avisos de la UNES con la que entraron, y cada quien puede
+pedir además los que generó (`/api/notificaciones/mias`).
 
 ### `POST /api/auth/login`
 

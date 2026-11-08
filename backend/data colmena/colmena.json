@@ -1,0 +1,1682 @@
+{
+	"lidersac@tuboscolmena.com": [
+		{
+			"cedula": 1005249097,
+			"empleado": "OTERO HERNANDEZ YISETH",
+			"cargo": "ANALISTA SAC",
+			"area": "SERVICIO  AL CLIENTE",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1023035584,
+			"empleado": "MAZO CARDONA CAMILA",
+			"cargo": "ANALISTA SAC",
+			"area": "SERVICIO  AL CLIENTE",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 52977977,
+			"empleado": "ARIZA ESPOSITO LORNA GISEL",
+			"cargo": "ANALISTA SAC",
+			"area": "SERVICIO  AL CLIENTE",
+			"SABADO HABIL": "NO"
+		}
+	],
+	"mantenimiento.mosquera@tuboscolmena.com": [
+		{
+			"cedula": 1033730038,
+			"empleado": "GACHA GUTIERREZ JONATHAN ESNEYDER",
+			"cargo": "AUXILIAR SERVICIOS GENERALES",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79758698,
+			"empleado": "ORJUELA  OMAR MAURICIO",
+			"cargo": "AUXILIAR SERVICIOS GENERALES",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1022429994,
+			"empleado": "MUÑOZ GARZON DANIEL AUGUSTO",
+			"cargo": "DIBUJANTE TECNICO",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1023017722,
+			"empleado": "RUBIANO CRISTIANO RONNY ALBERTO",
+			"cargo": "ELECTRICISTA",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1030664218,
+			"empleado": "PEDRAZA LOPEZ JHONN  WILFREDO",
+			"cargo": "ELECTRICISTA",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79128053,
+			"empleado": "PACHON RODRIGUEZ JAIRO NELSON",
+			"cargo": "ELECTRICISTA",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80024278,
+			"empleado": "SIERRA BERNAL JOHN EDUARD",
+			"cargo": "ELECTRICISTA",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1024501433,
+			"empleado": "TRIVIÑOS BASTO EDWAR FABIAN",
+			"cargo": "ELECTROMECANICO",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79991474,
+			"empleado": "GOMEZ ACOSTA GUSTAVO EDUARDO",
+			"cargo": "LÍDER DE MANTENIMIENTO MECÁNICO",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 4137996,
+			"empleado": "ARIAS GALINDO PEDRO SIXTO",
+			"cargo": "MECANICO",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79507058,
+			"empleado": "VALDERRAMA PEÑARANDA LUIS EMILIO",
+			"cargo": "MECANICO",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79781574,
+			"empleado": "NARANJO GONZALEZ DIEGO",
+			"cargo": "MECANICO",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79835788,
+			"empleado": "FLOREZ VANEGAS ANGEL GIOVANNI",
+			"cargo": "MECANICO",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80773360,
+			"empleado": "VALLEJO MADRIGAL JOSE EDILBERTO",
+			"cargo": "MECANICO",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 91457089,
+			"empleado": "CABALLERO JAIMES JOSE ADONAY",
+			"cargo": "MECANICO",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 94015019,
+			"empleado": "HERNANDEZ ALFONSO JULIO CELSO",
+			"cargo": "OFICIAL DE SERVICIOS GENERALES",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1001051110,
+			"empleado": "GONZALEZ NIÑO ANDRES FELIPE",
+			"cargo": "OPERARIO DE MAQUINAS Y HERRAMIENTAS",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1012368788,
+			"empleado": "LOPEZ QUINTERO ARNOLD DIMITRY",
+			"cargo": "OPERARIO DE MAQUINAS Y HERRAMIENTAS",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79489287,
+			"empleado": "GONZALEZ ARAQUE MANUEL GUILLERMO",
+			"cargo": "OPERARIO DE MAQUINAS Y HERRAMIENTAS",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80372768,
+			"empleado": "MARTINEZ DIAZ PEDRO JOSE",
+			"cargo": "OPERARIO DE MAQUINAS Y HERRAMIENTAS",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80921503,
+			"empleado": "JUNCO LINARES DIEGO FERNANDO",
+			"cargo": "OPERARIO DE MAQUINAS Y HERRAMIENTAS",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80273683,
+			"empleado": "PAVAS CORDOBA JOSE OCTAVIO",
+			"cargo": "SOLDADOR I",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79876126,
+			"empleado": "OSPINO RUIZ ARIS ANDRES",
+			"cargo": "SOLDADOR II",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80655090,
+			"empleado": "CAICEDO SANABRIA JOHN FREDDY",
+			"cargo": "AUXILIAR ADMINISTRATIVO REUBICADO",
+			"area": "MANTENIMIENTO",
+			"SABADO HABIL": "SI"
+		}
+	],
+	"jefeplanta.mosquera@tuboscolmena.com": [
+		{
+			"cedula": 80873205,
+			"empleado": "MENDEZ TORRES PABLO JOADO",
+			"cargo": "AUXILIAR  OPERATIVO REUBICADO",
+			"area": "PRODUCCION MOSQUERA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 11446400,
+			"empleado": "ESCOBAR VELASQUEZ ALEXANDER",
+			"cargo": "OPERARIO I",
+			"area": "PRODUCCION MOSQUERA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79133360,
+			"empleado": "MELO MUETE HECTOR REINEL",
+			"cargo": "OPERARIO I",
+			"area": "PRODUCCION MOSQUERA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80015137,
+			"empleado": "MOLINA RODRIGUEZ PABLO FRANCISCO",
+			"cargo": "OPERARIO I",
+			"area": "PRODUCCION MOSQUERA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80655491,
+			"empleado": "AMAYA DANIEL ORLANDO",
+			"cargo": "OPERARIO I",
+			"area": "PRODUCCION MOSQUERA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 13521050,
+			"empleado": "BALAGUERA  FERNANDO",
+			"cargo": "OPERARIO II",
+			"area": "PRODUCCION MOSQUERA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1070960301,
+			"empleado": "TAUTIVA PARRADO VICTOR JAVIER",
+			"cargo": "OPERARIO III",
+			"area": "PRODUCCION MOSQUERA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1073153824,
+			"empleado": "CHAVEZ PEREZ JULIO SMITH",
+			"cargo": "OPERARIO III",
+			"area": "PRODUCCION MOSQUERA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1098101725,
+			"empleado": "CORZO  CARLOS ALBERTO",
+			"cargo": "OPERARIO III",
+			"area": "PRODUCCION MOSQUERA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1007096628,
+			"empleado": "MARTINEZ VARGAS ANDREU ALEXANDER",
+			"cargo": "OPERARIO IV",
+			"area": "PRODUCCION MOSQUERA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1108932129,
+			"empleado": "LOZANO BOCANEGRA GUSTAVO",
+			"cargo": "OPERARIO IV",
+			"area": "PRODUCCION MOSQUERA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1054679706,
+			"empleado": "HERNANDEZ CASTAÑO WILMER",
+			"cargo": "OPERARIO PUENTE GRÚA PROD",
+			"area": "PRODUCCION MOSQUERA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80012093,
+			"empleado": "LUGO TORRES MARCOS ZAIR",
+			"cargo": "OPERARIO PUENTE GRÚA PROD",
+			"area": "PRODUCCION MOSQUERA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1108931624,
+			"empleado": "GUZMAN RAMIREZ OSCAR FERNANDO",
+			"cargo": "OPERARIO IV",
+			"area": "PRODUCCION MOSQUERA",
+			"SABADO HABIL": "SI"
+		}
+	],
+	"director.riesgos@gyj.com.co": [
+		{
+			"cedula": 1053855578,
+			"empleado": "HERRERA BETANCUR LEIDY YOHANA",
+			"cargo": "APRENDIZ SENA",
+			"area": "GESTION DOCUMENTAL",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1030583029,
+			"empleado": "RINCON VELASQUEZ KERLY JOHANA",
+			"cargo": "AUXILIAR ADMINISTRATIVO",
+			"area": "GESTION DOCUMENTAL",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 79205952,
+			"empleado": "MORA CANTOR OMAR",
+			"cargo": "AUXILIAR ADMINISTRATIVO REUBICADO",
+			"area": "GESTION DOCUMENTAL",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 79667343,
+			"empleado": "CESPEDES GONGORA NELSON RICARDO",
+			"cargo": "AUXILIAR ADMINISTRATIVO REUBICADO",
+			"area": "GESTION DOCUMENTAL",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 52291044,
+			"empleado": "QUINTERO MUÑOZ AIDE",
+			"cargo": "AUXILIAR DE ARCHIVO",
+			"area": "GESTION DOCUMENTAL",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1012398794,
+			"empleado": "AMAYA GARZON CRISTIAN GUSTAVO",
+			"cargo": "COORDINADOR GESTIÓN DOCUMENTAL",
+			"area": "GESTION DOCUMENTAL",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 79991653,
+			"empleado": "DIAZ PEREZ LISARDO ALFREDO",
+			"cargo": "MENSAJERO",
+			"area": "GESTION DOCUMENTAL",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 3908543,
+			"empleado": "BENAVIDES QUEVEDO LUIS ENRIQUE",
+			"cargo": "OPERARIO III",
+			"area": "GESTION DOCUMENTAL",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1024536567,
+			"empleado": "ACHURY MONTENEGRO MARGGY CATHERYNE",
+			"cargo": "ANALISTA DE COMPRAS",
+			"area": "GESTION DOCUMENTAL",
+			"SABADO HABIL": "NO"
+		}
+	],
+	"jgarzon@tuboscolmena.com": [
+		{
+			"cedula": 1072960942,
+			"empleado": "GIRALDO RIOS BILLY MARCEL",
+			"cargo": "ADMINISTRADOR ALMACEN",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1018499766,
+			"empleado": "QUIJANO VARGAS DIANA CAROLINA",
+			"cargo": "ANALISTA DE COMERCIO EXTERIOR",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1000579235,
+			"empleado": "CANTE DUQUE ERIKA SAHIAN",
+			"cargo": "APRENDIZ SENA",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 80242940,
+			"empleado": "DIAZ SILVA LUIS FERNANDO",
+			"cargo": "AUDITOR INTERNO",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1026570093,
+			"empleado": "VELASQUEZ CHIBUQUE CRISTIAN CAMILO",
+			"cargo": "COORDINADOR DE COMPRAS",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1013682366,
+			"empleado": "AREVALO CORREA PAULA YESSENIA",
+			"cargo": "COORDINADOR SAC",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1000611784,
+			"empleado": "HERRERA DELGADO ELIZABETH",
+			"cargo": "COORDINADOR(A) DE MERCADEO",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1017196531,
+			"empleado": "JARAMILLO ARANGO DEISON DAVID",
+			"cargo": "DIRECTOR COMERCIAL",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1102120479,
+			"empleado": "VERGARA BELTRAN JESUS ANTONIO",
+			"cargo": "DIRECTOR COMERCIAL",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 16737726,
+			"empleado": "VEIRA RAMIREZ CARLOS ARTURO",
+			"cargo": "DIRECTOR COMERCIAL",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 52936086,
+			"empleado": "MUÑOZ BALLEN CLAUDIA PATRICIA",
+			"cargo": "DIRECTOR COMERCIAL",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 63538563,
+			"empleado": "SIERRA HERNANDEZ EDDY JOHANNA",
+			"cargo": "DIRECTOR COMERCIAL",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 72262474,
+			"empleado": "VELASCO MARTINEZ JONATHAN",
+			"cargo": "DIRECTOR COMERCIAL",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 79219365,
+			"empleado": "GAMEZ HERNANDEZ HEINER YAMIR",
+			"cargo": "DIRECTOR COMERCIAL",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 79885980,
+			"empleado": "RODRIGUEZ RODRIGUEZ FREDY ORLANDO",
+			"cargo": "DIRECTOR COMERCIAL",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 91252963,
+			"empleado": "CAMARGO RAMIREZ CARLOS JULIO",
+			"cargo": "DIRECTOR COMERCIAL",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 52299560,
+			"empleado": "BECERRA BECERRA MARIA DEL PILAR",
+			"cargo": "DIRECTOR COMERCIAL JUNIOR",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 79344990,
+			"empleado": "PEREZ CASAS HECTOR HORACIO",
+			"cargo": "DIRECTOR DE CONTABILIDAD",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 11451173,
+			"empleado": "MARTTA HERRERA ALVARO ALBERTO",
+			"cargo": "DIRECTOR DE PRODUCCION",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 52006920,
+			"empleado": "RIAÑO SIAUCHO MAGNOLIA",
+			"cargo": "DIRECTOR DE TESORERIA",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 79431536,
+			"empleado": "GARZON RODRIGUEZ JAIME ALBERTO",
+			"cargo": "GERENTE GENERAL",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 80119601,
+			"empleado": "PEÑA GOMEZ OSCAR RAUL",
+			"cargo": "INGENIERO CIVIL COORDINADOR EN MODELACION",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1013615911,
+			"empleado": "OLARTE CABEZAS JHONATAN ALEXANDER",
+			"cargo": "JEFE DE LOGÍSTICA DISTRIBUCIÓN Y ABASTECIMIENTO",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1024513675,
+			"empleado": "PASTOR CLAVIJO DEISY KATHERINNE",
+			"cargo": "JEFE SGI",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 80725046,
+			"empleado": "GARZON VALBUENA EDUARD ALEXANDER",
+			"cargo": "PLANEADOR Y COORDINADOR DE ABASTECIMIENTO E INVENTARIOS",
+			"area": "LIDERES PROCESO -COMERCIALES",
+			"SABADO HABIL": "NO"
+		}
+	],
+	"tesoreriacolmena@tuboscolmena.com": [
+		{
+			"cedula": 52715149,
+			"empleado": "PRIETO RODRIGUEZ DORIS ANGELICA",
+			"cargo": "ANALISTA DE TESORERIA",
+			"area": "TESORERIA",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1013106023,
+			"empleado": "ABRIL PEREZ MIGUEL ANGEL",
+			"cargo": "APRENDIZ SENA",
+			"area": "TESORERIA",
+			"SABADO HABIL": "NO"
+		}
+	],
+	"almacen.general@tuboscolmena.com": [
+		{
+			"cedula": 1024494219,
+			"empleado": "RODRIGUEZ URREGO HERNEY",
+			"cargo": "AUXILIAR DE ALMACEN",
+			"area": "ALMACEN",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1033677857,
+			"empleado": "PARRADO ROJAS CRISTIAN CAMILO",
+			"cargo": "AUXILIAR DE ALMACEN",
+			"area": "ALMACEN",
+			"SABADO HABIL": "SI"
+		}
+	],
+	"direcciontic@gyj.com.co": [
+		{
+			"cedula": 11051567,
+			"empleado": "RICARDO RICARDO ONAVY JOSE",
+			"cargo": "ASISTENTE PROYECTOS DE MANUFACTURA",
+			"area": "TIC",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 80256414,
+			"empleado": "ROJAS QUIROGA JONNATHAN",
+			"cargo": "ASISTENTE PROYECTOS DE MANUFACTURA",
+			"area": "TIC",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1012339208,
+			"empleado": "BETANCUR CIFUENTES EDISON EDUARDO",
+			"cargo": "TECNICO DE SOPORTE TIC",
+			"area": "TIC",
+			"SABADO HABIL": "NO"
+		}
+	],
+	"directorpcp@tuboscolmena.com": [
+		{
+			"cedula": 3151478,
+			"empleado": "RAMIREZ MORALES LUIS ALBERTO",
+			"cargo": "AFILADOR",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1116433166,
+			"empleado": "ARCOS SOLIS PEDRO LUIS",
+			"cargo": "ANALISTA PCP",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79991789,
+			"empleado": "SANCHEZ SANABRIA CARLOS ALBERTO",
+			"cargo": "ANALISTA PCP",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1014856658,
+			"empleado": "ARIAS FLORES ANGIE YULIET",
+			"cargo": "APRENDIZ SENA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1024529247,
+			"empleado": "ROJAS FORERO MARLON YUSET",
+			"cargo": "AUXILIAR  OPERATIVO REUBICADO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 3080261,
+			"empleado": "AVILA GARZON RICARDO",
+			"cargo": "AUXILIAR  OPERATIVO REUBICADO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79211930,
+			"empleado": "TOVAR JOHN ALEXANDER",
+			"cargo": "AUXILIAR  OPERATIVO REUBICADO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79429976,
+			"empleado": "MATAMOROS RODRIGUEZ CIRO ALFONSO",
+			"cargo": "AUXILIAR  OPERATIVO REUBICADO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79459918,
+			"empleado": "AMAYA CRUZ BERNARDO",
+			"cargo": "AUXILIAR  OPERATIVO REUBICADO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79635017,
+			"empleado": "RAMIREZ GOMEZ VICTOR MANUEL",
+			"cargo": "AUXILIAR  OPERATIVO REUBICADO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79985967,
+			"empleado": "LOPEZ ROA JAIRO",
+			"cargo": "AUXILIAR  OPERATIVO REUBICADO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80438539,
+			"empleado": "FORERO  GUILLERMO",
+			"cargo": "AUXILIAR  OPERATIVO REUBICADO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1000227060,
+			"empleado": "GARCIA DUARTE CAMILO ANDRES",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1000733696,
+			"empleado": "PIRAQUIVE PULIDO BRAYAN EDUARDO",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1002320326,
+			"empleado": "PUERTAS HERNANDEZ LUIS ANGEL",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1004074142,
+			"empleado": "POLOCHE CONDE NOE",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1007690491,
+			"empleado": "HERNANDEZ OSORIO DUBAN",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1007734153,
+			"empleado": "VIDAL PALENCIA DUVAN CAMILO",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1010079070,
+			"empleado": "CORREA MARTINEZ LEONARDO JOSE",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1010158599,
+			"empleado": "ROA CARVAJAL YORMAN",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1012393453,
+			"empleado": "HERNANDEZ TAPIERO CAMILO",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1012460984,
+			"empleado": "TAPIA AVELLANEDA CARLOS DANIEL",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1014273644,
+			"empleado": "AREVALO RUBIANO JOHAN ESTEBAN",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1018453974,
+			"empleado": "SANGUINO ABRIL JESUS ALBERTO",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1019132039,
+			"empleado": "VILLALOBOS GOMEZ CARLOS STEVEN",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1023941425,
+			"empleado": "SIERRA BAQUERO JEISSON DAVID",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1030632803,
+			"empleado": "BERMUDEZ PEREZ EDWARD STEVEN",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1032399489,
+			"empleado": "PICO AREVALO JOHN EDISON",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1033725981,
+			"empleado": "MARTINEZ CARDONA JONATHAN DAVID",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1033759294,
+			"empleado": "CHIPATECUA MELO CHRISTIAN ESTEBAN",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1033770920,
+			"empleado": "MOTTA PINTO JOHN SEBASTIAN",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1033799222,
+			"empleado": "VASQUEZ BARBOSA HAWUAR HEBERMAN",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1042457969,
+			"empleado": "VILORIA GONZALEZ JOSE LUIS",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1046694479,
+			"empleado": "PEREZ BOLIVAR JESUS DAVID",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1048933846,
+			"empleado": "CARABALLO RODRIGUEZ BRAYAN STIVEN",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1052312439,
+			"empleado": "FUENTES FUENTES JAVIER ADOLFO",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1052388750,
+			"empleado": "GOMEZ BLANCO JHONATHAN ANDRES",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1073704335,
+			"empleado": "ROMERO RODRIGUEZ LUIS CARLOS",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1088026506,
+			"empleado": "ZAPATA MARTNEZ SEBASTIAN",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1105054886,
+			"empleado": "CACAIS ALAPE CARLOS JULIO",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1144190163,
+			"empleado": "NARANJO BENITEZ LUIS ERNESTO",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79216563,
+			"empleado": "PADILLA CHACON OSCAR JAVIER",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79342823,
+			"empleado": "OLARTE CONTRERAS RAUL",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80881732,
+			"empleado": "RINCON CERQUERA ELKIN FERNANDO",
+			"cargo": "AUXILIAR DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1047483111,
+			"empleado": "RAMOS HERNANDEZ JOSHUA",
+			"cargo": "COORDINADOR DE LABORATORIO Y GALVANIZACION",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79893951,
+			"empleado": "CADENA ACOSTA WILLIAM EDUARDO",
+			"cargo": "COORDINADOR MANTENIMIENTO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 79515794,
+			"empleado": "VENEGAS PINILLA LUIS GUILLERMO",
+			"cargo": "ENCARGADO DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79663413,
+			"empleado": "RINCON PULIDO SERGIO ALBERTO",
+			"cargo": "ENCARGADO DE EMPAQUE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1016088662,
+			"empleado": "CASTRO JACOME CARLOS ANDRES",
+			"cargo": "JEFE DE PLANTA MOSQUERA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 3086591,
+			"empleado": "VEGA RAMIREZ WBALDO",
+			"cargo": "JEFE DE TURNO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1024541940,
+			"empleado": "CHARRES CASTRO OSCAR FELIPE",
+			"cargo": "LUBRICADOR",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79831577,
+			"empleado": "CARRILLO CARRILLO JESUS EVELIO",
+			"cargo": "OPERARIO BANCO HIDROSTATICO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1024546842,
+			"empleado": "RUIZ SALAMANCA CRISTIAN DAVID",
+			"cargo": "OPERARIO BANCO NEUMATICO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79412024,
+			"empleado": "GUERRERO GUZMAN JAIRO HERNANDO",
+			"cargo": "OPERARIO BANCO NEUMATICO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 11315525,
+			"empleado": "LAGUNA SUAREZ HUMBERTO",
+			"cargo": "OPERARIO BISELADO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79635529,
+			"empleado": "LOZANO WILCHES JUAN DE LA CRUZ",
+			"cargo": "OPERARIO CORTADORA DE FLEJE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80217291,
+			"empleado": "BOHORQUEZ MONTENEGRO RONALD",
+			"cargo": "OPERARIO CORTADORA DE FLEJE",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1026259094,
+			"empleado": "MONTOYA ROJAS EDWARD DARIO",
+			"cargo": "OPERARIO CORTADORA DE TUBOS",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1024498829,
+			"empleado": "LOAIZA YARA JOSE OMAR",
+			"cargo": "OPERARIO DE BOBINAS",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1024506510,
+			"empleado": "BRIÑEZ ANDRADE EDWIN DARIO",
+			"cargo": "OPERARIO DE BOBINAS",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79206003,
+			"empleado": "CAUCALI CUBILLOS EDGAR ARMANDO",
+			"cargo": "OPERARIO DE BOBINAS",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79215718,
+			"empleado": "MORA CALLE EDWIN FERNEY",
+			"cargo": "OPERARIO DE BOBINAS",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79216015,
+			"empleado": "PERILLA TORRES LUIS YOVANNY",
+			"cargo": "OPERARIO DE BOBINAS",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79833188,
+			"empleado": "GUTIERREZ HERNANDEZ JOHN ALEXANDER",
+			"cargo": "OPERARIO DE BOBINAS",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80145497,
+			"empleado": "RIOS TRUJILLO JEISSON SAIR",
+			"cargo": "OPERARIO DE BOBINAS",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1001289371,
+			"empleado": "RICAURTE FONSECA DARGUIN ESMIT",
+			"cargo": "OPERARIO DE ENDEREZADO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1006964887,
+			"empleado": "GARCIA ARGUELLO CARLOS FELIPE",
+			"cargo": "OPERARIO DE ENDEREZADO",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1024534138,
+			"empleado": "MENDEZ CHAVES MIGUEL ANGEL",
+			"cargo": "OPERARIO DE FORMADORA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1026576628,
+			"empleado": "MARTINEZ QUINTERO EDISON JAVIER",
+			"cargo": "OPERARIO DE FORMADORA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1105055603,
+			"empleado": "AROCA YARA SALVADOR",
+			"cargo": "OPERARIO DE FORMADORA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 12564879,
+			"empleado": "REYES ROBALLO ARNULFO",
+			"cargo": "OPERARIO DE FORMADORA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 4238498,
+			"empleado": "GODOY VASQUEZ CIRO",
+			"cargo": "OPERARIO DE FORMADORA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79627737,
+			"empleado": "RENGIFO JACANAMIJOY JOSE WILSON",
+			"cargo": "OPERARIO DE FORMADORA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79696960,
+			"empleado": "HERNANDEZ TRUJILLO EDWIN ALEXANDER",
+			"cargo": "OPERARIO DE FORMADORA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79831766,
+			"empleado": "VILLA SALAMANCA MIGUEL ANGEL",
+			"cargo": "OPERARIO DE FORMADORA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80362714,
+			"empleado": "GARZON BURITICA JAIME",
+			"cargo": "OPERARIO DE FORMADORA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1012365407,
+			"empleado": "CARRILLO SUAREZ JAIRO ALONSO",
+			"cargo": "OPERARIO DE PUNTA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1022376571,
+			"empleado": "ESGUERRA VARGAS RAFAEL ANTONIO",
+			"cargo": "OPERARIO DE PUNTA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1030655881,
+			"empleado": "GONZALEZ AROCA EDISON CAMILO",
+			"cargo": "OPERARIO DE PUNTA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1033780614,
+			"empleado": "CASTRO HERNANDEZ JEYSON ESTIVEL",
+			"cargo": "OPERARIO DE PUNTA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79872998,
+			"empleado": "MENDOZA SOTO JUAN PABLO",
+			"cargo": "OPERARIO DE PUNTA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1022413459,
+			"empleado": "VILLAMIL TRUJILLO MICHAEL ALEXANDER",
+			"cargo": "OPERARIO DE ROSCADORA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1024488940,
+			"empleado": "GUIO MUÑOZ ROBINSON",
+			"cargo": "OPERARIO DE ROSCADORA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1073673582,
+			"empleado": "OSORIO SANTOS DIEGO ARMANDO",
+			"cargo": "OPERARIO DE ROSCADORA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 11257698,
+			"empleado": "GOMEZ RINCON YONATAN ANTONIO",
+			"cargo": "OPERARIO DE ROSCADORA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79507503,
+			"empleado": "GARZON JIMENEZ GONZALO",
+			"cargo": "OPERARIO DE ROSCADORA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80921439,
+			"empleado": "GODOY SILVA JOSE ALEXANDER",
+			"cargo": "OPERARIO DE ROSCADORA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 96329789,
+			"empleado": "CIFUENTES SANCHEZ FABIO",
+			"cargo": "OPERARIO I",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1056029541,
+			"empleado": "CASTELLANOS VILLAMIL MAURICIO HERNANDO",
+			"cargo": "OPERARIO MONTACARGA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 84085327,
+			"empleado": "BRAVO PEREZ ELMIDES ALFONSO",
+			"cargo": "OPERARIO MONTACARGA",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1000807459,
+			"empleado": "HERNANDEZ FANDIÑO GERSAIN",
+			"cargo": "OPERARIO PUENTE GRÚA PROD",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1070950281,
+			"empleado": "SALAZAR PEREZ STIVEN ARMANDO",
+			"cargo": "OPERARIO PUENTE GRÚA PROD",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 11308735,
+			"empleado": "LAGUNA ALVAREZ JOSE GRISELDO",
+			"cargo": "OPERARIO PUENTE GRÚA PROD",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 4104095,
+			"empleado": "CERINZA RISCANEVO TELMO ANTONIO",
+			"cargo": "OPERARIO PUENTE GRÚA PROD",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79217948,
+			"empleado": "GARAVITO RUBIO JOSE MODESTO",
+			"cargo": "OPERARIO PUENTE GRÚA PROD",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79223115,
+			"empleado": "MUNOZ BERRIO RENZO GEFREE",
+			"cargo": "OPERARIO PUENTE GRÚA PROD",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79407051,
+			"empleado": "GUERRERO URREGO MARIO HUMBERTO",
+			"cargo": "OPERARIO PUENTE GRÚA PROD",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79964202,
+			"empleado": "MARTINEZ MENDEZ JHON ALEXANDER",
+			"cargo": "OPERARIO PUENTE GRÚA PROD",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79206596,
+			"empleado": "USAQUEN GONZALEZ JOSE ROBERTO",
+			"cargo": "SUPERVISOR DE PRODUCCION",
+			"area": "PRODUCCION AUTOSUR",
+			"SABADO HABIL": "SI"
+		}
+	],
+	"transporte@tuboscolmena.com": [
+		{
+			"cedula": 79222443,
+			"empleado": "LOPEZ HURTADO ALEX ALBERTO",
+			"cargo": "AUXILIAR DE BODEGA CARGUE-DESCARGUE",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1023367231,
+			"empleado": "CADENA CORTES ANA MARIA",
+			"cargo": "AUXILIAR LOGISTICO",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80272046,
+			"empleado": "GUERRERO CAMARGO LUIS ENRIQUE",
+			"cargo": "AUXILIAR PUENTE GRUA APT",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 93395351,
+			"empleado": "BARRERO ORTIZ WILSON",
+			"cargo": "COORDINADOR APT",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 8850642,
+			"empleado": "AGUILAR ORTIZ REYNALDO",
+			"cargo": "COORDINADOR MATERIAS PRIMAS Y BASCULA",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 80231789,
+			"empleado": "RICO TORRES CESAR AUGUSTO",
+			"cargo": "COORDINADOR TRANSPORTES",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 64921438,
+			"empleado": "CLEVES CLAUDIA STHER",
+			"cargo": "FACTURADOR",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 74323272,
+			"empleado": "SANDOVAL BECERRA JOSE GERARDO",
+			"cargo": "JEFE APT",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1073151252,
+			"empleado": "GARCIA FORERO PEDRO PABLO",
+			"cargo": "OPERARIO IV",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1012432177,
+			"empleado": "CANO HUERFANO JUAN CAMILO",
+			"cargo": "OPERARIO MONTACARGA MP",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 91439067,
+			"empleado": "HERNANDEZ DAVILA ORLANDO",
+			"cargo": "OPERARIO MONTACARGA MP",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1012359132,
+			"empleado": "VEGA BEDOYA EDIER MAURICIO",
+			"cargo": "OPERARIO PUENTE GRUA APT",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1073519773,
+			"empleado": "OROZCO MARTINEZ CRISTIAN FELIPE",
+			"cargo": "OPERARIO PUENTE GRUA APT",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 15647688,
+			"empleado": "GUILLIN OVIEDO GABRIEL MANUEL",
+			"cargo": "OPERARIO PUENTE GRUA APT",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79801755,
+			"empleado": "BELTRAN JIMENEZ OSCAR ALBEIRO",
+			"cargo": "OPERARIO PUENTE GRUA APT",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79840564,
+			"empleado": "TORRES CASTILLO BLADIMIR",
+			"cargo": "OPERARIO PUENTE GRUA APT",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 86075822,
+			"empleado": "MURILLO CALEÑO PABLO CESAR",
+			"cargo": "OPERARIO PUENTE GRÚA PROD",
+			"area": "LOGISTICA",
+			"SABADO HABIL": "SI"
+		}
+	],
+	"jefe.calidad@tuboscolmena.com": [
+		{
+			"cedula": 77165604,
+			"empleado": "MEZA MEDINA LUIS RAFAEL",
+			"cargo": "ANALISTA DE METROLOGIA Y SGI",
+			"area": "SGI",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1072920269,
+			"empleado": "PINZON SANABRIA JAQUELINE",
+			"cargo": "APRENDIZ SENA",
+			"area": "SGI",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1073687974,
+			"empleado": "PINZON TURRIAGO GISEL MAGALI",
+			"cargo": "APRENDIZ SENA",
+			"area": "SGI",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 11451253,
+			"empleado": "CANTOR RODRIGUEZ HERNAN",
+			"cargo": "AUDITOR DE CALIDAD",
+			"area": "SGI",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80229047,
+			"empleado": "RAMIREZ CASTILLO HERNAN DAVID",
+			"cargo": "AUDITOR DE CALIDAD",
+			"area": "SGI",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80066860,
+			"empleado": "MIRANDA PEÑA CAMILO ANDRES",
+			"cargo": "AUXILIAR ADMINISTRATIVO REUBICADO",
+			"area": "SGI",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 79349250,
+			"empleado": "REYES PRADA LUIS ALFREDO",
+			"cargo": "COORDINADOR MEJORA CONTINUA",
+			"area": "SGI",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1098785386,
+			"empleado": "ORDOÑEZ ANAYA BRAYAN EDUARDO",
+			"cargo": "COORDINADOR SGC",
+			"area": "SGI",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1024463519,
+			"empleado": "GARCIA LANCHEROS SARA VALENTINA",
+			"cargo": "INSPECTOR SGI",
+			"area": "SGI",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1074136290,
+			"empleado": "RODRIGUEZ ESQUIVEL ASTRID ADRIANA",
+			"cargo": "INSPECTOR SGI",
+			"area": "SGI",
+			"SABADO HABIL": "SI"
+		}
+	],
+	"hperez@tuboscolmena.com": [
+		{
+			"cedula": 79898107,
+			"empleado": "HERNANDEZ  ANDRES FELIPE",
+			"cargo": "ANALISTA CONTABLE",
+			"area": "CONTABILIDAD",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 80229635,
+			"empleado": "PARRADO HERNANDEZ YOVANNY ENRIQUE",
+			"cargo": "CONTADOR DE COSTOS",
+			"area": "CONTABILIDAD",
+			"SABADO HABIL": "NO"
+		}
+	],
+	"jefe.galva@tuboscolmena.com": [
+		{
+			"cedula": 1133724112,
+			"empleado": "CORDOBA MOSQUERA DILSON ANTONIO",
+			"cargo": "AUXILIAR DE HORNO GALVANIZACION",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 16891827,
+			"empleado": "MEJIA LUBO CARLOS MARIO",
+			"cargo": "AUXILIAR DE HORNO GALVANIZACION",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1022366124,
+			"empleado": "FAJARDO ORTIZ CESAR FELIPE",
+			"cargo": "AUXILIAR GALVANIZACION",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1069713006,
+			"empleado": "ZABALA TOVAR JAVIER",
+			"cargo": "AUXILIAR GALVANIZACION",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1074576618,
+			"empleado": "CUBILLOS RODRIGUEZ CARLOS ANDRES",
+			"cargo": "AUXILIAR GALVANIZACION",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1109265018,
+			"empleado": "GONZALEZ VEGA NOEL FERNANDO",
+			"cargo": "AUXILIAR GALVANIZACION",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1136909113,
+			"empleado": "BASTO PATARROYO MIGUEL ANGEL",
+			"cargo": "AUXILIAR GALVANIZACION",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 2997378,
+			"empleado": "CASTANEDA MORA HECTOR HERNANDO",
+			"cargo": "AUXILIAR GALVANIZACION",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79219054,
+			"empleado": "ALDANA ROJAS JHON FREDY",
+			"cargo": "AUXILIAR GALVANIZACION",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1010202380,
+			"empleado": "BERRIO GARZON CARLOS HUMBERTO",
+			"cargo": "AUXILIAR PLANTA TRATAMIENTO",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79390307,
+			"empleado": "RODRIGUEZ ORTIZ LUIS JAVIER",
+			"cargo": "OPERARIO CONSOLA GALVA",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79866693,
+			"empleado": "OSORIO ENCISO RICHARD GIOVANY",
+			"cargo": "OPERARIO CONSOLA GALVA",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 93438889,
+			"empleado": "SALAZAR SALAZAR JUAN GABRIEL",
+			"cargo": "OPERARIO CONSOLA GALVA",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 86061321,
+			"empleado": "PRADA CASTILLO ISIDRO",
+			"cargo": "OPERARIO CONSOLA Y CALDERA",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 1033677949,
+			"empleado": "GARCIA NIÑO ANYELO",
+			"cargo": "OPERARIO PUENTE GRUA GALVA",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 74433932,
+			"empleado": "RODRIGUEZ NINO YESID ALBERTO",
+			"cargo": "OPERARIO PUENTE GRUA GALVA",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 79412237,
+			"empleado": "ZEA MESA FRANCISCO ANTONIO",
+			"cargo": "OPERARIO PUENTE GRUA GALVA",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 80812666,
+			"empleado": "PEREZ OYOLA LARRY ERICK",
+			"cargo": "SELECCIONADOR DE TUBERIA GALVA",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 85487431,
+			"empleado": "CAMACHO GONZALEZ VICTOR MANUEL",
+			"cargo": "SELECCIONADOR DE TUBERIA GALVA",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 78298979,
+			"empleado": "NAVARRO GALVIS HERIBERTO MANUEL",
+			"cargo": "SOLDADOR GALVA HERRERIA",
+			"area": "PRODUCCION GALVA",
+			"SABADO HABIL": "SI"
+		}
+	],
+	"direccion_th@gyj.com.co": [
+		{
+			"cedula": 1023874872,
+			"empleado": "FRANCO LOZANO LINA MARCELA",
+			"cargo": "ADMINISTRADORA DE PERSONAL",
+			"area": "TALENTO HUMANO",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1073232781,
+			"empleado": "ORGANISTA CASTILLO ISABEL EDITH",
+			"cargo": "ANALISTA DE TALENTO HUMANO",
+			"area": "TALENTO HUMANO",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1024573609,
+			"empleado": "LIZCANO MEDELLIN JESSICA PAOLA",
+			"cargo": "APRENDIZ SENA",
+			"area": "TALENTO HUMANO",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1006407574,
+			"empleado": "FLOREZ UMAÑA MARIA ESTER",
+			"cargo": "AUXILIAR DE TALENTO HUMANO",
+			"area": "TALENTO HUMANO",
+			"SABADO HABIL": "NO"
+		},
+		{
+			"cedula": 1001592566,
+			"empleado": "ESPITIA FUENTE LUDIS MARIA",
+			"cargo": "AUXILIAR SERVICIOS GENERALES",
+			"area": "TALENTO HUMANO",
+			"SABADO HABIL": "SI"
+		},
+		{
+			"cedula": 52441078,
+			"empleado": "CAJAMARCA PORRAS ALVA PATRICIA",
+			"cargo": "AUXILIAR SERVICIOS GENERALES",
+			"area": "TALENTO HUMANO",
+			"SABADO HABIL": "SI"
+		}
+	]
+}

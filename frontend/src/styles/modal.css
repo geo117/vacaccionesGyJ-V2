@@ -757,6 +757,64 @@ table.data th:last-child {
 }
 
 /* --------------------------------------------------------------------------
+   Recuadro de rechazos del modal de decisión
+   --------------------------------------------------------------------------
+   Aparece cuando hay al menos un período rechazado. Muestra cuántos rechazos
+   hay seleccionados y una fila por período para escribir su motivo; los motivos
+   se concatenan en `motivo_rechazo`.
+   -------------------------------------------------------------------------- */
+
+.rechazos {
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  background-color: var(--danger-bg);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
+}
+
+.rechazos__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.rechazos__cabecera .chip {
+  flex: none;
+}
+
+.rechazos__ayuda {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.rechazos__nota {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+.rechazos .table-scroll {
+  margin-top: var(--space-3);
+  background-color: var(--surface);
+  border-radius: var(--radius-sm);
+}
+
+.rechazos .periodo-tabla td,
+.rechazos .periodo-tabla th {
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.rechazos .periodo-tabla td:first-child {
+  width: 110px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
    Grupos de opciones excluyentes
    --------------------------------------------------------------------------
    `.decision` es el grupo de aprobar/rechazar; `.opciones`, cualquier otro par
@@ -863,6 +921,35 @@ table.data tbody tr[data-inactivo='si'] .usuario-avatar {
 
 .usuario-celda .chip {
   margin-left: var(--space-2);
+}
+
+/* Anchos pedidos por el negocio: «Usuario» a 24 caracteres y «Cargo» a 14, con
+   el texto envuelto. Se usa `ch` (el ancho del carácter «0» de la tipografía de
+   la tabla) para que el ancho sea literalmente el de esos caracteres. La tabla
+   conserva el `nowrap` general en las demás columnas. */
+table.data.admin-tabla .col-usuario {
+  width: 34ch;
+}
+
+table.data.admin-tabla .col-cargo {
+  width: 24ch;
+}
+
+table.data.admin-tabla .col-usuario,
+table.data.admin-tabla .col-cargo {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* El nombre va junto al avatar: el bloque de texto debe poder encogerse y
+   envolver dentro de los 24ch, no empujar la columna. */
+table.data.admin-tabla .usuario-celda {
+  white-space: normal;
+}
+
+table.data.admin-tabla .usuario-celda__nombre {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* En la tabla de usuarios las acciones vuelven a ser botones con texto: son

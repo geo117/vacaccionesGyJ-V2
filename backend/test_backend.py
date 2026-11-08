@@ -606,12 +606,21 @@ def main() -> int:
         str(len(avisos_admin)),
     )
 
-    # Regla del negocio: los avisos de asignación, aprobación y rechazo son sólo
-    # para Talento Humano. Para otro cargo la bandeja general llega vacía.
+    # La bandeja general de un cargo con UNES se acota a esa unidad: los avisos
+    # de la asignación de prueba (UNES "UNES 999") no deben aparecer en la 109.
     respuesta = client.get("/api/notificaciones", headers=auth_otro)
     avisos_otro = (respuesta.get_json() or {}).get("notificaciones", [])
     check("otro cargo recibe la bandeja general", respuesta.status_code == 200, str(respuesta.status_code))
-    check("la bandeja general del otro cargo llega vacía", avisos_otro == [], str(len(avisos_otro)))
+    check(
+        "la bandeja general del otro cargo sólo trae avisos de su UNES",
+        all(str(a.get("unes", "")).endswith(UNES_PRUEBA) for a in avisos_otro),
+        str([a.get("unes") for a in avisos_otro][:5]),
+    )
+    check(
+        "el aviso de la asignación de prueba (otra UNES) no se filtra a la 109",
+        all(not str(a.get("unes", "")).endswith("999") for a in avisos_otro),
+        str([a.get("unes") for a in avisos_otro][:5]),
+    )
 
     # Y en "mías" ve los avisos que él mismo generó, no los de Talento Humano.
     respuesta = client.get("/api/notificaciones/mias", headers=auth_otro)

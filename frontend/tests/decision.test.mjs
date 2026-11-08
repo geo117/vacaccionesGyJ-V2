@@ -74,3 +74,67 @@ test('la columna de acciones tiene el botón de tres puntos centrado', async () 
     'la etiqueta «Sin decisión» ya no se muestra en la columna de acciones',
   )
 })
+
+test('el modal ofrece «Rechazar todo» a la izquierda del botón principal', async () => {
+  const fuente = await readFile(MODAL, 'utf8')
+  const pie = fuente.slice(fuente.indexOf('<Modal.Footer>'))
+
+  assert.ok(pie.includes('activarRechazoTotal'), 'falta el manejador del rechazo total')
+  assert.ok(pie.includes('Rechazar todo'), 'falta el botón «Rechazar todo»')
+  assert.ok(
+    pie.indexOf('Rechazar todo') < pie.indexOf('{etiquetaPrincipal}'),
+    '«Rechazar todo» debe ir antes del botón principal (a su izquierda)',
+  )
+  assert.ok(
+    fuente.includes("asignacion?.estado === 'rechazada'"),
+    'una asignación ya rechazada debe abrir el modo de rechazo total',
+  )
+})
+
+test('cada rechazo por período abre su recuadro de motivos', async () => {
+  const fuente = await readFile(MODAL, 'utf8')
+
+  assert.ok(fuente.includes('Rechazos seleccionados:'), 'falta el contador de rechazos')
+  assert.ok(fuente.includes('Motivos de los rechazos'), 'falta el recuadro de motivos')
+  assert.ok(fuente.includes('motivo-periodo-'), 'falta el campo de motivo por período')
+  assert.ok(
+    fuente.includes('concatenarMotivos(motivosPeriodo, indicesRechazados)'),
+    'los motivos deben concatenarse antes de enviarse',
+  )
+  assert.ok(
+    fuente.includes("Período ${indice + 1}: ${texto}") && fuente.includes("join(' | ')"),
+    'con varios rechazos, cada motivo debe indicar su período y unirse en un solo texto',
+  )
+  assert.ok(
+    fuente.includes('guardarMotivos: true'),
+    'guardar los motivos no debe confundirse con rechazar todos los períodos',
+  )
+})
+
+test('cuando todo está rechazado el modal ofrece aprobar todo', async () => {
+  const fuente = await readFile(MODAL, 'utf8')
+
+  assert.ok(fuente.includes('const todasRechazadas'), 'falta detectar el rechazo total')
+  assert.ok(
+    fuente.includes('indicesRechazados.length === resumen.periodosProgramados'),
+    'el estado debe comparar todos los períodos programados',
+  )
+  assert.ok(fuente.includes('async function aprobarTodo'), 'falta la acción de aprobar todo')
+  assert.ok(fuente.includes('Aprobar todo'), 'falta el botón «Aprobar todo»')
+  assert.ok(fuente.includes('{todasRechazadas ? ('), 'el botón debe aparecer sólo en rechazo total')
+  assert.ok(
+    /async function aprobarTodo[\s\S]*?onConfirmar\(\{ decision: 'aprobada', motivo: '', observaciones \}\)/.test(
+      fuente,
+    ),
+    'aprobar todo debe enviar la decisión uniforme de aprobación',
+  )
+})
+
+test('el recuadro de rechazos tiene estilo propio', async () => {
+  const css = await readFile(CSS, 'utf8')
+
+  assert.ok(css.includes('.rechazos'), 'falta el estilo del recuadro de rechazos')
+  assert.ok(css.includes('.rechazos__cabecera'), 'falta la cabecera con el contador')
+  assert.ok(css.includes('.rechazos__nota'), 'falta la nota de concatenación')
+})
+

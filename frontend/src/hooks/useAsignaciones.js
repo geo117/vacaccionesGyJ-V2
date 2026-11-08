@@ -45,9 +45,13 @@ export function mensajeDeError(error) {
 export default function useAsignaciones() {
   const [filas, setFilas] = useState([])
   const [origen, setOrigen] = useState(null)
-  /* Áreas del archivo de filial. Sólo llegan para Talento Humano y el admin;
-     para los demás cargos el servidor devuelve una lista vacía. */
+  /* Áreas de la empresa de la sesión (GyJ o Colmena; el admin recibe las dos).
+     Sólo llegan para Talento Humano y el admin; para los demás cargos el
+     servidor devuelve una lista vacía. */
   const [areas, setAreas] = useState([])
+  /* Alcance especial de los correos de Colmena: "equipo" (cédulas de su lista)
+     o "grupo" (empresas 2 y 4). Vacío para el resto de cuentas. */
+  const [alcanceColmena, setAlcanceColmena] = useState('')
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState(null)
 
@@ -62,20 +66,33 @@ export default function useAsignaciones() {
         // respondió. La pantalla avisa cuando es "local".
         origen: datos.origen ?? null,
         areas: datos.areas ?? [],
+        alcanceColmena: datos.alcanceColmena ?? '',
         error: null,
       }
     } catch (error) {
-      return { filas: null, origen: null, areas: [], error: mensajeDeError(error) }
+      return {
+        filas: null,
+        origen: null,
+        areas: [],
+        alcanceColmena: '',
+        error: mensajeDeError(error),
+      }
     }
   }, [])
 
   const recargar = useCallback(async () => {
-    const { filas: lista, origen: nuevoOrigen, areas: nuevasAreas, error } =
-      await traerAsignaciones()
+    const {
+      filas: lista,
+      origen: nuevoOrigen,
+      areas: nuevasAreas,
+      alcanceColmena: nuevoAlcance,
+      error,
+    } = await traerAsignaciones()
     if (lista) {
       setFilas(lista)
       setOrigen(nuevoOrigen)
       setAreas(nuevasAreas)
+      setAlcanceColmena(nuevoAlcance)
     }
     setErrorCarga(error)
     setCargando(false)
@@ -83,16 +100,25 @@ export default function useAsignaciones() {
 
   useEffect(() => {
     let vigente = true
-    traerAsignaciones().then(({ filas: lista, origen: nuevoOrigen, areas: nuevasAreas, error }) => {
-      if (!vigente) return
-      if (lista) {
-        setFilas(lista)
-        setOrigen(nuevoOrigen)
-        setAreas(nuevasAreas)
-      }
-      setErrorCarga(error)
-      setCargando(false)
-    })
+    traerAsignaciones().then(
+      ({
+        filas: lista,
+        origen: nuevoOrigen,
+        areas: nuevasAreas,
+        alcanceColmena: nuevoAlcance,
+        error,
+      }) => {
+        if (!vigente) return
+        if (lista) {
+          setFilas(lista)
+          setOrigen(nuevoOrigen)
+          setAreas(nuevasAreas)
+          setAlcanceColmena(nuevoAlcance)
+        }
+        setErrorCarga(error)
+        setCargando(false)
+      },
+    )
     return () => {
       vigente = false
     }
@@ -145,6 +171,7 @@ export default function useAsignaciones() {
   return {
     filas,
     areas,
+    alcanceColmena,
     origen,
     cargando,
     errorCarga,

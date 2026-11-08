@@ -4,10 +4,11 @@
  * La tabla es **la plantilla que corresponde a la sesión**: una fila por
  * colaborador de la vista corporativa `PBI_Colaborador_Vacaciones_V2`, con la
  * asignación que tenga (o ninguna). La vista reúne las tres empresas del grupo,
- * así que siempre se acota a la empresa de la cuenta (`Usuarios.company`).
- * Talento Humano y el admin entran sin UNES y ven toda la plantilla de **su**
- * empresa; los demás cargos, sólo la de su UNES. Los que todavía no tienen
- * fechas aparecen igual, porque son justamente a quienes hay que programárselas.
+ * así que se acota a la empresa de la cuenta (`Usuarios.company`). El **admin**
+ * es la excepción: ve la plantilla de todas las empresas. Talento Humano y el
+ * admin entran sin UNES y ven toda la plantilla; los demás cargos, sólo la de su
+ * UNES. Los que todavía no tienen fechas aparecen igual, porque son justamente a
+ * quienes hay que programárselas.
  *
  * Columnas y de dónde sale cada dato:
  *   Desc. Unes     ← DescCO
@@ -27,10 +28,19 @@
  * admin) tiene por eso el filtro de UNES en la barra.
  *
  * Además, Talento Humano y el admin tienen el filtro por **área**. El servidor
- * anota cada fila con el área que le corresponde según la cédula en
- * `data filial/areas_filial.json` y devuelve la lista de áreas; la pantalla
- * cruza las filas con esa área. Los demás cargos no reciben ni el dato ni el
- * desplegable.
+ * anota cada fila con el área que le corresponde según la cédula y devuelve la
+ * lista de áreas de la empresa de la sesión: GyJ (`company` 2) desde
+ * `data filial/areas_filial.json` y Colmena (`company` 4) desde
+ * `data colmena/areas_colmena.json`. El admin ve la plantilla de las dos
+ * empresas, así que recibe las dos listas reunidas en el mismo desplegable. Los
+ * demás cargos no reciben ni el dato ni el desplegable.
+ *
+ * Los correos de **jefe de Colmena** registrados en `data colmena/colmena.json`
+ * tienen un alcance propio: entran sin UNES y el servidor limita el tablero a
+ * las cédulas de su lista. Los tres correos de dirección ven la unión de las
+ * cédulas registradas en `colmena.json` y `data filial/filial.json`. En ambos
+ * casos el filtro lo aplica el servidor; la pantalla sólo muestra el alcance que
+ * le devuelve en `alcanceColmena`.
  *
  * La tabla se pagina **de a 20 registros**. La búsqueda y los filtros se aplican
  * antes de paginar: el total que se ve es el de los filtros, no el de la vista.
@@ -176,6 +186,7 @@ export default function AsignacionesPage() {
   const {
     filas,
     areas,
+    alcanceColmena,
     origen,
     cargando,
     errorCarga,
@@ -503,19 +514,29 @@ export default function AsignacionesPage() {
     motivo,
     observaciones,
     decisionesPeriodos,
+    guardarMotivos = false,
   }) {
     const fila = decisionAbierta
     const aprobando = decision === 'aprobada'
+    /* Guardar los motivos de rechazos ya decididos no cambia las decisiones por
+       período: es distinto de «Rechazar la asignación», que rechaza todo. */
+    const soloMotivos = !aprobando && guardarMotivos
 
     const confirmacion = await Swal.fire({
       ...SWAL_BASE,
       icon: aprobando ? 'question' : 'warning',
-      title: aprobando ? '¿Aprobar la asignación?' : '¿Rechazar la asignación?',
+      title: aprobando
+        ? '¿Aprobar la asignación?'
+        : soloMotivos
+          ? '¿Guardar los motivos del rechazo?'
+          : '¿Rechazar la asignación?',
       html: aprobando
         ? `<strong>${fila.empleado}</strong> quedará con la asignación aprobada y se le notificará.`
-        : `<strong>${fila.empleado}</strong> quedará rechazada y se le notificará el motivo.`,
+        : soloMotivos
+          ? `<strong>${fila.empleado}</strong> conservará la decisión de cada período y se guardarán los motivos de los rechazos.`
+          : `<strong>${fila.empleado}</strong> quedará rechazada y se le notificará el motivo.`,
       showCancelButton: true,
-      confirmButtonText: aprobando ? 'Sí, aprobar' : 'Sí, rechazar',
+      confirmButtonText: aprobando ? 'Sí, aprobar' : soloMotivos ? 'Sí, guardar' : 'Sí, rechazar',
       cancelButtonText: 'Volver',
       confirmButtonColor: aprobando ? '#003366' : '#a81f2b',
       reverseButtons: true,
@@ -535,7 +556,11 @@ export default function AsignacionesPage() {
       await Swal.fire({
         ...SWAL_BASE,
         icon: 'success',
-        title: aprobando ? 'Asignación aprobada' : 'Asignación rechazada',
+        title: aprobando
+          ? 'Asignación aprobada'
+          : soloMotivos
+            ? 'Motivos guardados'
+            : 'Asignación rechazada',
         text: 'La decisión quedó registrada y se generó la notificación.',
         confirmButtonText: 'Listo',
         timer: 4500,
@@ -583,9 +608,15 @@ export default function AsignacionesPage() {
         <div>
           <h1 className="page__title">Asignaciones de vacaciones</h1>
           <p className="page__lead">
-            {unes
-              ? `Colaboradores de la UNES ${unes} con sus días de vacaciones.`
-              : 'Toda la plantilla de la empresa con sus días de vacaciones.'}{' '}
+            {alcanceColmena === 'equipo'
+              ? 'Colaboradores de tu equipo en Colmena, con sus días de vacaciones.'
+              : alcanceColmena === 'grupo'
+                ? 'Colaboradores de tu conjunto en los archivos de Colmena y filial, con sus días de vacaciones.'
+                : unes
+                  ? `Colaboradores de la UNES ${unes} con sus días de vacaciones.`
+                  : esAdmin
+                    ? 'Todos los colaboradores de las empresas del grupo, con sus días de vacaciones.'
+                    : 'Toda la plantilla de la empresa con sus días de vacaciones.'}{' '}
             {puedeAprobar ? 'Registra aquí la aprobación o el rechazo.' : ''}
           </p>
         </div>
@@ -667,6 +698,24 @@ export default function AsignacionesPage() {
         </Alert>
       ) : null}
 
+      {alcanceColmena === 'equipo' ? (
+        <Alert variant="info" className="d-flex align-items-start gap-2" role="note">
+          <Icon name="info" size={18} />
+          <span>
+            Tu correo está registrado como jefe de equipo de Colmena: ves únicamente los
+            colaboradores de tu lista.
+          </span>
+        </Alert>
+      ) : alcanceColmena === 'grupo' ? (
+        <Alert variant="info" className="d-flex align-items-start gap-2" role="note">
+          <Icon name="info" size={18} />
+          <span>
+            Tu correo de dirección ve únicamente los colaboradores de tu conjunto
+            registrados en los archivos de Colmena y filial.
+          </span>
+        </Alert>
+      ) : null}
+
       {!puedeAprobar ? (
         <Alert variant="info" className="d-flex align-items-start gap-2" role="note">
           <Icon name="info" size={18} />
@@ -681,7 +730,15 @@ export default function AsignacionesPage() {
         <header className="card__header">
           <div>
             <h2 className="card__title" id="tabla-titulo">
-              {unes ? 'Plantilla de la UNES' : 'Plantilla de la empresa'}
+              {alcanceColmena === 'equipo'
+                ? 'Plantilla de tu equipo'
+                : alcanceColmena === 'grupo'
+                  ? 'Plantilla de tu conjunto (Colmena y filial)'
+                  : unes
+                    ? 'Plantilla de la UNES'
+                    : esAdmin
+                      ? 'Plantilla de todas las empresas'
+                      : 'Plantilla de la empresa'}
             </h2>
             <p className="card__subtitle">
               {cargando

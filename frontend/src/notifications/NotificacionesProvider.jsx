@@ -35,6 +35,9 @@ const CLAVE_VISTAS = 'gv.notificaciones.vistas'
 /** Techo de ids recordados por usuario: evita que la clave crezca sin fin. */
 const MAX_VISTAS = 500
 
+/** Cada cuánto se refresca la bandeja: casi en tiempo real sin martillar la API. */
+const INTERVALO_ACTUALIZACION_MS = 5000
+
 function leerVistas(userId) {
   if (!userId) return new Set()
   try {
@@ -106,6 +109,8 @@ function NotificacionesDeSesion({ userId, activo, children }) {
   // Número de la última petición lanzada: una respuesta vieja no puede pisar a
   // una nueva ni dejar el estado a medias.
   const peticionRef = useRef(0)
+  // Evita que dos refrescos silenciosos se solapen si la red va lenta.
+  const refrescandoRef = useRef(false)
 
   const aplicar = useCallback((datos) => {
     avisosRef.current = datos.avisos
@@ -139,6 +144,39 @@ function NotificacionesDeSesion({ userId, activo, children }) {
       if (numero === peticionRef.current) setCargando(false)
     }
   }, [activo, userId, aplicar, anotarError])
+
+  /**
+   * Refresco periódico en segundo plano.
+   *
+   * No enciende `cargando`: la lista no debe parpadear cada cinco segundos. Si
+   * la pestaña está oculta no se pide nada, y un fallo puntual se ignora (la
+   * última lista buena sigue en pantalla).
+   */
+  const refrescarSilencioso = useCallback(async () => {
+    if (!activo || !userId || refrescandoRef.current) return
+    if (typeof document !== 'undefined' && document.hidden) return
+
+    refrescandoRef.current = true
+    const numero = peticionRef.current + 1
+    peticionRef.current = numero
+    try {
+      const datos = await pedirAvisos()
+      if (numero === peticionRef.current) aplicar(datos)
+    } catch {
+      /* Sin ruido: ya hay una lista visible y el próximo ciclo reintenta. */
+    } finally {
+      refrescandoRef.current = false
+    }
+  }, [activo, userId, aplicar])
+
+  useEffect(() => {
+    if (!activo) return undefined
+    const intervalo = window.setInterval(
+      refrescarSilencioso,
+      INTERVALO_ACTUALIZACION_MS,
+    )
+    return () => window.clearInterval(intervalo)
+  }, [activo, refrescarSilencioso])
 
   /* Carga inicial: todo lo que escribe estado vive en los callbacks de la
      promesa, no en el cuerpo del efecto, para no encadenar renders. */

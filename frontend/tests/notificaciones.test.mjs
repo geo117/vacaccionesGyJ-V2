@@ -131,3 +131,43 @@ test('abrir la bandeja apaga el contador', async () => {
     'la bandeja no debe pedir su propia copia: el dato es el del contexto',
   )
 })
+
+test('la bandeja muestra hasta 10 avisos por página con los cuatro controles', async () => {
+  const bandeja = await readFile(BANDEJA, 'utf8')
+
+  assert.ok(bandeja.includes('const POR_PAGINA = 10'), 'la página debe ser de 10 avisos')
+  assert.ok(bandeja.includes('filtrados.slice('), 'se pagina sobre lo ya filtrado')
+  assert.ok(bandeja.includes('visibles.map('), 'sólo se pintan los avisos de la página')
+  assert.ok(bandeja.includes('tabla-paginador__info'), 'falta el texto de cuántos se ven')
+  assert.ok(bandeja.includes('Mostrando '), 'falta el texto de la totalidad')
+
+  for (const control of ['Pagination.First', 'Pagination.Prev', 'Pagination.Next', 'Pagination.Last']) {
+    assert.ok(bandeja.includes(`<${control}`), `falta el control ${control}`)
+  }
+
+  assert.ok(
+    bandeja.indexOf('</ul>') < bandeja.indexOf('tabla-paginador'),
+    'el paginador va debajo de la lista de avisos',
+  )
+})
+
+test('la bandeja se refresca cada 5 segundos sin parpadear', async () => {
+  const proveedor = await readFile(PROVEEDOR, 'utf8')
+
+  assert.ok(
+    proveedor.includes('const INTERVALO_ACTUALIZACION_MS = 5000'),
+    'el refresco debe ser de 5 segundos',
+  )
+  assert.ok(
+    proveedor.includes('window.setInterval('),
+    'el proveedor debe refrescar solo con un intervalo',
+  )
+  assert.ok(
+    proveedor.includes('refrescarSilencioso'),
+    'el refresco periódico no debe encender el indicador de carga',
+  )
+  assert.ok(
+    proveedor.includes('document.hidden'),
+    'con la pestaña oculta no se debe consultar la API',
+  )
+})
