@@ -130,3 +130,27 @@ test('la tabla se pagina de a 20 con los controles de react-bootstrap', async ()
     'el paginador va debajo de la tabla, no encima',
   )
 })
+
+test('la sección de plantilla permite aprobar en lote con checkboxes', async () => {
+  const fuente = await readFile(RUTA, 'utf8')
+
+  assert.ok(fuente.includes('Aprobar en lote'), 'falta el botón «Aprobar en lote»')
+  assert.ok(fuente.includes('handleAprobarLote'), 'falta la acción de aprobar en lote')
+  assert.ok(fuente.includes('const [modoLote'), 'falta el modo de selección por lotes')
+  assert.ok(fuente.includes('Aceptar (${seleccionados.size})'), 'faltan los botones de lote')
+  assert.ok(fuente.includes('Cancelar'), 'falta el botón Cancelar del lote')
+  assert.ok(fuente.includes('<Form.Check'), 'falta el checkbox por fila')
+  assert.ok(
+    fuente.includes('seleccionados.has(fila.id)'),
+    'el checkbox debe reflejar la selección de la fila',
+  )
+  assert.ok(
+    fuente.includes('registrarDecision(fila.id'),
+    'la aprobación en lote debe reutilizar la decisión existente',
+  )
+  assert.ok(
+    fuente.includes('sólo las filas seleccionadas') ||
+      fuente.includes('solo las filas seleccionadas'),
+    'la aprobación debe ser únicamente de las filas marcadas',
+  )
+})

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import io
 import logging
+from datetime import date
 from functools import wraps
 from typing import Any, Callable, TypeVar
 
@@ -46,6 +47,7 @@ from employees import (
 )
 from filial import filtrar_por_filial
 from notifications import NotificationService
+from plazos import debe_desactivar
 from reports import generar_pdf_reporte_vacaciones, generar_plano_unoee
 from security import ValidationError, hash_password, normalize_email, validate_password
 from users import (
@@ -339,6 +341,27 @@ def create_app(settings: Settings | None = None) -> Flask:
 
     services = _Services()
 
+    # Corte de vacaciones colectivas. Se aplica una vez por proceso y por día:
+    # cuando ya pasó la fecha límite, desactiva a todos menos admin y Talento
+    # Humano. El aviso de la interfaz es informativo; el corte es del servidor.
+    _ultimo_corte_usuarios: date | None = None
+
+    def aplicar_corte_usuarios() -> None:
+        nonlocal _ultimo_corte_usuarios
+        hoy = date.today()
+        if not debe_desactivar(hoy) or _ultimo_corte_usuarios == hoy:
+            return
+        try:
+            cambiados = services.users.desactivar_sin_privilegios()
+            _ultimo_corte_usuarios = hoy
+            logger.warning(
+                "Corte de vacaciones colectivas (%s): %d cuentas desactivadas.",
+                hoy.isoformat(),
+                cambiados,
+            )
+        except Exception:  # noqa: BLE001 - no debe tumbar la petición en curso
+            logger.exception("No se pudo aplicar el corte de vacaciones colectivas.")
+
     # Solo los origenes exactos enumerados en la configuracion. Sin comodin:
     # '*' con credenciales permitiria a cualquier sitio leer la sesion.
     CORS(
@@ -357,6 +380,8 @@ def create_app(settings: Settings | None = None) -> Flask:
     @app.before_request
     def _attach_services() -> None:
         g.services = services
+        # Si ya pasó el plazo, cualquier petición aplica el corte una vez al día.
+        aplicar_corte_usuarios()
 
     @app.after_request
     def _apply_security_headers(response: Response) -> Response:

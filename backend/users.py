@@ -379,6 +379,19 @@ class UserRepository:
             _UPDATE_ACTIVO, (ACTIVO_SI if activo else ACTIVO_NO, user_id)
         )
 
+    def desactivar_sin_privilegios(self) -> int:
+        """Corte de vacaciones colectivas: desactiva a todos menos admin y TH.
+
+        Se aplica cuando ya pasó la fecha límite. Deja intactos los cargos que
+        administran el sistema y pone ``activo = 'no'`` al resto. Devuelve
+        cuántas filas tocó.
+        """
+        return self._database.execute(
+            "UPDATE dbo.Usuarios SET activo = ? "
+            "WHERE LOWER(LTRIM(RTRIM(ISNULL(cargo, '')))) NOT IN (?, ?)",
+            (ACTIVO_NO, CARGO_ADMIN, CARGO_TALENTO_HUMANO),
+        )
+
     def actualizar_password_hash(self, user_id: int, password_hash: str) -> int:
         return self._database.execute(_UPDATE_PASSWORD, (password_hash, user_id))
 

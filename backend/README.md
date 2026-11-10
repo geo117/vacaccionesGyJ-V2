@@ -373,6 +373,18 @@ períodos, así que el total persistido y el que calcula la interfaz coinciden. 
 filas de `/api/asignaciones` llevan `sabadoHabil` para que el navegador
 previsualice con el mismo criterio; el servidor vuelve a recalcular al guardar.
 
+## Plazo de vacaciones colectivas
+
+La fecha límite es el **1 de diciembre de 2026** (`plazos.py`). La interfaz
+muestra un aviso con cuenta regresiva desde seis días antes (`2026-11-25`).
+
+Cuando ya pasó el día límite (`2026-12-02` en adelante), el backend aplica una
+vez al día el **corte de cuentas**: en cualquier petición a la API se ejecuta
+`desactivar_sin_privilegios()`, que pone `activo = 'no'` a todos los usuarios
+cuyo `cargo` no sea `admin` ni `talento humano`. Esas cuentas quedan fuera en la
+siguiente petición, porque `authenticate` vuelve a leer el estado de la base.
+La fecha del corte se decide en el servidor; el navegador sólo muestra el aviso.
+
 ## Notificaciones
 
 `dbo.notificaciones` tiene `id`, `unes`, `msj_notificacion`, `usuario_id`,

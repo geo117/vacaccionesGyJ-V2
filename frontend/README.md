@@ -44,6 +44,16 @@ cuarta que sólo aparece en las filas rechazadas.
 | **Aprobar / rechazar** | Modal de decisión. Incluye la tabla de períodos con un menú de tres puntos por fila para **aprobar o rechazar cada período**. El botón **«Rechazar todo»**, a la izquierda del principal, rechaza los tres períodos y activa el campo del motivo completo. Al rechazar períodos sueltos se abre un recuadro con el contador de rechazos y un motivo por período; se guardan concatenados en `motivo_rechazo`. Si **todos** los períodos quedan rechazados, aparece **«Aprobar todo»** para revertir el rechazo y aprobar la asignación completa. |
 | **Ver motivo del rechazo** | Sólo en filas rechazadas: muestra el motivo en una alerta. |
 
+### Aprobar en lote
+
+En la cabecera de la plantilla, Talento Humano y el admin tienen **«Aprobar en
+lote»**. Al pulsarlo aparece un checkbox en cada fila (deshabilitado si no tiene
+asignación o ya está aprobada) y el botón cambia a **Aceptar / Cancelar**. Al
+aceptar se aprueba la asignación **completa** de sólo las filas marcadas,
+reutilizando el mismo endpoint de decisión y guardando en
+`asignacion_vacaciones` como una aprobación individual. Las filas ya aprobadas
+no se ofrecen para evitar avisos duplicados.
+
 ### El menú de acciones
 
 El disparador es un botón cuadrado con tres puntos y `aria-label` que nombra al
@@ -144,9 +154,16 @@ llamará directo a esa URL y el origen del frontend debe estar en
 | `/login` | Público | Correo y contraseña; **UNES** sólo si el cargo la necesita |
 | `/app/resumen` | Sesión | Indicadores de toda la empresa (Talento Humano y admin) o de la UNES de la sesión |
 | `/app/asignaciones` | Sesión | Plantilla de la UNES —**toda su empresa** para Talento Humano y **todas las empresas** para el admin— con búsqueda, filtros, paginación y las tres operaciones |
-| `/app/notificaciones` | Sesión | Bandeja del cargo y los avisos que uno mismo generó |
+| `/app/notificaciones` | Sesión | Bandeja de la UNES de la sesión (y los avisos propios) |
 | `/app/administracion` | **Admin** | Usuarios: crear, editar, activar/desactivar y eliminar |
 | `*` | — | Vista de "no encontrada" |
+
+### Aviso de vacaciones colectivas
+
+Al entrar al resumen entre el **25 de noviembre y el 1 de diciembre de 2026** se
+muestra un SweetAlert2 con la cuenta regresiva («Quedan X días»). Pasada esa
+fecha, el backend desactiva las cuentas que no sean admin ni Talento Humano. La
+fecha y el corte viven en el servidor; el navegador sólo informa.
 
 ## El campo UNES del login
 

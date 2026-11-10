@@ -44,6 +44,10 @@
  *
  * La tabla se pagina **de a 20 registros**. La búsqueda y los filtros se aplican
  * antes de paginar: el total que se ve es el de los filtros, no el de la vista.
+ * En la cabecera de la plantilla, Talento Humano y el admin tienen
+ * **«Aprobar en lote»**: activa un checkbox por fila, cambia a Aceptar/Cancelar
+ * y, al aceptar, aprueba completas sólo las filas marcadas con la misma lógica
+ * de la decisión individual.
  *
  * Si la vista corporativa no responde, el servidor degrada al listado local de
  * asignaciones y lo dice en `origen`; la pantalla lo avisa.
@@ -212,6 +216,10 @@ export default function AsignacionesPage() {
   const [nuevaAbierta, setNuevaAbierta] = useState(false)
   const [nuevaInicial, setNuevaInicial] = useState(null)
   const [guardando, setGuardando] = useState(false)
+  /* Aprobación en lote: se activa con el botón de la cabecera de la tabla. */
+  const [modoLote, setModoLote] = useState(false)
+  const [seleccionados, setSeleccionados] = useState(() => new Set())
+  const [aprobandoLote, setAprobandoLote] = useState(false)
   const [menuAbierto, setMenuAbierto] = useState(null)
   const [menuDescargaAbierto, setMenuDescargaAbierto] = useState(false)
   /* Qué documento se está generando: 'planilla' | 'plano' | null. */
@@ -602,6 +610,114 @@ export default function AsignacionesPage() {
     }
   }
 
+  /* -- Aprobación en lote -------------------------------------------------- */
+
+  /** Una fila se puede aprobar en lote si tiene asignación y no está aprobada. */
+  function filaSeleccionable(fila) {
+    return Boolean(fila?.id) && !fila.sinAsignacion && fila.estado !== 'aprobada'
+  }
+
+  function activarModoLote() {
+    setSeleccionados(new Set())
+    setModoLote(true)
+  }
+
+  function cancelarModoLote() {
+    if (aprobandoLote) return
+    setSeleccionados(new Set())
+    setModoLote(false)
+  }
+
+  function alternarSeleccion(fila, marcado) {
+    if (!filaSeleccionable(fila)) return
+    setSeleccionados((previos) => {
+      const siguientes = new Set(previos)
+      if (marcado) siguientes.add(fila.id)
+      else siguientes.delete(fila.id)
+      return siguientes
+    })
+  }
+
+  /**
+   * Aprueba completas (todos los períodos) sólo las filas seleccionadas.
+   *
+   * Reutiliza el endpoint de decisión general, igual que «Aprobar asignación»:
+   * el servidor vuelve a calcular y guardar el estado en la tabla. Se conserva
+   * la observación que ya tuviera cada asignación.
+   */
+  async function handleAprobarLote() {
+    const objetivo = filas.filter((fila) => fila.id && seleccionados.has(fila.id))
+    if (objetivo.length === 0 || aprobandoLote) return
+
+    const confirmacion = await Swal.fire({
+      ...SWAL_BASE,
+      icon: 'question',
+      title: '¿Aprobar en lote?',
+      html: `Se aprobarán <strong>${objetivo.length}</strong> ${
+        objetivo.length === 1 ? 'asignación completa' : 'asignaciones completas'
+      }.`,
+      showCancelButton: true,
+      confirmButtonText: 'Sí, aprobar',
+      cancelButtonText: 'Volver',
+      reverseButtons: true,
+      focusCancel: true,
+    })
+    if (!confirmacion.isConfirmed) return
+
+    setAprobandoLote(true)
+    Swal.fire({
+      ...SWAL_BASE,
+      title: 'Aprobando en lote…',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    })
+
+    const errores = []
+    let aprobadas = 0
+    for (const fila of objetivo) {
+      try {
+        await registrarDecision(fila.id, {
+          decision: 'aprobada',
+          motivo: '',
+          observaciones: fila.observaciones ?? '',
+        })
+        aprobadas += 1
+      } catch (error) {
+        errores.push(`${fila.empleado}: ${mensajeDeError(error)}`)
+      }
+    }
+
+    setAprobandoLote(false)
+    setModoLote(false)
+    setSeleccionados(new Set())
+    await recargar()
+    await recargarNotificaciones()
+
+    if (errores.length === 0) {
+      await Swal.fire({
+        ...SWAL_BASE,
+        icon: 'success',
+        title: 'Aprobación en lote completada',
+        html: `Se aprobaron <strong>${aprobadas}</strong> ${
+          aprobadas === 1 ? 'asignación' : 'asignaciones'
+        } y se generaron sus notificaciones.`,
+        confirmButtonText: 'Listo',
+        timer: 4500,
+        timerProgressBar: true,
+      })
+    } else {
+      await Swal.fire({
+        ...SWAL_BASE,
+        icon: 'warning',
+        title: 'Aprobación en lote con novedades',
+        text: `${aprobadas} aprobadas; ${errores.length} no se pudieron aprobar. ${errores
+          .slice(0, 3)
+          .join(' · ')}`,
+        confirmButtonText: 'Entendido',
+      })
+    }
+  }
+
   return (
     <>
       <header className="page__header">
@@ -747,6 +863,42 @@ export default function AsignacionesPage() {
                 }`}
             </p>
           </div>
+
+          {puedeAprobar ? (
+            <div className="d-flex flex-wrap align-items-center gap-2">
+              {modoLote ? (
+                <>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleAprobarLote}
+                    disabled={aprobandoLote || seleccionados.size === 0}
+                    aria-busy={aprobandoLote || undefined}
+                  >
+                    {aprobandoLote ? 'Aprobando…' : `Aceptar (${seleccionados.size})`}
+                  </Button>
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={cancelarModoLote}
+                    disabled={aprobandoLote}
+                  >
+                    Cancelar
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="outline-primary"
+                  size="sm"
+                  onClick={activarModoLote}
+                  disabled={cargando}
+                >
+                  <Icon name="aprobar" size={16} />
+                  Aprobar en lote
+                </Button>
+              )}
+            </div>
+          ) : null}
         </header>
 
         <div className="card__body" style={{ borderBottom: '1px solid var(--line)' }}>
@@ -868,7 +1020,32 @@ export default function AsignacionesPage() {
                         data-sin-asignacion={fila.sinAsignacion ? 'si' : undefined}
                       >
                         <td title={fila.descUnes || undefined}>{fila.descUnes || '—'}</td>
-                        <td title={fila.empleado || undefined}>{fila.empleado}</td>
+                        <td title={fila.empleado || undefined}>
+                          <div className={modoLote ? 'd-flex align-items-center gap-2' : undefined}>
+                            {modoLote ? (
+                              <Form.Check
+                                type="checkbox"
+                                style={{ marginBottom: 0 }}
+                                checked={Boolean(fila.id) && seleccionados.has(fila.id)}
+                                disabled={!filaSeleccionable(fila)}
+                                onChange={(event) =>
+                                  alternarSeleccion(fila, event.target.checked)
+                                }
+                                aria-label={`Seleccionar a ${fila.empleado} para aprobar en lote`}
+                                title={
+                                  filaSeleccionable(fila)
+                                    ? 'Seleccionar para aprobar en lote'
+                                    : fila.sinAsignacion
+                                      ? 'Sin asignación: primero programa las fechas'
+                                      : 'La asignación ya está aprobada'
+                                }
+                              />
+                            ) : null}
+                            <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+                              {fila.empleado}
+                            </span>
+                          </div>
+                        </td>
                         <td className="tabular">{fila.identificacion || '—'}</td>
                         <td>{fila.unes || '—'}</td>
                         <td title={fila.cargo || undefined}>{fila.cargo || '—'}</td>
