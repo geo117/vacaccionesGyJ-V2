@@ -19,7 +19,7 @@ from typing import Any
 from colmena import sabado_habil
 from db import Database, DatabaseUnavailable
 from dias_inhabiles import dias_habiles
-from employees import empresa_de_unes
+from employees import empresa_de_unes, unes_del_grupo
 from security import ValidationError
 
 logger = logging.getLogger(__name__)
@@ -836,11 +836,14 @@ class AssignmentService:
 
         ``unes`` acota también las asignaciones huérfanas —las de colaboradores
         que ya no están en la vista—: sin ese filtro se colarían registros de
-        otras UNES, que es justo lo que el filtro por UNES debe impedir.
+        otras UNES, que es justo lo que el filtro por UNES debe impedir. Si la
+        UNES de la sesión cubre un grupo (ver ``GRUPOS_UNES``), se incluyen las
+        asignaciones de todas las UNES del grupo.
         ``empresa`` hace lo mismo por el primer dígito de la UNES guardada
         (``'4-301'`` → ``'4'``), para que la plantilla de una empresa no arrastre
         movimientos de otra.
         """
+        unes_del_tablero = unes_del_grupo(unes)
         porIdentificacion: dict[str, dict[str, Any]] = {}
         for asignacion in self._repository.listar():
             clave = str(asignacion.get("identificacion") or "").strip()
@@ -915,7 +918,10 @@ class AssignmentService:
         # pero **sólo si son de esta UNES**: si no, un usuario vería movimientos
         # de otras UNES por la vía de un colaborador retirado.
         for asignacion in porIdentificacion.values():
-            if unes and not str(asignacion.get("unes") or "").strip().endswith(unes):
+            if unes_del_tablero and not any(
+                str(asignacion.get("unes") or "").strip().endswith(unes_grupo)
+                for unes_grupo in unes_del_tablero
+            ):
                 continue
             if empresa:
                 # Sin prefijo reconocible se asume GyJ (2): es el dato histórico

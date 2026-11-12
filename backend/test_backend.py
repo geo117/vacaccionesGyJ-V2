@@ -591,35 +591,55 @@ def main() -> int:
     respuesta = client.get("/api/notificaciones", headers=auth_th)
     avisos_th = (respuesta.get_json() or {}).get("notificaciones", [])
     check("Talento Humano ve las notificaciones", respuesta.status_code == 200 and len(avisos_th) > 0, str(len(avisos_th)))
+    empresa_th = database.query_one(
+        "SELECT company FROM dbo.Usuarios WHERE id = ?", (th_id,)
+    )[0]
+    ids_empresa_th = {
+        int(f["id"])
+        for f in database.query_named(
+            "SELECT id FROM dbo.Usuarios WHERE company = ?", (empresa_th,)
+        )
+    }
     check(
-        "el aviso es de quien lo generó",
-        all(a["usuarioId"] == th_id for a in avisos_th[:4]),
-        str([a["usuarioId"] for a in avisos_th[:4]]),
+        "Talento Humano sólo ve avisos de su compañía",
+        all(a["usuarioId"] in ids_empresa_th for a in avisos_th),
+        str(sorted({a["usuarioId"] for a in avisos_th} - ids_empresa_th)[:5]),
     )
 
-    # El admin hereda la bandeja general de Talento Humano.
+    # El admin ve las compañías 2 y 4, sin importar la empresa de su cuenta.
     respuesta = client.get("/api/notificaciones", headers=auth_admin)
     avisos_admin = (respuesta.get_json() or {}).get("notificaciones", [])
     check(
-        "el admin ve la bandeja general de notificaciones",
+        "el admin ve la bandeja de notificaciones",
         respuesta.status_code == 200 and len(avisos_admin) > 0,
         str(len(avisos_admin)),
     )
+    ids_admin = {
+        int(f["id"])
+        for f in database.query_named(
+            "SELECT id FROM dbo.Usuarios WHERE company IN (2, 4)"
+        )
+    }
+    check(
+        "el admin sólo ve avisos de las compañías 2 y 4",
+        all(a["usuarioId"] in ids_admin for a in avisos_admin),
+        str(sorted({a["usuarioId"] for a in avisos_admin} - ids_admin)[:5]),
+    )
 
-    # La bandeja general de un cargo con UNES se acota a esa unidad: los avisos
-    # de la asignación de prueba (UNES "UNES 999") no deben aparecer en la 109.
+    # Un cargo distinto a Talento Humano sólo ve los avisos que él mismo generó;
+    # ya no recibe la bandeja de su UNES ni las acciones de otros usuarios.
     respuesta = client.get("/api/notificaciones", headers=auth_otro)
     avisos_otro = (respuesta.get_json() or {}).get("notificaciones", [])
-    check("otro cargo recibe la bandeja general", respuesta.status_code == 200, str(respuesta.status_code))
+    check("otro cargo recibe su bandeja", respuesta.status_code == 200, str(respuesta.status_code))
     check(
-        "la bandeja general del otro cargo sólo trae avisos de su UNES",
-        all(str(a.get("unes", "")).endswith(UNES_PRUEBA) for a in avisos_otro),
-        str([a.get("unes") for a in avisos_otro][:5]),
+        "la bandeja del otro cargo sólo trae avisos propios",
+        all(a["usuarioId"] == otro_id for a in avisos_otro),
+        str(sorted({a["usuarioId"] for a in avisos_otro})[:5]),
     )
     check(
-        "el aviso de la asignación de prueba (otra UNES) no se filtra a la 109",
-        all(not str(a.get("unes", "")).endswith("999") for a in avisos_otro),
-        str([a.get("unes") for a in avisos_otro][:5]),
+        "la bandeja no le muestra avisos de Talento Humano",
+        all(a["usuarioId"] != th_id for a in avisos_otro),
+        str([a["usuarioId"] for a in avisos_otro][:5]),
     )
 
     # Y en "mías" ve los avisos que él mismo generó, no los de Talento Humano.

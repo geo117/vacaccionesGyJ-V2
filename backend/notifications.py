@@ -8,17 +8,18 @@ Quién recibe qué
 ----------------
 La regla del negocio es explícita:
 
-* **Talento Humano y el admin** ven toda la bandeja general: todas las
-  asignaciones, aprobaciones, rechazos y observaciones.
-* **Los demás cargos** ven los avisos de **la UNES de su sesión**. Así quien
-  entró con la UNES 115 ve que Talento Humano aprobó, rechazó o comentó una
-  asignación de la 2-115, aunque la acción la haya hecho otra persona. El
-  filtro va en el ``WHERE`` de SQL y no en el navegador.
-* **``usuario_id`` guarda el id del usuario que hizo la acción** (quien asigna
-  las fechas, aprueba, rechaza o comenta), como pide el negocio. Es el dato con
-  el que cada quien puede contar sus avisos pendientes.
-* La columna **``unes`` guarda la UNES de la asignación** (``2-115``), no la del
-  autor: es la que decide quién más ve el aviso.
+* **Cada usuario** ve únicamente los avisos que él mismo registró, es decir,
+  los que tienen su ``id`` en ``usuario_id``. Ya no se filtra por UNES: un jefe
+  de UNES no debe enterarse de las acciones de otros usuarios.
+* **Talento Humano** ve todos los avisos de **su compañía** (``Usuarios.company``
+  del autor): quien es de la compañía 2 ve la 2 y quien es de la compañía 4 ve
+  la 4.
+* **El admin** ve los avisos de las compañías **2 y 4**, sin importar la
+  compañía de su propia cuenta.
+
+La compañía del aviso se deduce del **autor** (``notificaciones.usuario_id`` →
+``dbo.Usuarios.company``), no de la UNES guardada en el aviso. La columna
+``unes`` queda como dato informativo de la asignación.
 
 El filtro se aplica en el ``WHERE`` de SQL y no en el navegador: si se filtrara
 en el cliente, cualquiera podría leer de más mirando la respuesta de la API.
@@ -30,10 +31,15 @@ import logging
 from typing import Any
 
 from db import Database
+from users import USERS_TABLE
 
 logger = logging.getLogger(__name__)
 
 TABLA = "dbo.notificaciones"
+
+# Compañías cuyos avisos ve el administrador. El negocio lo limita a GyJ (2) y
+# Colmena (4); no incluye Almasa (3).
+COMPANIAS_ADMIN = (2, 4)
 
 # Etiqueta con la que se marcan los avisos generales de una UNES. Es una
 # constante, no un dato que llegue del cliente.
@@ -47,12 +53,29 @@ _COLUMNAS = "id, unes, msj_notificacion, usuario_id, fecha_registro, fecha_updat
 _SELECT = f"SELECT {_COLUMNAS} FROM {TABLA}"
 _SELECT_TODAS = f"{_SELECT} ORDER BY fecha_registro DESC, id DESC"
 _SELECT_UNA = f"{_SELECT} WHERE id = ?"
-# La UNES de la asignación viene completa ('2-115'); la de la sesión, con tres
-# dígitos. Se comparan los tres últimos, la misma convención del resto del API.
-_SELECT_POR_UNES = (
-    f"{_SELECT} WHERE RIGHT(RTRIM(LTRIM(unes)), 3) = ? "
-    "ORDER BY fecha_registro DESC, id DESC"
+# La compañía sale del autor del aviso. Se aliasan las columnas del SELECT
+# porque ahora la consulta une dos tablas y `fila_a_dict` lee por nombre.
+_SELECT_POR_COMPANIA = (
+    "SELECT n.id AS id, n.unes AS unes, n.msj_notificacion AS msj_notificacion, "
+    "n.usuario_id AS usuario_id, n.fecha_registro AS fecha_registro, "
+    "n.fecha_update AS fecha_update "
+    f"FROM {TABLA} AS n "
+    f"INNER JOIN {USERS_TABLE} AS u ON u.id = n.usuario_id "
 )
+
+
+def _select_por_companias(cantidad: int) -> str:
+    """Consulta de avisos de una o varias compañías, con sus parámetros.
+
+    Los marcadores se generan a partir de la cantidad de compañías; los valores
+    viajan como parámetros y nunca se interpolan en el SQL.
+    """
+    marcadores = ", ".join("?" for _ in range(cantidad))
+    return (
+        f"{_SELECT_POR_COMPANIA} WHERE u.company IN ({marcadores}) "
+        "ORDER BY n.fecha_registro DESC, n.id DESC"
+    )
+
 
 _INSERT = (
     f"INSERT INTO {TABLA} (unes, msj_notificacion, usuario_id, fecha_registro, fecha_update) "
@@ -107,17 +130,19 @@ class NotificationRepository:
         )
         return [fila_a_dict(f) for f in filas]
 
-    def listar_por_unes(self, unes: str) -> list[dict[str, Any]]:
-        """Avisos cuya columna ``unes`` corresponde a la UNES de la sesión.
+    def listar_por_companias(self, companias: tuple[int, ...]) -> list[dict[str, Any]]:
+        """Avisos cuyo autor pertenece a alguna de las compañías indicadas.
 
-        Se comparan los tres últimos dígitos porque la asignación guarda la UNES
-        completa (``2-115``) y la sesión sólo los tres dígitos (``115``). El
-        filtro va en el ``WHERE``: la API no devuelve avisos de otras unidades.
+        La compañía se toma de ``dbo.Usuarios.company`` a través de
+        ``usuario_id``. Si no se indica ninguna compañía, no se devuelve nada:
+        el alcance nunca debe quedar abierto por un valor vacío.
         """
-        sufijo = "".join(caracter for caracter in str(unes or "") if caracter.isdigit())[-3:]
-        if len(sufijo) < 3:
+        valores = tuple(int(compania) for compania in companias)
+        if not valores:
             return []
-        filas = self._database.query_named(_SELECT_POR_UNES, (sufijo,))
+        filas = self._database.query_named(
+            _select_por_companias(len(valores)), valores
+        )
         return [fila_a_dict(f) for f in filas]
 
     def contar(self) -> int:
@@ -154,29 +179,24 @@ class NotificationService:
 
     # -- lectura ------------------------------------------------------------
 
-    def listar_para(self, usuario: Any, unes: str = "") -> list[dict[str, Any]]:
+    def listar_para(self, usuario: Any) -> list[dict[str, Any]]:
         """Qué avisos puede ver este usuario.
 
-        * **Talento Humano y el admin** ven toda la bandeja general.
-        * Cualquier otro cargo ve los avisos de **la UNES de su sesión**: así
-          quien entró con la UNES 115 se entera de que Talento Humano aprobó,
-          rechazó o comentó una asignación de esa unidad, aunque no haya sido
-          quien hizo la acción.
-        * Sin UNES en la sesión (por ejemplo, un jefe de Colmena) esta bandeja
-          general queda vacía; sus propios avisos se consultan por
-          ``usuario_id`` en `/api/notificaciones/mias`.
+        * **El admin** ve los avisos de las compañías 2 y 4.
+        * **Talento Humano** ve los avisos de su propia compañía
+          (``Usuarios.company``).
+        * **Cualquier otro cargo** ve únicamente los avisos que él mismo
+          registró (``usuario_id``). Ya no ve los de su UNES: las acciones de
+          otros usuarios no le pertenecen.
 
-        El alcance se decide con el cargo y la UNES de la sesión, no con nada
+        El alcance se decide con el rol y la compañía de la sesión, no con nada
         que mande el navegador.
         """
-        if (
-            getattr(usuario, "es_talento_humano", False)
-            or getattr(usuario, "es_admin", False)
-        ):
-            return self._repository.listar()
-        if not unes:
-            return []
-        return self._repository.listar_por_unes(unes)
+        if getattr(usuario, "es_admin", False):
+            return self._repository.listar_por_companias(COMPANIAS_ADMIN)
+        if getattr(usuario, "es_talento_humano", False):
+            return self._repository.listar_por_companias((usuario.company,))
+        return self._repository.listar_por_usuario(int(usuario.id))
 
     def listar_para_usuario(self, usuario_id: int) -> list[dict[str, Any]]:
         """Avisos generados por una persona concreta (``usuario_id``)."""

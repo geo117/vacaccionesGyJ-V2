@@ -14,6 +14,7 @@ import logging
 from typing import Any
 
 from db import Database
+from employees import unes_del_grupo
 
 logger = logging.getLogger(__name__)
 
@@ -50,22 +51,23 @@ FROM dbo.asignacion_vacaciones
 
 # La UNES se compara por sus tres últimos dígitos: la misma convención que el
 # resto del sistema, que acepta `109` y `2-109`. El valor viaja como parámetro,
-# nunca interpolado.
-_FILTRO_UNES = "WHERE RIGHT(RTRIM(LTRIM(unes)), 3) = ?"
+# nunca interpolado. Se usa `IN` porque una UNES de sesión puede cubrir un grupo.
+def _filtro_unes(sufijos: tuple[str, ...]) -> str:
+    marcadores = ", ".join("?" for _ in sufijos)
+    return f"WHERE RIGHT(RTRIM(LTRIM(unes)), 3) IN ({marcadores})"
 
 
 def _a_iso(valor: Any) -> str | None:
     return valor.isoformat() if hasattr(valor, "isoformat") else (None if valor is None else str(valor))
 
 
-def _sufijo_unes(unes: Any) -> str:
-    """Los tres dígitos que identifican la UNES. ``''`` si no hay filtro.
+def _sufijo_unes(unes: Any) -> tuple[str, ...]:
+    """Las UNES que identifica la sesión. ``()`` si no hay filtro.
 
-    Vacío significa "sin acotar" (toda la empresa). Sólo devuelve valor cuando
-    hay al menos tres dígitos: un `unes` a medias no debe ampliar ni romper nada.
+    Una UNES sin grupo devuelve una tupla con ella misma; una UNES agrupada
+    devuelve todas las de su grupo (ver ``GRUPOS_UNES``).
     """
-    digitos = "".join(caracter for caracter in str(unes or "") if caracter.isdigit())
-    return digitos[-3:] if len(digitos) >= 3 else ""
+    return unes_del_grupo(unes)
 
 
 class DashboardService:
@@ -80,10 +82,10 @@ class DashboardService:
         por empleado sólo se calcula en el alcance global: la vista acotada no lo
         muestra y no corresponde exponer cuentas de otras unidades por esa puerta.
         """
-        sufijo = _sufijo_unes(unes)
-        if sufijo:
+        sufijos = _sufijo_unes(unes)
+        if sufijos:
             filas_totales = self._database.query_named(
-                f"{_SELECT_TOTALES} {_FILTRO_UNES}", (sufijo,), limit=1
+                f"{_SELECT_TOTALES} {_filtro_unes(sufijos)}", tuple(sufijos), limit=1
             )
             empleados: list[dict[str, Any]] = []
         else:
@@ -93,8 +95,8 @@ class DashboardService:
         fila_totales = filas_totales[0] if filas_totales else None
 
         return {
-            "alcance": "unes" if sufijo else "global",
-            "unes": sufijo,
+            "alcance": "unes" if sufijos else "global",
+            "unes": sufijos[0] if sufijos else "",
             "totales": {
                 "usuarios": len(empleados),
                 "asignaciones": int(fila_totales["total"]) if fila_totales else 0,

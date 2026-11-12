@@ -43,6 +43,7 @@ from employees import (
     EmployeeDirectory,
     empresa_de_unes,
     normalizar_unes,
+    unes_del_grupo,
     validar_unes_login,
 )
 from filial import filtrar_por_filial
@@ -826,6 +827,10 @@ def create_app(settings: Settings | None = None) -> Flask:
         Además, cuando la UNES es la de filial (106), se acota a las cédulas del
         equipo del jefe de filial que inició sesión (ver :mod:`filial`).
 
+        Algunas UNES cubren un **grupo** (ver ``GRUPOS_UNES``): en ese caso el
+        directorio devuelve las filas de todas las UNES del grupo y el tablero
+        incluye también sus asignaciones huérfanas.
+
         Si la vista corporativa no responde, se degrada al listado local de
         asignaciones en lugar de dejar la pantalla en blanco. Devuelve
         ``(filas, origen)`` con ``origen`` en ``"vista"`` o ``"local"``.
@@ -1156,11 +1161,11 @@ def create_app(settings: Settings | None = None) -> Flask:
         filas = servicios().assignments.listar()
 
         if unes_filtro:
-            sufijo = unes_filtro[-3:]
+            sufijos = unes_del_grupo(unes_filtro)
             filas = [
                 fila
                 for fila in filas
-                if str(fila.get("unes") or "")[-3:] == sufijo
+                if any(str(fila.get("unes") or "")[-3:] == sufijo for sufijo in sufijos)
             ]
 
         try:
@@ -1185,13 +1190,14 @@ def create_app(settings: Settings | None = None) -> Flask:
     @app.get("/api/notificaciones")
     @require_auth
     def listar_notificaciones():
-        """Bandeja de avisos.
+        """Bandeja de avisos con el alcance del rol.
 
-        Los avisos de asignación, aprobación y rechazo son para Talento Humano
-        y el admin; para el resto de cargos la lista llega vacía. Lo decide el
-        servicio con el cargo de la sesión, no la petición.
+        El admin ve los avisos de las compañías 2 y 4; Talento Humano, los de su
+        propia compañía; cualquier otro cargo, sólo los avisos que registró.
+        Lo decide el servicio con el rol y la compañía de la sesión, no la
+        petición.
         """
-        avisos = servicios().notifications.listar_para(current_user(), current_unes())
+        avisos = servicios().notifications.listar_para(current_user())
         return ok({"notificaciones": avisos, "total": len(avisos)})
 
     @app.get("/api/notificaciones/mias")

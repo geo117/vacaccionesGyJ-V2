@@ -42,6 +42,17 @@ VISTA = "dbo.PBI_Colaborador_Vacaciones_V2"
 # cualquiera de las dos.
 UNES_RE = re.compile(r"^(?:\d{1,3}-)?(\d{3})$")
 
+# UNES que se administran como un solo grupo: quien inicia sesión con la clave
+# ve también las de su lista. Los valores son los tres dígitos que identifican
+# la UNES en `IDCia_CO` (por ejemplo, `2-117` → `117`). El grupo se aplica en el
+# servidor, igual que el resto del alcance: no puede ampliarse desde el
+# navegador.
+GRUPOS_UNES: dict[str, tuple[str, ...]] = {
+    "117": ("117", "201"),
+    "139": ("139", "166", "167"),
+    "143": ("143", "104"),
+}
+
 # Días de vacaciones que corresponden por ley en Colombia.
 DIAS_VACACIONES_LEY = 15
 
@@ -64,10 +75,20 @@ FROM {VISTA}
 # sin eso, `RIGHT(x, 3)` devolvería espacios en lugar de dígitos. El `CAST`
 # protege el caso de una columna numérica y no cambia el resultado para texto.
 _IDCIA = "RTRIM(LTRIM(CAST(IDCia_CO AS VARCHAR(20))))"
-_FILTRO_UNES = f"RIGHT({_IDCIA}, 3) = ?"
 # Empresa = primer dígito de `IDCia_CO`: '4-301' → '4' (Colmena).
 _FILTRO_EMPRESA = f"LEFT({_IDCIA}, 1) = ?"
 _ORDER = "ORDER BY Empleado"
+
+
+def _filtro_unes(valores: tuple[str, ...]) -> tuple[str, tuple[Any, ...]]:
+    """Condición SQL para una o varias UNES, con sus parámetros.
+
+    Se usa ``IN`` y no una igualdad porque una UNES de sesión puede cubrir un
+    grupo (ver :data:`GRUPOS_UNES`). Los marcadores se generan a partir de la
+    cantidad de valores; los dígitos nunca se interpolan en el SQL.
+    """
+    marcadores = ", ".join("?" for _ in valores)
+    return f"RIGHT({_IDCIA}, 3) IN ({marcadores})", tuple(valores)
 
 
 def normalizar_unes(valor: object) -> str:
@@ -80,6 +101,30 @@ def normalizar_unes(valor: object) -> str:
         return ""
     coincidencia = UNES_RE.match(str(valor).strip())
     return coincidencia.group(1) if coincidencia else ""
+
+
+def unes_del_grupo(valor: object) -> tuple[str, ...]:
+    """UNES que cubre una UNES de sesión o una lista de ellas.
+
+    Acepta ``'117'``, ``'2-117'`` o una secuencia de cualquiera de las dos. Una
+    UNES sin grupo devuelve sólo su propio número, de modo que el resto del
+    sistema sigue trabajando con el mismo contrato: una tupla de tres dígitos.
+
+    Devuelve ``()`` si el valor no se reconoce, para que quien llame decida si
+    eso significa "sin filtro" o un error.
+    """
+    if isinstance(valor, (list, tuple, set, frozenset)):
+        salida: list[str] = []
+        for item in valor:
+            for unes in unes_del_grupo(item):
+                if unes not in salida:
+                    salida.append(unes)
+        return tuple(salida)
+
+    unes = normalizar_unes(valor)
+    if not unes:
+        return ()
+    return GRUPOS_UNES.get(unes, (unes,))
 
 
 def normalizar_empresa(valor: object) -> str:
@@ -235,15 +280,21 @@ class EmployeeDirectory:
         return self._database
 
     def listar_por_unes(
-        self, unes: str, *, empresa: object = 0, limite: int = 2000
+        self, unes: object, *, empresa: object = 0, limite: int = 2000
     ) -> list[Colaborador]:
-        """Colaboradores de una UNES (y de una empresa, si se indica)."""
+        """Colaboradores de una UNES (y de una empresa, si se indica).
+
+        ``unes`` puede ser una UNES suelta o un grupo (ver :data:`GRUPOS_UNES`):
+        en ese caso se devuelven las filas de todas las UNES del grupo.
+        """
         database = self._exigir_conexion()
-        if not unes:
+        valores = unes_del_grupo(unes)
+        if not valores:
             raise ValidationError("UNES_INVALIDA", "La UNES no es válida.")
 
-        condiciones = [_FILTRO_UNES]
-        parametros: list[Any] = [unes]
+        filtro_unes, parametros_unes = _filtro_unes(valores)
+        condiciones = [filtro_unes]
+        parametros: list[Any] = list(parametros_unes)
         digito_empresa = normalizar_empresa(empresa)
         if digito_empresa:
             condiciones.append(_FILTRO_EMPRESA)
@@ -271,15 +322,17 @@ class EmployeeDirectory:
         return [_fila_a_colaborador(fila) for fila in filas]
 
     def buscar(
-        self, unes: str, identificacion: str, *, empresa: object = 0
+        self, unes: object, identificacion: str, *, empresa: object = 0
     ) -> Colaborador | None:
         """Un colaborador concreto dentro de su UNES y su empresa."""
         database = self._exigir_conexion()
-        if not unes or not identificacion:
+        valores = unes_del_grupo(unes)
+        if not valores or not identificacion:
             return None
 
-        condiciones = [_FILTRO_UNES, "RTRIM(LTRIM(cedula)) = ?"]
-        parametros: list[Any] = [unes, str(identificacion).strip()]
+        filtro_unes, parametros_unes = _filtro_unes(valores)
+        condiciones = [filtro_unes, "RTRIM(LTRIM(cedula)) = ?"]
+        parametros: list[Any] = [*parametros_unes, str(identificacion).strip()]
         digito_empresa = normalizar_empresa(empresa)
         if digito_empresa:
             condiciones.insert(1, _FILTRO_EMPRESA)

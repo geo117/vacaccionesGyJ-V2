@@ -6,6 +6,10 @@
  * lista por su cuenta, el número del menú y lo que se ve al abrirlo podrían
  * discrepar.
  *
+ * El alcance lo decide el servidor —avisos propios, de la compañía o de las
+ * compañías 2 y 4 para el admin— y el cliente pide una sola bandeja: no mezcla
+ * respuestas ni amplía lo que ya viene autorizado.
+ *
  * Qué se considera «pendiente»
  * ---------------------------
  * `dbo.notificaciones` **no tiene columna de leída**, y añadir estado de lectura
@@ -64,30 +68,10 @@ function guardarVistas(userId, ids) {
   }
 }
 
-/** Une la bandeja general y los avisos propios, sin repetir y del más nuevo. */
-function mezclarAvisos(generales, personales) {
-  const porId = new Map()
-  for (const aviso of [
-    ...(generales?.notificaciones ?? []),
-    ...(personales?.notificaciones ?? []),
-  ]) {
-    porId.set(aviso.id, aviso)
-  }
-  return [...porId.values()].sort((a, b) =>
-    String(b.fechaRegistro ?? '').localeCompare(String(a.fechaRegistro ?? '')),
-  )
-}
-
-/** Pide las dos bandejas y devuelve la lista ya mezclada. No toca el estado. */
+/** Pide la bandeja. El alcance lo decide el servidor según el rol y la compañía. */
 async function pedirAvisos() {
-  const [generales, personales] = await Promise.all([
-    notificacionesApi.listar(),
-    notificacionesApi.mias(),
-  ])
-  return {
-    avisos: mezclarAvisos(generales, personales),
-    mios: personales?.notificaciones ?? [],
-  }
+  const datos = await notificacionesApi.listar()
+  return { avisos: datos?.notificaciones ?? [] }
 }
 
 /**
@@ -98,7 +82,6 @@ async function pedirAvisos() {
  */
 function NotificacionesDeSesion({ userId, activo, children }) {
   const [avisos, setAvisos] = useState([])
-  const [mios, setMios] = useState([])
   const [vistas, setVistas] = useState(() => leerVistas(userId))
   /* Nace en `true` cuando hay sesión: el efecto ya va a pedir los avisos, así que
      no hace falta encender el indicador con un `setState` dentro del efecto. */
@@ -115,7 +98,6 @@ function NotificacionesDeSesion({ userId, activo, children }) {
   const aplicar = useCallback((datos) => {
     avisosRef.current = datos.avisos
     setAvisos(datos.avisos)
-    setMios(datos.mios)
     setErrorCarga(null)
   }, [])
 
@@ -219,6 +201,15 @@ function NotificacionesDeSesion({ userId, activo, children }) {
       return siguientes
     })
   }, [userId])
+
+  /* Los avisos propios se deducen del autor que devuelve el servidor. No hace
+     falta una segunda petición: la bandeja ya viene acotada al rol, y el chip
+     «Generado por ti» sólo marca los que firmó esta persona. */
+  const mios = useMemo(
+    () =>
+      avisos.filter((aviso) => Number(aviso.usuarioId) === Number(userId)),
+    [avisos, userId],
+  )
 
   const idsMios = useMemo(() => new Set(mios.map((aviso) => aviso.id)), [mios])
 

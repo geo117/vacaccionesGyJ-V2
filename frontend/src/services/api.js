@@ -358,11 +358,11 @@ function consultaUnes(unes) {
 }
 
 export const notificacionesApi = {
-  /** Bandeja general: Talento Humano y el admin reciben los avisos. */
+  /** Bandeja con el alcance del rol: propios, compañía o compañías 2 y 4. */
   listar() {
     return request('/api/notificaciones', { auth: true })
   },
-  /** Avisos dirigidos a la persona que consulta (`usuario_id`). */
+  /** Avisos generados por la persona que consulta (`usuario_id`). */
   mias() {
     return request('/api/notificaciones/mias', { auth: true })
   },

@@ -12,9 +12,13 @@
  * que se ve al abrirlo podrían discrepar.
  *
  * Qué ve cada quien lo decide el backend en el `WHERE` de la consulta:
- *  - Talento Humano y el admin ven todas (bandeja general).
- *  - Los demás ven los avisos de **la UNES de su sesión**; sus propios avisos
- *    se suman por `usuario_id` desde el contexto compartido.
+ *  - Cada usuario ve únicamente los avisos que **él mismo registró**
+ *    (`usuario_id`); no ve los de su UNES ni los de otros usuarios.
+ *  - Talento Humano ve todos los avisos de **su compañía**.
+ *  - El admin ve los avisos de las **compañías 2 y 4**.
+ *
+ * El frontend no mezcla bandejas ni filtra por su cuenta: muestra la lista que
+ * ya viene autorizada por el servidor.
  *
  * La bandeja se pagina **de a 10 avisos**; los controles van debajo de la lista.
  * La tabla `dbo.notificaciones` no tiene columna de "leída". Entrar aquí marca
@@ -53,10 +57,16 @@ const ETIQUETA_TONO = {
 }
 
 export default function NotificacionesPage() {
-  const { veTodaLaPlantilla } = useAuth()
+  const { esAdmin, esTalentoHumano, user } = useAuth()
   const { avisos, idsMios, cargando, errorCarga, recargar, marcarVistas } = useNotificaciones()
   const [filtro, setFiltro] = useState('todas')
   const [pagina, setPagina] = useState(1)
+
+  /* Alcance visible según el rol. El servidor ya devolvió la lista filtrada;
+     esto sólo ajusta los rótulos para que la persona entienda qué está viendo. */
+  const esGestor = esAdmin || esTalentoHumano
+  const empresaUsuario = user?.empresa || 'tu compañía'
+  const alcanceTexto = esAdmin ? 'las compañías 2 y 4' : empresaUsuario
 
   /* Abrir la bandeja es revisar: se apaga el contador del sidebar. Se hace
      cuando la carga terminó, para no marcar como vistas unas que no llegaron.
@@ -111,8 +121,11 @@ export default function NotificacionesPage() {
         <div>
           <h1 className="page__title">Notificaciones</h1>
           <p className="page__lead">
-            Avisos generados por las acciones sobre las asignaciones: fechas programadas,
-            aprobaciones, rechazos y observaciones.
+            {esAdmin
+              ? 'Avisos de las compañías 2 y 4 generados por las acciones sobre las asignaciones: fechas programadas, aprobaciones, rechazos y observaciones.'
+              : esTalentoHumano
+                ? `Avisos de ${empresaUsuario} generados por las acciones sobre las asignaciones: fechas programadas, aprobaciones, rechazos y observaciones.`
+                : 'Avisos que registraste al programar fechas de vacaciones o agregar observaciones.'}
           </p>
         </div>
         <div className="page__actions">
@@ -140,9 +153,9 @@ export default function NotificacionesPage() {
               {cargando
                 ? 'Consultando la base de datos…'
                 : avisos.length === 0
-                  ? veTodaLaPlantilla
-                    ? 'Todavía no hay avisos registrados.'
-                    : 'No tienes avisos por ahora.'
+                  ? esGestor
+                    ? `Todavía no hay avisos registrados en ${alcanceTexto}.`
+                    : 'Todavía no has registrado avisos.'
                   : `${avisos.length} ${avisos.length === 1 ? 'aviso' : 'avisos'} · ${conteo.info} de asignación, ${conteo.ok} de aprobación, ${conteo.danger} de rechazo y ${conteo.comentario} de observación.`}
             </p>
           </div>
@@ -185,7 +198,7 @@ export default function NotificacionesPage() {
                           {aviso.unes ? (
                             <span className="chip chip--neutral">{aviso.unes}</span>
                           ) : null}
-                          {idsMios.has(aviso.id) ? (
+                          {esGestor && idsMios.has(aviso.id) ? (
                             <span className="chip chip--info">Generado por ti</span>
                           ) : null}
                         </p>
@@ -252,9 +265,9 @@ export default function NotificacionesPage() {
                 cargando
                   ? 'Un momento.'
                   : avisos.length === 0
-                    ? veTodaLaPlantilla
-                  ? 'Cada vez que se programen fechas, se apruebe, se rechace o se agregue una observación en tu UNES, el aviso aparecerá aquí.'
-                      : 'Aquí aparecerán los avisos de tu UNES y los que generes al programar las fechas de vacaciones.'
+                    ? esGestor
+                      ? `Cada vez que se programen fechas, se apruebe, se rechace o se agregue una observación en ${alcanceTexto}, el aviso aparecerá aquí.`
+                      : 'Aquí aparecerán únicamente los avisos que registres al programar fechas de vacaciones o agregar observaciones.'
                     : 'Prueba con otro filtro para ver el resto de los avisos.'
               }
               action={
@@ -270,8 +283,8 @@ export default function NotificacionesPage() {
       </section>
 
       <p className="field__hint" style={{ marginTop: 'var(--space-4)' }}>
-        <Icon name="info" size={14} /> Los avisos se guardan en el servidor y se filtran según tu cargo. Al abrir esta bandeja se
-        apaga el contador del menú.
+        <Icon name="info" size={14} /> Los avisos se guardan en el servidor y se filtran por
+        usuario, compañía y cargo. Al abrir esta bandeja se apaga el contador del menú.
       </p>
     </>
   )

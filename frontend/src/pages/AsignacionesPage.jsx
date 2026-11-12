@@ -24,8 +24,10 @@
  *
  * El filtro por UNES lo aplica el **servidor** con la UNES de la sesión: a quien
  * entra con una UNES no le llega la plantilla de otras, así que no hay nada que
- * filtrar en el navegador. Quien ve toda la plantilla (Talento Humano y el
- * admin) tiene por eso el filtro de UNES en la barra.
+ * filtrar en el navegador. Algunas UNES cubren un grupo —la 117 incluye la 201;
+ * la 139, las 166 y 167; la 143, la 104— y el servidor devuelve la plantilla de
+ * todas las del grupo. Quien ve toda la plantilla (Talento Humano y el admin)
+ * tiene por eso el filtro de UNES en la barra.
  *
  * Además, Talento Humano y el admin tienen el filtro por **área**. El servidor
  * anota cada fila con el área que le corresponde según la cédula y devuelve la
