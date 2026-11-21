@@ -51,6 +51,7 @@ from notifications import NotificationService
 from plazos import debe_desactivar
 from reports import generar_pdf_reporte_vacaciones, generar_plano_unoee
 from security import ValidationError, hash_password, normalize_email, validate_password
+from temporales import anotar_temporales
 from users import (
     CARGO_ADMIN,
     CARGO_TALENTO_HUMANO,
@@ -831,6 +832,10 @@ def create_app(settings: Settings | None = None) -> Flask:
         directorio devuelve las filas de todas las UNES del grupo y el tablero
         incluye también sus asignaciones huérfanas.
 
+        Los **temporales de Colmena** (``data colmena/temporales.json``) llevan
+        el corte en el archivo, no en la vista: :func:`temporales.anotar_temporales`
+        ajusta esa columna y recalcula los días a usar con la misma fórmula.
+
         Si la vista corporativa no responde, se degrada al listado local de
         asignaciones en lugar de dejar la pantalla en blanco. Devuelve
         ``(filas, origen)`` con ``origen`` en ``"vista"`` o ``"local"``.
@@ -854,7 +859,8 @@ def create_app(settings: Settings | None = None) -> Flask:
                     unes="" if ver_todo else unes_objetivo,
                     empresa=empresa,
                 )
-                return _solo_filial(filas, unes_objetivo), "vista"
+                filas = _solo_filial(filas, unes_objetivo)
+                return anotar_temporales(filas), "vista"
             except DatabaseUnavailable:
                 # El servidor corporativo no respondió. Se degrada al listado
                 # local en lugar de dejar la pantalla en blanco.
@@ -871,7 +877,7 @@ def create_app(settings: Settings | None = None) -> Flask:
                 for fila in locales
                 if (empresa_de_unes(fila.get("unes")) or "2") == prefijo
             ]
-        return _solo_filial(locales, unes_objetivo), "local"
+        return anotar_temporales(_solo_filial(locales, unes_objetivo)), "local"
 
     def _unes_para_reporte() -> str:
         """UNES que se aplica a un reporte, según el cargo de la sesión.
@@ -933,6 +939,9 @@ def create_app(settings: Settings | None = None) -> Flask:
           dirección del grupo reciben las cédulas registradas **a nombre de su
           propio correo** en ``colmena.json`` y ``data filial/filial.json``. En
           ambos casos manda el archivo, no la UNES ni la empresa de la cuenta.
+        * Los **temporales de Colmena** (``data colmena/temporales.json``) llevan
+          la columna «Corte» con el campo ``DIAS`` del archivo, no con el valor
+          de la vista, y los días a usar se recalculan con esa cifra.
 
         Si la vista no responde, se devuelven sólo las asignaciones registradas:
         la pantalla sigue siendo útil aunque el servidor corporativo falle.

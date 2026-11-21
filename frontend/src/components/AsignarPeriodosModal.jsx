@@ -80,7 +80,8 @@ export default function AsignarPeriodosModal({ show, asignacion, onHide, onGuard
   const ingresoDesactualizado = Boolean(ingreso && fechaIngreso !== ingreso)
 
   /* Días a usar = días a corte − días asignados, el mismo cálculo de la tabla.
-     Aquí el corte ya viene de la vista, así que no hay que interpretarlo. */
+     Aquí el corte ya viene resuelto por el servidor (vista o temporales de
+     Colmena), así que no hay que interpretarlo. */
   const corte = Number(asignacion?.diasACorte ?? 0) || 0
   const diasAUsar = useMemo(
     () => Math.round((corte - resumen.totalDias) * 10) / 10,

@@ -18,7 +18,8 @@
  *   Cargo          ← Cargo
  *   Estado         ← pendiente, en verificación, aprobada o rechazada según
  *                    la decisión de sus períodos
- *   Días a corte   ← dias_vacaciones_corteDic
+ *   Días a corte   ← dias_vacaciones_corteDic; para los temporales de Colmena,
+ *                    el campo DIAS de `data colmena/temporales.json`
  *   Días asignados ← el total de los períodos programados
  *   Días a usar    ← días asignados − días a corte, con semáforo
  *
@@ -1080,7 +1081,24 @@ export default function AsignacionesPage() {
                             ) : null}
                           </div>
                         </td>
-                        <td className="numeric tabular">{UN_DECIMAL.format(fila.diasACorte ?? 0)}</td>
+                        <td
+                          className="numeric tabular"
+                          title={
+                            fila.corteTemporal
+                              ? 'Días a corte del archivo de empleados temporales de Colmena'
+                              : 'Días a corte'
+                          }
+                        >
+                          {UN_DECIMAL.format(fila.diasACorte ?? 0)}
+                          {fila.corteTemporal ? (
+                            <span className="corte-temporal">
+                              <Icon name="info" size={12} />
+                              <span className="visually-hidden">
+                                Empleado temporal: días tomados del archivo de temporales
+                              </span>
+                            </span>
+                          ) : null}
+                        </td>
                         <td className="numeric tabular">
                           {UN_DECIMAL.format(fila.diasAsignados ?? 0)}
                         </td>

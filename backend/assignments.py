@@ -21,6 +21,7 @@ from db import Database, DatabaseUnavailable
 from dias_inhabiles import dias_habiles
 from employees import empresa_de_unes, unes_del_grupo
 from security import ValidationError
+from temporales import dias_temporales
 
 logger = logging.getLogger(__name__)
 
@@ -367,8 +368,9 @@ def normalizar_periodos(
 def validar_datos_empleado(payload: dict[str, Any]) -> dict[str, Any]:
     """Valida los datos del colaborador de una asignación nueva.
 
-    ``diasACorte`` es el corte que trae la vista del colaborador. Es la entrada
-    del cálculo; lo que se persiste en la columna ``dias_a_corte`` es el
+    ``diasACorte`` es el corte que trae la vista del colaborador —o el campo
+    ``DIAS`` de ``temporales.json`` para los temporales de Colmena—. Es la
+    entrada del cálculo; lo que se persiste en la columna ``dias_a_corte`` es el
     resultado, y de eso se encarga el servicio.
     """
     identificacion = _texto(
@@ -580,9 +582,18 @@ class AssignmentRepository:
         periodos = datos["periodos"]
         total_nuevo = datos["total_dias"]
         actual = self.obtener(assignment_id) or {}
-        corte_original = float(actual.get("diasAUsar") or 0) + float(
-            actual.get("totalDias") or 0
+        # Los temporales de Colmena tienen el corte en `temporales.json`, no en
+        # la vista. Se usa ese valor para que editar los períodos no recomponga
+        # el resultado a partir de un corte distinto al de la pantalla.
+        temporal = dias_temporales(
+            actual.get("identificacion"), empresa_de_unes(actual.get("unes"))
         )
+        if temporal is not None:
+            corte_original = temporal
+        else:
+            corte_original = float(actual.get("diasAUsar") or 0) + float(
+                actual.get("totalDias") or 0
+            )
         resultado = round(corte_original - total_nuevo, 1)
         return self._database.execute(
             _UPDATE_PERIODOS,
@@ -659,6 +670,13 @@ class AssignmentService:
         ``días a corte − días asignados`` en la columna ``dias_a_corte``.
         """
         datos = validar_datos_empleado(payload)
+        # Para los temporales de Colmena manda el archivo, aunque el cliente
+        # envíe otro corte: el cálculo se hace siempre sobre los días del JSON.
+        temporal = dias_temporales(
+            datos["identificacion"], empresa_de_unes(datos["unes"])
+        )
+        if temporal is not None:
+            datos["dias_a_corte"] = temporal
         periodos, total = normalizar_periodos(
             payload.get("periodos"),
             minimo=1,
@@ -674,8 +692,8 @@ class AssignmentService:
             payload.get("observaciones"), "las observaciones", OBSERVACIONES_MAX
         )
         datos["observaciones"] = observaciones
-        # El resultado se calcula sobre el corte que llega (el de la vista del
-        # colaborador) y el total que el servidor acaba de calcular.
+        # El resultado se calcula sobre el corte validado (vista o archivo de
+        # temporales) y el total que el servidor acaba de calcular.
         datos["dias_a_corte"] = round(float(datos["dias_a_corte"]) - float(total), 1)
 
         nuevo_id = self._repository.crear(datos, periodos, total, fecha_regreso, usuario.nombre)

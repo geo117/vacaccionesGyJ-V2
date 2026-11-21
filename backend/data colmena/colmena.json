@@ -355,7 +355,8 @@
 			"cargo": "ANALISTA DE COMPRAS",
 			"area": "GESTION DOCUMENTAL",
 			"SABADO HABIL": "NO"
-		}
+		},
+		{"cedula": 80741373, "empleado": "CASTRO GONZALEZ ALYN DAVIS", "cargo": "ANALISTA DE RIESGOS Y OFICIAL DE CUMPLIMIENTO", "area": "SISTEMA GESTION RIESGOS SUELDOS"}
 	],
 	"jgarzon@tuboscolmena.com": [
 		{

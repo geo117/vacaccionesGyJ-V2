@@ -31,8 +31,9 @@ const CAMPOS_VACIOS = {
   descUnes: '',
   unes: '',
   correo: '',
-  // Los días a corte no se editan aquí: vienen de la vista del colaborador (o de
-  // la asignación, si ya existe) y sólo alimentan el cálculo de «Días a usar».
+  // Los días a corte no se editan aquí: vienen de la vista del colaborador
+  // —o del archivo de temporales de Colmena— y sólo alimentan el cálculo de
+  // «Días a usar».
   diasACorte: '',
   observaciones: '',
   // Fecha de reintegro a labores: se elige a mano y se guarda en
@@ -107,10 +108,11 @@ export default function NuevaAsignacionModal({
   const ingreso = ultimoDia ? addDays(ultimoDia, 1) : ''
 
   /* Días a usar = días a corte − días asignados, en ese orden.
-     Los días a corte llegan de la vista del colaborador. Si no vinieran (p. ej.
-     una fila de una asignación antigua sin ese dato), el cálculo daría «0 −
-     asignados» y mostraría un número que no significa nada: en ese caso se dice
-     que no está disponible en lugar de inventarlo. */
+     Los días a corte llegan de la vista o, para los temporales de Colmena, de
+     `temporales.json`. Si no vinieran (p. ej. una fila de una asignación antigua
+     sin ese dato), el cálculo daría «0 − asignados» y mostraría un número que no
+     significa nada: en ese caso se dice que no está disponible en lugar de
+     inventarlo. */
   const diasACorteNumero = useMemo(() => {
     const numero = Number(String(datos.diasACorte).trim())
     return Number.isFinite(numero) ? numero : 0

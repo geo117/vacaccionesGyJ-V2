@@ -711,6 +711,16 @@ table.data tbody tr:last-child td {
   text-align: right;
 }
 
+/* Marca de origen del corte de un empleado temporal de Colmena: el número de
+   «Corte» no viene de la vista, viene de `data colmena/temporales.json`. */
+.corte-temporal {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 2px;
+  color: var(--brand-600);
+  vertical-align: -2px;
+}
+
 /* ==========================================================================
    Diálogo de confirmación (sweetalert2)
    --------------------------------------------------------------------------

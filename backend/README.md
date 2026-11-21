@@ -358,6 +358,17 @@ Los días a corte **no se editan** en el modal de nueva asignación: salen de la
 vista del colaborador y sólo alimentan el cálculo. Si una fila no los trajera, la
 interfaz lo dice en lugar de calcular sobre cero.
 
+### Temporales de Colmena
+
+`data colmena/temporales.json` reúne los empleados temporales de la empresa 4.
+Para las cédulas de ese archivo, la columna **Corte** no usa
+`dias_vacaciones_corteDic` sino el campo `DIAS`, y «días a usar» se recalcula con
+la misma fórmula de siempre (`DIAS − días asignados`). El ajuste se aplica en el
+servidor, sólo a filas de la empresa 4 y sólo a las cédulas del archivo; el
+frontend recibe `corteTemporal` para marcar el origen. Si el archivo falta o la
+cédula no está en él, se mantiene el valor de la vista. El archivo se cachea al
+primer uso: después de editarlo hay que reiniciar el backend.
+
 ### SÁBADO HÁBIL
 
 Cada colaborador de `data colmena/colmena.json` trae el campo `SABADO HABIL`:

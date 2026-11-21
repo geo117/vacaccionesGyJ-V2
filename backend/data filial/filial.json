@@ -1,5 +1,5 @@
 {
-	"auditoria@gyj.com.co": [
+	"dir.auditoria@gyj.com.co": [
 		{"cedula": 1015407464, "empleado": "TORRES JAIMES JESUS ERNESTO", "cargo": "ANALISTA DE LOGÍSTICA, INVENTARIOS Y AUDITORIA", "area": "AUDITORIA SUELDOS"},
 		{"cedula": 1022366309, "empleado": "GONZALEZ DUARTE LUISA FERNANDA", "cargo": "COORDINADOR DE AUDITORIA", "area": "AUDITORIA SUELDOS"},
 		{"cedula": 1042347896, "empleado": "GUTIERREZ ZIMMERMAR THIERRY JAVIER", "cargo": "AUDITOR DE INVENTARIOS", "area": "AUDITORIA SUELDOS"},
@@ -25,9 +25,6 @@
 		{"cedula": 1018433809, "empleado": "SARMIENTO DUQUE DIANA MARCELA", "cargo": "ASISTENTE DE CARTERA", "area": "CARTERA SUELDOS"},
 		{"cedula": 52886609, "empleado": "CHACON CASTILLO SANDY PAOLA", "cargo": "ANALISTA DE CARTERA", "area": "CARTERA SUELDOS"},
 		{"cedula": 1192891793, "empleado": "ZULUAGA ARISTIZABAL DEISY YASMID", "cargo": "APRENDIZ SENA", "area": "CARTERA SUELDOS"}
-	],
-	"administrativa@gyj.com.co": [
-		{"cedula": 1030645426, "empleado": "CASALLAS LOPEZ LUISA FERNANDA", "cargo": "ASISTENTE FINANCIERA Y DE COMERCIO EXTERIOR", "area": "COMERCIO EXTERIOR SUELDOS"}
 	],
 	"contabilidad@gyj.com.co": [
 		{"cedula": 1001218221, "empleado": "MARTINEZ BAUTISTA  ANGIE NATALIA", "cargo": "ANALISTA CONTABLE", "area": "CONTABILIDAD SUELDOS"},
@@ -147,5 +144,8 @@
 		{"cedula": 7722301, "empleado": "FIERRO TOVAR HENRY", "cargo": "OPERARIO MONTACARGA", "area": "MESA LABORAL ADMON"},
 		{"cedula": 79421991, "empleado": "ROJAS PARDO VICTOR HUMBERTO", "cargo": "MENSAJERO", "area": "MESA LABORAL ADMON"},
 		{"cedula": 1037620689, "empleado": "ARIAS OSPINA ERIKA ALEJANDRA", "cargo": "DIRECTOR DE NUEVOS NEGOCIOS Y NUEVAS LINEAS", "area": "MESA LABORAL ADMON"}
+	],
+	"direccionfinanciera@gyj.com.co": [
+		{"cedula": 1030645426, "empleado": "CASALLAS LOPEZ LUISA FERNANDA", "cargo": "ASISTENTE FINANCIERA Y DE COMERCIO EXTERIOR", "area": "COMERCIO EXTERIOR SUELDOS"}
 	]
 }
