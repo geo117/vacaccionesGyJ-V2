@@ -116,6 +116,43 @@ test('con SABADO HABIL = NO los sábados no cuentan como vacaciones', () => {
   )
 })
 
+test('con DIA 31 HABIL = NO el día 31 no cuenta como vacaciones', () => {
+  // Del lunes 30 al martes 31 de marzo de 2026 hay 2 días calendario.
+  assert.equal(
+    diasHabiles('2026-03-30', '2026-03-31', [], { dia31Habil: false }),
+    1,
+  )
+  // Con día 31 hábil (o sin dato) se mantiene el cálculo general.
+  assert.equal(diasHabiles('2026-03-30', '2026-03-31', [], { dia31Habil: true }), 2)
+  assert.equal(diasHabiles('2026-03-30', '2026-03-31', []), 2)
+
+  // Un rango que cruza el fin de mes descuenta el 31 una sola vez.
+  assert.equal(
+    diasHabiles('2026-03-30', '2026-04-02', [], { dia31Habil: false }),
+    3,
+  )
+
+  assert.equal(
+    calcularDias(
+      { inicio: '2026-03-30', fin: '2026-03-31' },
+      [],
+      { dia31Habil: false },
+    ),
+    1,
+  )
+  assert.equal(
+    resumirPeriodos(
+      [
+        { inicio: '2026-03-30', fin: '2026-03-31' },
+        { inicio: '2026-05-30', fin: '2026-05-31' },
+      ],
+      [],
+      { dia31Habil: false },
+    ).totalDias,
+    2,
+  )
+})
+
 test('un sábado festivo se descuenta una sola vez', () => {
   const inhabiles = ['2026-03-07'] // sábado festivo
   assert.equal(

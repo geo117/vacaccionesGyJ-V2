@@ -7,7 +7,8 @@
  *  - **Cálculo de días en vivo**, por período y en total. Se cuentan ambos
  *    extremos de cada rango (del 1 al 5 son 5 días) pero **se descuentan las
  *    fechas inactivas** de `hooks/fechas_inactivas.js` (domingos y festivos),
- *    que no se disfrutan como vacaciones.
+ *    que no se disfrutan como vacaciones. Para Colmena también se aplican
+ *    `SABADO HABIL` y, en la empresa 4, `DIA 31 HABIL`.
  *  - Fecha de ingreso (reintegro a labores) editable: viene de la columna
  *    `fecha_reintegro_lab` y, si no hay ninguna guardada, se sugiere el día
  *    siguiente al último período con un botón para aplicarla.
@@ -63,11 +64,13 @@ export default function AsignarPeriodosModal({ show, asignacion, onHide, onGuard
 
   /* El total y el detalle por período descuentan las fechas inactivas: un
      domingo o un festivo dentro del rango no es un día de vacaciones. Para los
-     empleados de Colmena sin sábado hábil, el sábado tampoco cuenta. */
+     empleados de Colmena sin sábado hábil, el sábado tampoco cuenta; para los de
+     la empresa 4 con `DIA 31 HABIL = NO`, el día 31 tampoco. */
   const sabadoHabil = asignacion?.sabadoHabil
+  const dia31Habil = asignacion?.dia31Habil
   const resumen = useMemo(
-    () => resumirPeriodos(periodos, diasInhabiles, { sabadoHabil }),
-    [periodos, sabadoHabil],
+    () => resumirPeriodos(periodos, diasInhabiles, { sabadoHabil, dia31Habil }),
+    [periodos, sabadoHabil, dia31Habil],
   )
 
   /* Último día programado: base para sugerir la fecha de ingreso. */
@@ -260,6 +263,7 @@ export default function AsignarPeriodosModal({ show, asignacion, onHide, onGuard
             </p>
             <p className="resumen-calculo__nota">
               Cuenta el día de inicio y el de fin; no los domingos ni los festivos.
+              {dia31Habil === false ? ' Para este colaborador, el día 31 tampoco cuenta.' : ''}
             </p>
 
             {/* Mismo cálculo que la tabla y el modal de creación: días a corte

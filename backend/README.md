@@ -323,6 +323,7 @@ digitarla y el servidor acota el tablero por la **cédula**
 | UNES | No se valida ni se usa. Si se escribe algo, se ignora. |
 | Alcance | Sólo las cédulas de la lista de ese correo. |
 | Sábado | `SABADO HABIL`: `SI` cuenta el sábado como vacaciones; `NO` lo descuenta. |
+| Día 31 | `DIA 31 HABIL`: `SI` cuenta el día 31 como vacaciones; `NO` lo descuenta. Sólo aplica a la empresa 4. |
 | Dirección del grupo | `director.riesgos@gyj.com.co`, `direcciontic@gyj.com.co` y `direccion_th@gyj.com.co` ven la **unión de sus propias entradas** en `colmena.json` y `filial.json` (las cédulas registradas a nombre de ese correo), sin importar la empresa de la cuenta. |
 | Caché | El archivo se lee una vez; si se edita, hay que reiniciar el backend. |
 
@@ -369,20 +370,26 @@ frontend recibe `corteTemporal` para marcar el origen. Si el archivo falta o la
 cédula no está en él, se mantiene el valor de la vista. El archivo se cachea al
 primer uso: después de editarlo hay que reiniciar el backend.
 
-### SÁBADO HÁBIL
+### SÁBADO HÁBIL Y DÍA 31 HÁBIL
 
-Cada colaborador de `data colmena/colmena.json` trae el campo `SABADO HABIL`:
+Cada colaborador de `data colmena/colmena.json` trae los campos `SABADO HABIL` y
+`DIA 31 HABIL`:
 
 | Valor | Cómo se calcula |
 |---|---|
-| `SI` | El sábado es día hábil: **cuenta** como día de vacaciones. |
-| `NO` | El sábado no se trabaja: **se descuenta**, igual que un domingo. |
-| Sin dato o cédula fuera del archivo | Se mantiene el cálculo general (el sábado cuenta). |
+| `SI` | La fecha es día hábil: **cuenta** como día de vacaciones. |
+| `NO` | La fecha no se trabaja: **se descuenta**, igual que un domingo. |
+| Sin dato o cédula fuera del archivo | Se mantiene el cálculo general (la fecha cuenta). |
 
-La regla se aplica en `dias_habiles(..., sabado_habil=...)` al crear y al guardar
-períodos, así que el total persistido y el que calcula la interfaz coinciden. Las
-filas de `/api/asignaciones` llevan `sabadoHabil` para que el navegador
-previsualice con el mismo criterio; el servidor vuelve a recalcular al guardar.
+La regla se aplica en `dias_habiles(..., sabado_habil=..., dia_31_habil=...)` al
+crear y al guardar períodos, así que el total persistido y el que calcula la
+interfaz coinciden. Las filas de `/api/asignaciones` llevan `sabadoHabil` y
+`dia31Habil` para que el navegador previsualice con el mismo criterio; el
+servidor vuelve a recalcular al guardar.
+
+`DIA 31 HABIL` es exclusivo de **Colmena (empresa 4)**: el servidor sólo lo
+aplica cuando el primer dígito de la UNE de la asignación es `4`, y sólo anota
+`dia31Habil` en esas filas. Para las demás empresas el día 31 sigue contando.
 
 ## Plazo de vacaciones colectivas
 

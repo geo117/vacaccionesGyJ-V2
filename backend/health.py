@@ -799,6 +799,7 @@ def check_archivos(report: Report) -> None:
             TIPO_EQUIPO,
             TIPO_GRUPO,
             alcance_de,
+            cargar_dias_31,
             cargar_jefes,
             cargar_sabados,
         )
@@ -822,6 +823,19 @@ def check_archivos(report: Report) -> None:
             report.warn(
                 "SABADO HABIL en colmena.json",
                 "sin datos; los sábados se cuentan para todos",
+            )
+
+        dias_31 = cargar_dias_31()
+        if dias_31:
+            habiles = sum(1 for valor in dias_31.values() if valor)
+            report.ok(
+                "DIA 31 HABIL en colmena.json",
+                f"{habiles} hábiles, {len(dias_31) - habiles} no hábiles",
+            )
+        else:
+            report.warn(
+                "DIA 31 HABIL en colmena.json",
+                "sin datos; el día 31 se cuenta para todos",
             )
 
         faltan_direccion = [correo for correo in DIRECCION_GRUPO if correo not in jefes]

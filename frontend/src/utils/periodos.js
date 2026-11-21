@@ -23,23 +23,28 @@ import { addDays, daysInclusive, parseIsoDate } from '../utils/fechas.js'
  * incompleto sigue devolviendo `null`.
  *
  * `opciones.sabadoHabil === false` descuenta además todos los sábados: es el
- * caso de un empleado de Colmena que no trabaja sábados. `true` o `undefined`
- * dejan el cálculo general (el sábado cuenta, salvo que sea festivo).
+ * caso de un empleado de Colmena que no trabaja sábados. `opciones.dia31Habil
+ * === false` descuenta el día 31 de cada mes: es el caso de un empleado de la
+ * empresa 4 (Colmena) cuyo día 31 no es hábil. `true` o `undefined` dejan el
+ * cálculo general (la fecha cuenta, salvo que sea festivo).
  */
 export function diasHabiles(inicio, fin, inhabiles = [], opciones = {}) {
   const total = daysInclusive(inicio, fin)
   if (total === null) return null
 
   const sabadoInactivo = opciones.sabadoHabil === false
-  if (!inhabiles?.length && !sabadoInactivo) return total
+  const dia31Inactivo = opciones.dia31Habil === false
+  if (!inhabiles?.length && !sabadoInactivo && !dia31Inactivo) return total
 
   const excluidos = new Set(inhabiles)
   let dias = total
   let cursor = inicio
   for (let i = 0; i < total; i += 1) {
+    const fecha = parseIsoDate(cursor)
     const inactivo =
       excluidos.has(cursor) ||
-      (sabadoInactivo && parseIsoDate(cursor)?.getUTCDay() === 6)
+      (sabadoInactivo && fecha?.getUTCDay() === 6) ||
+      (dia31Inactivo && fecha?.getUTCDate() === 31)
     if (inactivo) dias -= 1
     cursor = addDays(cursor, 1)
   }
@@ -55,7 +60,7 @@ export function diasHabiles(inicio, fin, inhabiles = [], opciones = {}) {
  *
  * Con `inhabiles` se descuentan esas fechas del total (ver `diasHabiles`); sin
  * lista, el resultado es el de siempre: días calendario del rango. `opciones`
- * se propaga para aplicar `sabadoHabil`.
+ * se propaga para aplicar `sabadoHabil` y `dia31Habil`.
  */
 export function calcularDias(periodo, inhabiles = [], opciones = {}) {
   if (!periodo?.inicio || !periodo?.fin) return null

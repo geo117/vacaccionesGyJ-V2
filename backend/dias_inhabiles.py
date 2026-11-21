@@ -6,7 +6,9 @@ de la regla que la interfaz aplica en `frontend/src/hooks/fechas_inactivas.js`.
 
 Además de la lista global, cada empleado de Colmena puede tener ``SABADO HABIL``:
 si es ``NO``, los sábados tampoco cuentan (se descuentan como un domingo); si es
-``SI``, cuentan como cualquier día hábil.
+``SI``, cuentan como cualquier día hábil. Lo mismo vale para ``DIA 31 HABIL``,
+que sólo se consulta para los empleados de la empresa 4: con ``NO`` el día 31 de
+cada mes se descuenta.
 
 La lista es **una sola para todo el sistema**: vive en
 ``backend/fechas_inactivas.json`` y la leen las dos partes. Si estuviera
@@ -53,7 +55,11 @@ def dias_inhabiles() -> frozenset[date]:
 
 
 def dias_habiles(
-    inicio: date, fin: date, *, sabado_habil: bool | None = None
+    inicio: date,
+    fin: date,
+    *,
+    sabado_habil: bool | None = None,
+    dia_31_habil: bool | None = None,
 ) -> int:
     """Días del rango que sí son vacaciones: ambos extremos menos los inactivos.
 
@@ -63,22 +69,24 @@ def dias_habiles(
 
     ``sabado_habil=False`` descuenta además todos los sábados del rango: el
     empleado no trabaja ese día, así que no lo disfruta como vacaciones.
-    ``True`` o ``None`` mantienen el cálculo general (el sábado cuenta; si es
-    festivo, igual se descuenta por la lista global).
+    ``dia_31_habil=False`` hace lo propio con el día 31 de cada mes. ``True`` o
+    ``None`` mantienen el cálculo general (la fecha cuenta; si es festivo, igual
+    se descuenta por la lista global).
     """
     total = (fin - inicio).days + 1
     if total <= 0:
         return 0
+
     inhabiles = dias_inhabiles()
-    if sabado_habil is False:
-        return sum(
-            1
-            for desplazamiento in range(total)
-            if (fecha := inicio + timedelta(days=desplazamiento)) not in inhabiles
-            and fecha.weekday() != 5  # 5 = sábado
-        )
-    if not inhabiles:
+    descuenta_sabado = sabado_habil is False
+    descuenta_31 = dia_31_habil is False
+    if not inhabiles and not descuenta_sabado and not descuenta_31:
         return total
+
     return sum(
-        1 for desplazamiento in range(total) if inicio + timedelta(days=desplazamiento) not in inhabiles
+        1
+        for desplazamiento in range(total)
+        if (fecha := inicio + timedelta(days=desplazamiento)) not in inhabiles
+        and not (descuenta_sabado and fecha.weekday() == 5)  # 5 = sábado
+        and not (descuenta_31 and fecha.day == 31)
     )

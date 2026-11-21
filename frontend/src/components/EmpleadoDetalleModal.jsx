@@ -71,9 +71,12 @@ export default function EmpleadoDetalleModal({ show, asignacion, onHide, onAsign
   const estado = ETIQUETA_ESTADO[asignacion.estado] ?? ETIQUETA_ESTADO.pendiente
   const periodos = asignacion.periodos ?? []
   /* Los días se muestran descontando las fechas inactivas y, para un empleado de
-     Colmena sin sábado hábil, también los sábados: es el mismo total que calcula
-     y guarda el servidor. */
-  const opcionesDias = { sabadoHabil: asignacion.sabadoHabil }
+     Colmena sin sábado hábil, también los sábados; para la empresa 4 sin día 31
+     hábil, también el día 31. Es el mismo total que calcula y guarda el servidor. */
+  const opcionesDias = {
+    sabadoHabil: asignacion.sabadoHabil,
+    dia31Habil: asignacion.dia31Habil,
+  }
   const totalDias = periodos.reduce(
     (suma, periodo) => suma + (calcularDias(periodo, diasInhabiles, opcionesDias) ?? 0),
     0,

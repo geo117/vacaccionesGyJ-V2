@@ -92,6 +92,10 @@ Los días **nunca** se escriben a mano: se derivan de las fechas.
   cuenta: `NO` lo descuenta (como un domingo) y `SI` lo cuenta. La fila trae
   `sabadoHabil` y `utils/periodos.js` lo aplica; el backend recalcula con la
   misma regla al guardar.
+* Para los empleados de la **empresa 4**, `DIA 31 HABIL` decide si el día 31
+  cuenta: `NO` lo descuenta y `SI` lo cuenta. La fila trae `dia31Habil` (sólo en
+  filas de Colmena) y `utils/periodos.js` lo aplica con la misma regla del
+  backend.
 * El cálculo se hace en UTC, para que el cambio de horario de verano no añada ni
   quite un día.
 * Un período a medias se muestra como "Incompleto", no como 0: "no programado" y

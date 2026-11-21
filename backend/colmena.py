@@ -13,10 +13,16 @@ Reglas que aplica este módulo:
   ``data filial/filial.json``. También es un filtro por cédula: la unión de las
   cédulas de las dos entradas de ese correo.
 
-Además, cada colaborador de ``colmena.json`` trae ``SABADO HABIL``. Ese dato
-decide si los sábados cuentan como día de vacaciones: ``SI`` los cuenta (trabaja
-sábados) y ``NO`` los descuenta, igual que un domingo (ver
-:func:`dias_inhabiles.dias_habiles`).
+Además, cada colaborador de ``colmena.json`` trae ``SABADO HABIL`` y
+``DIA 31 HABIL``. Esos datos deciden qué fechas cuentan como día de vacaciones:
+
+* ``SABADO HABIL``: ``SI`` cuenta los sábados (trabaja sábados) y ``NO`` los
+  descuenta, igual que un domingo.
+* ``DIA 31 HABIL``: ``SI`` cuenta el día 31 de los meses que lo tienen y ``NO``
+  lo descuenta. La regla sólo se aplica a los colaboradores de la **empresa 4**
+  (Colmena), que son los que trae este archivo.
+
+Ver :func:`dias_inhabiles.dias_habiles`.
 
 Los archivos se cachean al primer uso (igual que ``fechas_inactivas.json``). Si
 se editan, hay que reiniciar el backend para que el login y el tablero los tomen.
@@ -31,6 +37,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Sequence
 
+from employees import empresa_de_unes
 from filial import FILIAL_JSON_PATH, normalizar_cedula
 
 logger = logging.getLogger(__name__)
@@ -40,6 +47,12 @@ COLMENA_JSON_PATH = Path(__file__).resolve().parent / "data colmena" / "colmena.
 
 # Campo de `colmena.json` que dice si el sábado es día hábil para el colaborador.
 SABADO_HABIL_CAMPO = "SABADO HABIL"
+
+# Campo que dice si el día 31 es hábil. Sólo aplica a la empresa 4 (Colmena).
+DIA_31_HABIL_CAMPO = "DIA 31 HABIL"
+
+# Empresa cuyos colaboradores trae `colmena.json`: el primer dígito de `IDCia_CO`.
+EMPRESA_COLMENA = "4"
 
 # Correos de dirección que ven la unión de los dos archivos de colaboradores.
 DIRECCION_GRUPO = frozenset(
@@ -130,7 +143,7 @@ def cargar_filial() -> dict[str, frozenset[str]]:
 
 
 def _a_booleano(valor: Any) -> bool | None:
-    """``SI``/``NO`` de ``SABADO HABIL`` como booleano; ``None`` si no se reconoce."""
+    """``SI``/``NO`` de los campos hábiles como booleano; ``None`` si no se reconoce."""
     texto = str(valor or "").strip().lower()
     if texto in {"si", "sí", "s", "1", "true", "yes", "y", "habil", "hábil"}:
         return True
@@ -139,13 +152,13 @@ def _a_booleano(valor: Any) -> bool | None:
     return None
 
 
-def cargar_sabados() -> dict[str, bool]:
-    """Lee ``SABADO HABIL`` de cada colaborador de ``colmena.json`` (sin caché).
+def _cargar_booleanos(campo: str) -> dict[str, bool]:
+    """Lee un campo ``SI``/``NO`` de cada colaborador de ``colmena.json``.
 
-    Devuelve ``cédula → True/False``. ``True`` significa que el sábado es hábil y
-    por tanto cuenta como día de vacaciones; ``False`` que no se trabaja y debe
-    descontarse. Una cédula sin el campo (o sin valor reconocible) no entra al
-    mapa: el cálculo sigue con la regla general.
+    Devuelve ``cédula → True/False``. Una cédula sin el campo (o sin valor
+    reconocible) no entra al mapa: el cálculo sigue con la regla general. La
+    primera aparición manda; en el archivo no hay cédulas repetidas con valores
+    distintos.
     """
     try:
         if not COLMENA_JSON_PATH.is_file():
@@ -165,15 +178,23 @@ def cargar_sabados() -> dict[str, bool]:
                 cedula = normalizar_cedula(colaborador.get("cedula"))
                 if not cedula:
                     continue
-                valor = _a_booleano(colaborador.get(SABADO_HABIL_CAMPO))
+                valor = _a_booleano(colaborador.get(campo))
                 if valor is not None:
-                    # La primera aparición manda; en el archivo no hay cédulas
-                    # repetidas con valores distintos.
                     por_cedula.setdefault(cedula, valor)
         return por_cedula
     except Exception:  # noqa: BLE001
-        logger.exception("Error leyendo SABADO HABIL de colmena.json")
+        logger.exception("Error leyendo %s de colmena.json", campo)
         return {}
+
+
+def cargar_sabados() -> dict[str, bool]:
+    """Lee ``SABADO HABIL`` de cada colaborador de ``colmena.json`` (sin caché)."""
+    return _cargar_booleanos(SABADO_HABIL_CAMPO)
+
+
+def cargar_dias_31() -> dict[str, bool]:
+    """Lee ``DIA 31 HABIL`` de cada colaborador de ``colmena.json`` (sin caché)."""
+    return _cargar_booleanos(DIA_31_HABIL_CAMPO)
 
 
 @lru_cache(maxsize=1)
@@ -181,9 +202,19 @@ def _sabados() -> dict[str, bool]:
     return cargar_sabados()
 
 
+@lru_cache(maxsize=1)
+def _dias_31() -> dict[str, bool]:
+    return cargar_dias_31()
+
+
 def sabado_habil(cedula: Any) -> bool | None:
     """¿El sábado es hábil para esta cédula? ``None`` si no está en el archivo."""
     return _sabados().get(normalizar_cedula(cedula))
+
+
+def dia_31_habil(cedula: Any) -> bool | None:
+    """¿El día 31 es hábil para esta cédula? ``None`` si no está en el archivo."""
+    return _dias_31().get(normalizar_cedula(cedula))
 
 
 def anotar_sabado_habil(
@@ -204,6 +235,41 @@ def anotar_sabado_habil(
         valor = sabados.get(normalizar_cedula(fila.get("identificacion")))
         salida.append({**fila, "sabadoHabil": valor} if valor is not None else fila)
     return salida
+
+
+def anotar_dia_31_habil(
+    filas: Sequence[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Devuelve las filas de la empresa 4 con ``dia31Habil``.
+
+    La regla del día 31 es exclusiva de **Colmena (empresa 4)**. Se comprueba en
+    la UNE de cada fila (``'4-301'`` → ``4``) y, si la cédula no está en el
+    archivo, la fila queda sin el campo: el cálculo general cuenta el día 31.
+    """
+    dias = _dias_31()
+    if not dias:
+        return list(filas)
+
+    salida: list[dict[str, Any]] = []
+    for fila in filas:
+        if empresa_de_unes(fila.get("unes")) != EMPRESA_COLMENA:
+            salida.append(fila)
+            continue
+        valor = dias.get(normalizar_cedula(fila.get("identificacion")))
+        salida.append({**fila, "dia31Habil": valor} if valor is not None else fila)
+    return salida
+
+
+def anotar_reglas_colmena(
+    filas: Sequence[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Anota ``sabadoHabil`` y ``dia31Habil`` con las reglas de Colmena.
+
+    Se usa tanto en el tablero como en las respuestas de una asignación concreta:
+    si el navegador recibe la fila guardada sin estos campos, la próxima
+    previsualización calcularía los días con otra regla.
+    """
+    return anotar_dia_31_habil(anotar_sabado_habil(filas))
 
 
 def cedulas_direccion(correo: Any) -> frozenset[str]:

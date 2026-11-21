@@ -32,7 +32,7 @@ from auth import AuthService
 from colmena import (
     TIPO_GRUPO,
     alcance_de,
-    anotar_sabado_habil,
+    anotar_reglas_colmena,
     correo_en_colmena,
     filtrar_filas,
 )
@@ -920,6 +920,19 @@ def create_app(settings: Settings | None = None) -> Flask:
             download_name=nombre,
         )
 
+    def _anotar_asignacion(
+        asignacion: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        """Agrega ``sabadoHabil`` y ``dia31Habil`` a una asignación de la API.
+
+        Las reglas de Colmena viajan también en las respuestas de crear, guardar
+        y decidir: si la fila que reemplaza el estado del navegador perdiera esos
+        campos, la próxima previsualización calcularía los días con otra regla.
+        """
+        if not asignacion:
+            return asignacion
+        return anotar_reglas_colmena([asignacion])[0]
+
     @app.get("/api/asignaciones")
     @require_auth
     def listar_asignaciones():
@@ -968,9 +981,9 @@ def create_app(settings: Settings | None = None) -> Flask:
             empresa=empresa,
         )
         filas = filtrar_filas(filas, alcance_colmena)
-        # SABADO HABIL de los empleados de Colmena: la pantalla lo usa para
-        # previsualizar los días con la misma regla que el servidor.
-        filas = anotar_sabado_habil(filas)
+        # SABADO HABIL y DIA 31 HABIL de los empleados de Colmena: la pantalla
+        # los usa para previsualizar los días con la misma regla que el servidor.
+        filas = anotar_reglas_colmena(filas)
 
         # El filtro por área es una herramienta de Talento Humano y del admin:
         # sólo a ellos se les anotan las filas y se les envía la lista de áreas.
@@ -1013,7 +1026,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         asignacion = servicios().assignments.obtener(assignment_id)
         if asignacion is None:
             return fail("La asignación no existe.", code="ASIGNACION_NO_EXISTE", status=404)
-        return ok({"asignacion": asignacion})
+        return ok({"asignacion": _anotar_asignacion(asignacion)})
 
     @app.post("/api/asignaciones")
     @require_auth
@@ -1021,7 +1034,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         payload = _json_body()
         _, asignacion = servicios().assignments.crear(payload, current_user())
         servicios().notifications.avisar_asignacion(asignacion, current_user())
-        return ok({"asignacion": asignacion}, 201)
+        return ok({"asignacion": _anotar_asignacion(asignacion)}, 201)
 
     @app.put("/api/asignaciones/<int:assignment_id>/periodos")
     @require_auth
@@ -1054,7 +1067,7 @@ def create_app(settings: Settings | None = None) -> Flask:
             notificaciones.avisar_observacion(
                 asignacion, current_user(), observaciones_despues
             )
-        return ok({"asignacion": asignacion})
+        return ok({"asignacion": _anotar_asignacion(asignacion)})
 
     @app.post("/api/asignaciones/<int:assignment_id>/decision")
     @require_talento_humano
@@ -1069,7 +1082,7 @@ def create_app(settings: Settings | None = None) -> Flask:
             assignment_id, payload, current_user()
         )
         servicios().notifications.avisar_decision(asignacion, current_user())
-        return ok({"asignacion": asignacion})
+        return ok({"asignacion": _anotar_asignacion(asignacion)})
 
     @app.post("/api/asignaciones/<int:assignment_id>/periodos/<int:numero_periodo>/decision")
     @require_talento_humano
@@ -1092,7 +1105,7 @@ def create_app(settings: Settings | None = None) -> Flask:
             numero_periodo,
             str(payload.get("decision") or "").strip().lower(),
         )
-        return ok({"asignacion": asignacion})
+        return ok({"asignacion": _anotar_asignacion(asignacion)})
 
     # -- reportes descargables ----------------------------------------------
 

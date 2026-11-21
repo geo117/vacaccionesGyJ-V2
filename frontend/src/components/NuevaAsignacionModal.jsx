@@ -90,11 +90,13 @@ export default function NuevaAsignacionModal({
   /* Mismo cálculo que el servidor: se descuentan las fechas inactivas (domingos
      y festivos) para que la previsualización coincida con lo que se guarda. Si
      la fila trae `sabadoHabil === false` (empleado de Colmena que no trabaja
-     sábados), los sábados también se descuentan. */
+     sábados), los sábados también se descuentan; con `dia31Habil === false`
+     (empresa 4 sin día 31 hábil), el día 31 tampoco cuenta. */
   const sabadoHabil = inicial?.sabadoHabil
+  const dia31Habil = inicial?.dia31Habil
   const resumen = useMemo(
-    () => resumirPeriodos(periodos, diasInhabiles, { sabadoHabil }),
-    [periodos, sabadoHabil],
+    () => resumirPeriodos(periodos, diasInhabiles, { sabadoHabil, dia31Habil }),
+    [periodos, sabadoHabil, dia31Habil],
   )
 
   const ultimoDia = useMemo(() => {

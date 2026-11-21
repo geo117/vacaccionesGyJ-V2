@@ -17,6 +17,8 @@ import uuid
 from datetime import date, timedelta
 
 from app import create_app
+from assignments import normalizar_periodos
+from colmena import anotar_dia_31_habil
 from config import load_settings
 from db import Database
 from dias_inhabiles import dias_habiles
@@ -319,6 +321,48 @@ def main() -> int:
     check(
         "diciembre 2026 descuenta sus domingos y festivos (25 de 31)",
         dias_habiles(date(2026, 12, 1), date(2026, 12, 31)) == 25,
+    )
+    # DIA 31 HABIL: sólo deja de contar cuando el valor es NO. Sin dato, el día
+    # 31 sigue el cálculo general. Se usa marzo de 2026 (sin festivos en la
+    # lista) para aislar la regla.
+    check(
+        "DIA 31 HABIL = NO descuenta el día 31",
+        dias_habiles(date(2026, 3, 30), date(2026, 3, 31), dia_31_habil=False) == 1,
+    )
+    check(
+        "DIA 31 HABIL = SI cuenta el día 31",
+        dias_habiles(date(2026, 3, 30), date(2026, 3, 31), dia_31_habil=True) == 2,
+    )
+    check(
+        "sin dato de DIA 31 HABIL el día 31 cuenta",
+        dias_habiles(date(2026, 3, 30), date(2026, 3, 31)) == 2,
+    )
+
+    # La regla es exclusiva de la empresa 4: la misma cédula de Colmena con
+    # DIA 31 HABIL = NO descuenta el 31 en su empresa, pero no en otra.
+    _, total_colmena = normalizar_periodos(
+        [{"inicio": "2026-03-30", "fin": "2026-03-31"}],
+        identificacion="1030664218",
+        empresa="4",
+    )
+    _, total_otra = normalizar_periodos(
+        [{"inicio": "2026-03-30", "fin": "2026-03-31"}],
+        identificacion="1030664218",
+        empresa="2",
+    )
+    check("DIA 31 HABIL se aplica en la empresa 4", total_colmena == 1, str(total_colmena))
+    check("DIA 31 HABIL no se aplica en otras empresas", total_otra == 2, str(total_otra))
+
+    anotadas = anotar_dia_31_habil(
+        [
+            {"identificacion": "1030664218", "unes": "4-301"},
+            {"identificacion": "1030664218", "unes": "2-109"},
+        ]
+    )
+    check(
+        "dia31Habil sólo se anota en filas de la empresa 4",
+        anotadas[0].get("dia31Habil") is False and "dia31Habil" not in anotadas[1],
+        str(anotadas),
     )
 
     payload = {

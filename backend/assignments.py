@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from colmena import sabado_habil
+from colmena import EMPRESA_COLMENA, dia_31_habil, sabado_habil
 from db import Database, DatabaseUnavailable
 from dias_inhabiles import dias_habiles
 from employees import empresa_de_unes, unes_del_grupo
@@ -292,7 +292,7 @@ def fila_a_dict(fila: Any) -> dict[str, Any]:
 
 
 def normalizar_periodos(
-    periodos: Any, *, minimo: int = 1, identificacion: str = ""
+    periodos: Any, *, minimo: int = 1, identificacion: str = "", empresa: str = ""
 ) -> tuple[list[dict[str, Any]], int]:
     """Valida los tres períodos y **calcula los días a partir de las fechas**.
 
@@ -301,13 +301,19 @@ def normalizar_periodos(
     período de dos semanas.
 
     ``identificacion`` sirve para consultar ``SABADO HABIL`` en el archivo de
-    Colmena: si el colaborador no trabaja sábados, esos días no suman. Para
-    cualquier otra cédula el cálculo es el general.
+    Colmena: si el colaborador no trabaja sábados, esos días no suman.
+    ``empresa`` es el primer dígito de la UNE (``'4-301'`` → ``4``): ``DIA 31
+    HABIL`` sólo se aplica cuando es la empresa 4 (Colmena). Para cualquier otra
+    cédula o empresa el cálculo es el general.
 
     Devuelve ``(periodos, total_dias)``.
     """
     if not isinstance(periodos, list) or len(periodos) > 3:
         raise ValidationError("PERIODOS_INVALIDOS", "Se esperan hasta tres períodos.")
+
+    # Se consultan una vez por asignación, no una vez por período.
+    sabado = sabado_habil(identificacion)
+    dia31 = dia_31_habil(identificacion) if empresa == EMPRESA_COLMENA else None
 
     normalizados: list[dict[str, Any]] = []
     for indice, bruto in enumerate(periodos):
@@ -332,14 +338,15 @@ def normalizar_periodos(
         # Días inclusivos (del 1 al 5 son 5 días) menos los domingos y festivos
         # de `fechas_inactivas.json`: los inactivos no se disfrutan como
         # vacaciones. Para un empleado de Colmena con `SABADO HABIL = NO`, los
-        # sábados tampoco cuentan. Es la misma regla que aplica la interfaz, con
-        # la misma lista, para que lo guardado y lo mostrado no puedan discrepar.
+        # sábados tampoco cuentan, y con `DIA 31 HABIL = NO` tampoco el día 31.
+        # Es la misma regla que aplica la interfaz, con la misma lista, para que
+        # lo guardado y lo mostrado no puedan discrepar.
         normalizados.append(
             {
                 "inicio": inicio,
                 "fin": fin,
                 "dias": dias_habiles(
-                    inicio, fin, sabado_habil=sabado_habil(identificacion)
+                    inicio, fin, sabado_habil=sabado, dia_31_habil=dia31
                 ),
             }
         )
@@ -407,11 +414,11 @@ def fecha_regreso_sugerida(periodos: list[dict[str, Any]]) -> date | None:
 
 
 def validar_periodos_entrantes(
-    payload: dict[str, Any], *, identificacion: str = ""
+    payload: dict[str, Any], *, identificacion: str = "", empresa: str = ""
 ) -> dict[str, Any]:
     """Valida lo que llega al guardar períodos de una asignación existente."""
     periodos, total = normalizar_periodos(
-        payload.get("periodos"), identificacion=identificacion
+        payload.get("periodos"), identificacion=identificacion, empresa=empresa
     )
     fecha_regreso = _a_date(payload.get("fechaIngreso"), "ingreso") or fecha_regreso_sugerida(periodos)
     return {
@@ -681,6 +688,7 @@ class AssignmentService:
             payload.get("periodos"),
             minimo=1,
             identificacion=datos["identificacion"],
+            empresa=empresa_de_unes(datos["unes"]),
         )
         # La fecha de regreso se toma de la petición si viene; si no, se calcula.
         fecha_regreso = (
@@ -704,7 +712,9 @@ class AssignmentService:
         if actual is None:
             raise ValidationError("ASIGNACION_NO_EXISTE", "La asignación ya no existe.")
         validado = validar_periodos_entrantes(
-            payload, identificacion=actual.get("identificacion", "")
+            payload,
+            identificacion=actual.get("identificacion", ""),
+            empresa=empresa_de_unes(actual.get("unes", "")),
         )
         afectadas = self._repository.guardar_periodos(assignment_id, validado, usuario.nombre)
         if afectadas == 0:

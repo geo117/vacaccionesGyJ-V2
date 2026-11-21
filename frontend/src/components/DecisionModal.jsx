@@ -144,11 +144,13 @@ export default function DecisionModal({
   const [errorPeriodo, setErrorPeriodo] = useState(null)
 
   // Días hábiles: la misma lista de fechas inactivas que usa el servidor y, si
-  // el empleado de Colmena no trabaja sábados, los sábados también se descuentan.
+  // el empleado de Colmena no trabaja sábados, los sábados también se descuentan;
+  // para la empresa 4 sin día 31 hábil, el día 31 tampoco.
   const resumen = useMemo(
     () =>
       resumirPeriodos(asignacion?.periodos ?? [], diasInhabiles, {
         sabadoHabil: asignacion?.sabadoHabil,
+        dia31Habil: asignacion?.dia31Habil,
       }),
     [asignacion],
   )
