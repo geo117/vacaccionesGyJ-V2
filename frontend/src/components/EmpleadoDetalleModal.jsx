@@ -5,6 +5,10 @@
  * días ya calculados y, cuando la asignación fue rechazada, el motivo en un
  * recuadro para que no se pierda entre los datos.
  *
+ * El botón «Asignar fechas» sólo se dibuja si `puedeEditar` es verdadero. Con
+ * `act_edicion = 'no'` la ficha queda como consulta pura y el servidor también
+ * rechaza cualquier intento de programar períodos.
+ *
  * Dos campos son **deducidos, no guardados**:
  *
  *  - «Aplica licencia». No hay columna para esto en la base y no hace falta: es
@@ -65,7 +69,13 @@ function Campo({ etiqueta, valor, tono }) {
   )
 }
 
-export default function EmpleadoDetalleModal({ show, asignacion, onHide, onAsignar }) {
+export default function EmpleadoDetalleModal({
+  show,
+  asignacion,
+  onHide,
+  onAsignar,
+  puedeEditar = true,
+}) {
   if (!asignacion) return null
 
   const estado = ETIQUETA_ESTADO[asignacion.estado] ?? ETIQUETA_ESTADO.pendiente
@@ -178,13 +188,22 @@ export default function EmpleadoDetalleModal({ show, asignacion, onHide, onAsign
       </Modal.Body>
 
       <Modal.Footer>
+        {/* Sin edición habilitada el botón no se muestra: la ficha queda como
+            vista de consulta, que es exactamente lo que permite `act_edicion`. */}
+        {!puedeEditar ? (
+          <p className="acciones__nota" style={{ marginRight: 'auto' }}>
+            La edición de fechas está deshabilitada para tu usuario.
+          </p>
+        ) : null}
         <Button variant="outline-secondary" onClick={onHide}>
           Cerrar
         </Button>
-        <Button variant="primary" onClick={() => onAsignar(asignacion)}>
-          <Icon name="editarFechas" size={18} />
-          Asignar fechas
-        </Button>
+        {puedeEditar ? (
+          <Button variant="primary" onClick={() => onAsignar(asignacion)}>
+            <Icon name="editarFechas" size={18} />
+            Asignar fechas
+          </Button>
+        ) : null}
       </Modal.Footer>
     </Modal>
   )

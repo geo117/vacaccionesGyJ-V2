@@ -47,6 +47,7 @@ const POR_PAGINA = 10
 /** Mensajes por código de error del backend. */
 const MENSAJES = {
   CORREO_DUPLICADO: 'Ya existe un usuario con ese correo. Usa otro o edita el existente.',
+  EDICION_DESHABILITADA: 'La edición de fechas está deshabilitada para este usuario.',
   NOMBRE_REQUERIDO: 'Escribe el nombre completo.',
   CARGO_REQUERIDO: 'Escribe el cargo.',
   COMPANY_REQUERIDA: 'Selecciona la empresa del usuario.',
@@ -314,6 +315,58 @@ export default function AdministracionPage() {
     }
   }
 
+  /**
+   * Habilita o bloquea la edición de fechas de una cuenta.
+   *
+   * No es lo mismo que activar o desactivar: la persona sigue pudiendo entrar y
+   * consultar. Sólo cambia si puede programar o modificar períodos. Es la llave
+   * que el corte del 1 de diciembre de 2026 deja cerrada para los cargos sin
+   * privilegios.
+   */
+  async function handleCambiarEdicion(usuario, actEdicion) {
+    const nombre = usuario.nombre
+    const confirmacion = await Swal.fire({
+      ...SWAL_BASE,
+      icon: 'question',
+      title: actEdicion ? '¿Activar la edición de fechas?' : '¿Desactivar la edición de fechas?',
+      html: actEdicion
+        ? `<strong>${nombre}</strong> podrá programar y modificar períodos de vacaciones.`
+        : `<strong>${nombre}</strong> podrá entrar y consultar, pero no programar ni modificar períodos.<br /><span style="color:#5a6b7b">Su sesión abierta no se cierra.</span>`,
+      showCancelButton: true,
+      confirmButtonText: actEdicion ? 'Sí, activar' : 'Sí, desactivar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: actEdicion ? '#003366' : '#a81f2b',
+      reverseButtons: true,
+      focusCancel: true,
+    })
+    if (!confirmacion.isConfirmed) return
+
+    try {
+      await usuariosApi.cambiarEdicion(usuario.id, actEdicion)
+      await recargar()
+      await Swal.fire({
+        ...SWAL_BASE,
+        icon: 'success',
+        title: actEdicion ? 'Edición activada' : 'Edición desactivada',
+        text: actEdicion
+          ? 'La persona ya puede programar y modificar períodos.'
+          : 'La persona puede consultar, pero no editar fechas.',
+        confirmButtonText: 'Listo',
+        timer: 4000,
+        timerProgressBar: true,
+      })
+    } catch (error) {
+      const codigo = error instanceof ApiError ? error.code : null
+      await Swal.fire({
+        ...SWAL_BASE,
+        icon: 'error',
+        title: 'No se pudo cambiar la edición',
+        text: MENSAJES[codigo] ?? (error instanceof ApiError ? error.message : 'Intenta de nuevo.'),
+        confirmButtonText: 'Entendido',
+      })
+    }
+  }
+
   async function handleEliminar(usuario) {
     const confirmacion = await Swal.fire({
       ...SWAL_BASE,
@@ -496,6 +549,10 @@ export default function AdministracionPage() {
                   const esTh = esTalentoHumano(usuario)
                   const esAdm = esAdministrador(usuario)
                   const estaActivo = usuario.activo !== false
+                  // `actEdicion` es la llave de la programación de fechas. El
+                  // corte del 1 de diciembre la deja en «no» a los cargos sin
+                  // privilegios; aquí el admin puede volver a abrirla.
+                  const editaFechas = usuario.actEdicion !== false
                   // Desactivar al último Talento Humano activo dejaría el
                   // sistema sin quien apruebe; desactivar al último admin, sin
                   // quien administre. El backend también lo rechaza.
@@ -598,6 +655,23 @@ export default function AdministracionPage() {
                                 >
                                   <Icon name={estaActivo ? 'desactivar' : 'activar'} size={16} />
                                   {estaActivo ? 'Desactivar' : 'Activar'}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="acciones__item"
+                                  onClick={() => {
+                                    setMenuAbierto(null)
+                                    handleCambiarEdicion(usuario, !editaFechas)
+                                  }}
+                                  title={
+                                    editaFechas
+                                      ? `Desactivar la edición de fechas de ${usuario.nombre}`
+                                      : `Activar la edición de fechas de ${usuario.nombre}`
+                                  }
+                                >
+                                  <Icon name={editaFechas ? 'bloqueo' : 'editar'} size={16} />
+                                  {editaFechas ? 'Desactivar edición' : 'Activar edición'}
                                 </button>
 
                                 <hr className="acciones__separador" />

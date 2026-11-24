@@ -48,7 +48,7 @@ from employees import (
 )
 from filial import filtrar_por_filial
 from notifications import NotificationService
-from plazos import debe_desactivar
+from plazos import debe_aplicar_corte
 from reports import generar_pdf_reporte_vacaciones, generar_plano_unoee
 from security import ValidationError, hash_password, normalize_email, validate_password
 from temporales import anotar_temporales
@@ -168,6 +168,33 @@ def require_auth(view: F) -> F:
         g.current_session = sesion
         g.current_user = sesion.user
         g.session_token = token
+        return view(*args, **kwargs)
+
+    return wrapper  # type: ignore[return-value]
+
+
+def require_edicion(view: F) -> F:
+    """Exige que la cuenta tenga la edición de fechas habilitada.
+
+    `act_edicion` vive en la base y se refresca en cada petición. Deshabilitarla
+    no cierra la sesión ni impide consultar: sólo bloquea programar o modificar
+    períodos. Ocultar los botones en el navegador no es el control; esto sí.
+    """
+
+    @require_auth
+    @wraps(view)
+    def wrapper(*args: Any, **kwargs: Any):
+        if not current_user().puede_editar:
+            logger.warning(
+                "Edición de fechas deshabilitada para el usuario id=%s.",
+                current_user().id,
+            )
+            return fail(
+                "La edición de fechas está deshabilitada para tu usuario. "
+                "Pídele a administración que la active.",
+                code="EDICION_DESHABILITADA",
+                status=403,
+            )
         return view(*args, **kwargs)
 
     return wrapper  # type: ignore[return-value]
@@ -344,20 +371,22 @@ def create_app(settings: Settings | None = None) -> Flask:
     services = _Services()
 
     # Corte de vacaciones colectivas. Se aplica una vez por proceso y por día:
-    # cuando ya pasó la fecha límite, desactiva a todos menos admin y Talento
-    # Humano. El aviso de la interfaz es informativo; el corte es del servidor.
+    # cuando ya pasó la fecha límite, inicializa `act_edicion` para que sólo
+    # admin y Talento Humano sigan programando fechas. Las cuentas **no** se
+    # desactivan: `activo` se queda en 'si'. El aviso de la interfaz es
+    # informativo; el corte es del servidor.
     _ultimo_corte_usuarios: date | None = None
 
     def aplicar_corte_usuarios() -> None:
         nonlocal _ultimo_corte_usuarios
         hoy = date.today()
-        if not debe_desactivar(hoy) or _ultimo_corte_usuarios == hoy:
+        if not debe_aplicar_corte(hoy) or _ultimo_corte_usuarios == hoy:
             return
         try:
-            cambiados = services.users.desactivar_sin_privilegios()
+            cambiados = services.users.aplicar_corte_edicion()
             _ultimo_corte_usuarios = hoy
             logger.warning(
-                "Corte de vacaciones colectivas (%s): %d cuentas desactivadas.",
+                "Corte de vacaciones colectivas (%s): %d cuentas con edición inicializada.",
                 hoy.isoformat(),
                 cambiados,
             )
@@ -482,6 +511,8 @@ def create_app(settings: Settings | None = None) -> Flask:
                     "GET    /api/usuarios",
                     "POST   /api/usuarios",
                     "PUT    /api/usuarios/{id}",
+                    "PATCH  /api/usuarios/{id}/activo",
+                    "PATCH  /api/usuarios/{id}/edicion",
                     "DELETE /api/usuarios/{id}",
                 ],
             }
@@ -743,6 +774,30 @@ def create_app(settings: Settings | None = None) -> Flask:
                 "sesionesCerradas": cerradas,
             }
         )
+
+    @app.patch("/api/usuarios/<int:user_id>/edicion")
+    @require_admin
+    def cambiar_edicion_usuario(user_id: int):
+        """Activa o desactiva la edición de fechas de una cuenta.
+
+        `act_edicion` no cierra sesiones ni cambia el acceso: la cuenta sigue
+        entrando y consultando. Sólo habilita o bloquea programar y modificar
+        períodos. El corte del 1 de diciembre la deja en 'no' para los cargos
+        sin privilegios, y el admin puede volver a activarla aquí.
+        """
+        payload = _json_body()
+        repositorio: UserRepository = servicios().users
+        actual = repositorio.find_by_id(user_id)
+        if actual is None:
+            return fail("El usuario no existe.", code="USUARIO_NO_EXISTE", status=404)
+
+        act_edicion = a_booleano(
+            payload.get("actEdicion", payload.get("act_edicion")),
+            por_defecto=not actual.act_edicion,
+        )
+        repositorio.actualizar_act_edicion(user_id, act_edicion)
+        actualizado = repositorio.find_by_id(user_id)
+        return ok({"usuario": actualizado.to_public_dict() if actualizado else None})
 
     @app.delete("/api/usuarios/<int:user_id>")
     @require_admin
@@ -1029,7 +1084,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         return ok({"asignacion": _anotar_asignacion(asignacion)})
 
     @app.post("/api/asignaciones")
-    @require_auth
+    @require_edicion
     def crear_asignacion():
         payload = _json_body()
         _, asignacion = servicios().assignments.crear(payload, current_user())
@@ -1037,7 +1092,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         return ok({"asignacion": _anotar_asignacion(asignacion)}, 201)
 
     @app.put("/api/asignaciones/<int:assignment_id>/periodos")
-    @require_auth
+    @require_edicion
     def guardar_periodos(assignment_id: int):
         payload = _json_body()
         antes = servicios().assignments.obtener(assignment_id)

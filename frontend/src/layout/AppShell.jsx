@@ -20,9 +20,13 @@
  *    allí se marcan como vistas y el contador se apaga.
  *  - El contenido arranca con `id="contenido"` para que el enlace de salto
  *    funcione desde el primer tabulador.
+ *  - Al iniciar una sesión durante los seis días previos al **1 de diciembre de
+ *    2026** se muestra una sola vez el aviso de vacaciones colectivas con la
+ *    cuenta regresiva. El shell se monta una vez al entrar a la aplicación, así
+ *    que el aviso no reaparece al navegar entre vistas.
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Offcanvas from 'react-bootstrap/Offcanvas'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
@@ -30,6 +34,11 @@ import { useAuth } from '../auth/useAuth'
 import Icon from '../components/Icon'
 import { useNotificaciones } from '../notifications/useNotificaciones'
 import { navItemsPara } from '../services/navigation'
+import {
+  debeMostrarAviso,
+  diasHastaLimite,
+  textoCuentaRegresiva,
+} from '../utils/vacaciones_colectivas'
 
 function initials(nombre) {
   return (nombre || '')
@@ -53,6 +62,31 @@ export default function AppShell() {
 
   /* El menú arranca cerrado: al entrar a la aplicación no hay nada abierto. */
   const [navAbierto, setNavAbierto] = useState(false)
+
+  /* Aviso de vacaciones colectivas: se muestra al iniciar la sesión, en los
+     seis días previos al 1 de diciembre de 2026. El shell se monta una sola vez
+     al entrar a la aplicación; el ref evita que el doble efecto de StrictMode lo
+     dispare dos veces. Es informativo: el corte de edición lo aplica el backend. */
+  const avisoMostrado = useRef(false)
+  useEffect(() => {
+    if (avisoMostrado.current || !debeMostrarAviso()) return
+    avisoMostrado.current = true
+    const dias = diasHastaLimite()
+    Swal.fire({
+      icon: 'warning',
+      title: 'Vacaciones colectivas',
+      html: `
+        <p style="margin:0 0 12px">
+          Se acaba el tiempo de asignar las vacaciones colectivas; regístralas antes del
+          <strong>1 de diciembre de 2026</strong>.
+        </p>
+        <p style="margin:0;color:#5a6b7b">${textoCuentaRegresiva(dias)} para el cierre.</p>
+      `,
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#003366',
+      customClass: { popup: 'gv-swal' },
+    })
+  }, [])
 
   // El menú se arma con el cargo que confirmó el servidor: «Administración»
   // sólo existe en la lista para el admin.

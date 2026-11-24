@@ -26,6 +26,8 @@ export const MENSAJES_ASIGNACIONES = {
   PLANILLA_PENDIENTE_APROBACION:
     'La planilla estará disponible cuando todas las vacaciones de tu UNES estén aprobadas.',
   FORBIDDEN_ROLE: 'Aprobar o rechazar está reservado a Talento Humano y administración.',
+  EDICION_DESHABILITADA:
+    'La edición de fechas está deshabilitada para tu usuario. Pídele a administración que la active.',
   CAMPO_LARGO: 'Uno de los textos supera el largo permitido.',
   CAMPO_REQUERIDO: 'Falta un dato obligatorio.',
   FECHA_INVALIDA: 'Una de las fechas no es válida.',

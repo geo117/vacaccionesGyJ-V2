@@ -283,6 +283,20 @@ export const usuariosApi = {
       auth: true,
     })
   },
+  /**
+   * Habilita o bloquea la edición de fechas de la cuenta.
+   *
+   * No toca el acceso: la persona sigue entrando y consultando. Sólo permite o
+   * impide programar períodos. El corte del 1 de diciembre de 2026 la deja en
+   * «no» para los cargos sin privilegios.
+   */
+  cambiarEdicion(id, actEdicion) {
+    return request(`/api/usuarios/${id}/edicion`, {
+      method: 'PATCH',
+      body: { actEdicion },
+      auth: true,
+    })
+  },
   eliminar(id) {
     return request(`/api/usuarios/${id}`, { method: 'DELETE', auth: true })
   },

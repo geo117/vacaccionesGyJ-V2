@@ -38,6 +38,18 @@
 			"empleado": "TORRES  SANCHEZ  PAULA VANESSA",
 			"cargo": "APRENDIZ SENA",
 			"area": "AUDITORIA SUELDOS"
+		},
+		{
+			"cedula": 1012417121,
+			"empleado": "HERNANDEZ CARVAJAL ANDRES CAMILO",
+			"cargo": "APRENDIZ SENA",
+			"area": "AUDITORIA SUELDOS"
+		},
+		{
+			"cedula": 1022386341,
+			"empleado": "SANDOVAL VILLAMIL EDWIN MAURICIO",
+			"cargo": "AUDITOR DE INVENTARIOS",
+			"area": "AUDITORIA SUELDOS"
 		}
 	],
 	"CALIDAD SUELDOS": [
@@ -248,6 +260,18 @@
 		{
 			"cedula": 1010761536,
 			"empleado": "RIVERA MARQUEZ VALENTINA SOFIA",
+			"cargo": "APRENDIZ SENA",
+			"area": "CONTABILIDAD SUELDOS"
+		},
+		{
+			"cedula": 52902073,
+			"empleado": "GONZALEZ QUINTERO SANDRA LETICIA",
+			"cargo": "APRENDIZ SENA",
+			"area": "CONTABILIDAD SUELDOS"
+		},
+		{
+			"cedula": 1002925513,
+			"empleado": "MAMIAN MAMIAN EDWIN ALEJANDRO",
 			"cargo": "APRENDIZ SENA",
 			"area": "CONTABILIDAD SUELDOS"
 		}

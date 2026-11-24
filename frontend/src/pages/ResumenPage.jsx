@@ -6,9 +6,10 @@
  * para el admin, y los de la UNES de la sesión para cualquier otro cargo. Esta
  * vista no filtra: sólo presenta lo que recibe y ajusta los rótulos al alcance.
  *
- * Al entrar durante los seis días previos al **1 de diciembre de 2026** se
- * muestra un aviso de vacaciones colectivas con la cuenta regresiva. Pasada esa
- * fecha, el backend desactiva las cuentas que no sean admin ni Talento Humano.
+ * El aviso de vacaciones colectivas ya no vive en esta vista: se muestra al
+ * iniciar la sesión desde el shell (`AppShell`). Pasada la fecha límite del
+ * **1 de diciembre de 2026**, el backend deshabilita la edición de fechas a las
+ * cuentas que no sean admin ni Talento Humano; las cuentas siguen activas.
  *
  * Los cuatro indicadores son los mismos en ambos casos porque los resuelve la
  * misma consulta; lo que cambia es la unidad que cubren. «Usuarios registrados»
@@ -16,26 +17,19 @@
  * aplicación (que no llevan UNES: es un dato de la sesión).
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Alert from 'react-bootstrap/Alert'
 import Button from 'react-bootstrap/Button'
-import Swal from 'sweetalert2'
 import Icon from '../components/Icon'
 import { ApiError, resumenApi } from '../services/api'
 import { useAuth } from '../auth/useAuth'
 import { NUMERO } from '../utils/fechas'
-import {
-  debeMostrarAviso,
-  diasHastaLimite,
-  textoCuentaRegresiva,
-} from '../utils/vacaciones_colectivas'
 
 export default function ResumenPage() {
   const { veTodaLaPlantilla, unes } = useAuth()
   const [datos, setDatos] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState(null)
-  const avisoMostrado = useRef(false)
 
   const traerResumen = useCallback(async () => {
     try {
@@ -68,29 +62,6 @@ export default function ResumenPage() {
       vigente = false
     }
   }, [traerResumen])
-
-  /* Aviso de vacaciones colectivas: se muestra al entrar al resumen en los
-     seis días previos al 1 de diciembre de 2026. Es informativo; el corte de
-     cuentas lo aplica el backend cuando pasa la fecha. */
-  useEffect(() => {
-    if (cargando || avisoMostrado.current || !debeMostrarAviso()) return
-    avisoMostrado.current = true
-    const dias = diasHastaLimite()
-    Swal.fire({
-      icon: 'warning',
-      title: 'Vacaciones colectivas',
-      html: `
-        <p style="margin:0 0 12px">
-          Se acaba el tiempo de asignar las vacaciones colectivas; regístralas antes del
-          <strong>1 de diciembre de 2026</strong>.
-        </p>
-        <p style="margin:0;color:#5a6b7b">${textoCuentaRegresiva(dias)} para el cierre.</p>
-      `,
-      confirmButtonText: 'Entendido',
-      confirmButtonColor: '#003366',
-      customClass: { popup: 'gv-swal' },
-    })
-  }, [cargando])
 
   const totales = datos?.totales ?? {}
   // Sólo hay alcance por UNES cuando la persona no ve toda la plantilla y entró

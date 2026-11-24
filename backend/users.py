@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from db import Database
+from plazos import debe_aplicar_corte
 from security import ValidationError, normalize_email, validate_password
 
 logger = logging.getLogger(__name__)
@@ -60,13 +61,21 @@ VALORES_INACTIVO = {"no", "n", "0", "false", "falso", "inactivo", ""}
 ACTIVO_SI = "si"
 ACTIVO_NO = "no"
 
+# Edición de fechas. `act_edicion` es VARCHAR(10), igual que `activo`, y se
+# escribe con el mismo vocabulario. Una cuenta con `'no'` puede consultar pero
+# no programar ni modificar períodos.
+EDICION_SI = "si"
+EDICION_NO = "no"
+
 # Anchos reales de las columnas: se validan antes de escribir para no confiar en
 # que SQL Server vaya a truncar en silencio.
 NOMBRE_MAX = 100
 CORREO_MAX = 150
 CARGO_MAX = 60
 
-_SELECT_COLUMNS = "id, nombre, correo, cargo, activo, fecha_creacion, company"
+_SELECT_COLUMNS = (
+    "id, nombre, correo, cargo, activo, fecha_creacion, company, act_edicion"
+)
 
 _SELECT_BY_EMAIL = (
     f"SELECT {_SELECT_COLUMNS}, password_hash FROM {USERS_TABLE} WHERE LOWER(correo) = ?"
@@ -75,11 +84,13 @@ _SELECT_BY_ID = f"SELECT {_SELECT_COLUMNS} FROM {USERS_TABLE} WHERE id = ?"
 _SELECT_BY_CORREO = f"SELECT {_SELECT_COLUMNS} FROM {USERS_TABLE} WHERE LOWER(correo) = ?"
 _SELECT_ALL = f"SELECT {_SELECT_COLUMNS} FROM {USERS_TABLE} ORDER BY nombre"
 _INSERT = (
-    f"INSERT INTO {USERS_TABLE} (nombre, correo, password_hash, cargo, activo, company, fecha_creacion) "
-    "OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, GETDATE())"
+    f"INSERT INTO {USERS_TABLE} "
+    "(nombre, correo, password_hash, cargo, activo, company, act_edicion, fecha_creacion) "
+    "OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE())"
 )
 _UPDATE = f"UPDATE {USERS_TABLE} SET nombre = ?, correo = ?, cargo = ?, company = ? WHERE id = ?"
 _UPDATE_ACTIVO = f"UPDATE {USERS_TABLE} SET activo = ? WHERE id = ?"
+_UPDATE_EDICION = f"UPDATE {USERS_TABLE} SET act_edicion = ? WHERE id = ?"
 _UPDATE_PASSWORD = f"UPDATE {USERS_TABLE} SET password_hash = ? WHERE id = ?"
 _DELETE = f"DELETE FROM {USERS_TABLE} WHERE id = ?"
 _COUNT_BY_EMAIL = f"SELECT COUNT(*) FROM {USERS_TABLE} WHERE LOWER(correo) = ? AND id <> ?"
@@ -103,6 +114,24 @@ def es_activo(valor: object) -> bool:
     if valor is None or isinstance(valor, bool):
         return bool(valor)
     return str(valor).strip().lower() in VALORES_ACTIVO
+
+
+def es_editable(valor: object) -> bool:
+    """`act_edicion` → booleano.
+
+    La columna se agregó después de que ya existieran las cuentas, así que un
+    `NULL` (o vacío) significa «todavía no se aplicó el corte»: antes de la
+    fecha límite la edición está permitida. El corte del servidor escribe `'no'`
+    a los cargos sin privilegios; a partir de ahí manda ese valor explícito.
+    """
+    if valor is None:
+        return True
+    if isinstance(valor, bool):
+        return valor
+    texto = str(valor).strip().lower()
+    if not texto:
+        return True
+    return texto in VALORES_ACTIVO
 
 
 def company_desde_bd(valor: object) -> int:
@@ -161,6 +190,7 @@ class User:
     cargo: str
     activo: bool = False
     company: int = EMPRESA_POR_DEFECTO
+    act_edicion: bool = True
 
     @property
     def empresa(self) -> str:
@@ -195,6 +225,11 @@ class User:
         """
         return (self.es_talento_humano or self.es_admin) and self.activo
 
+    @property
+    def puede_editar(self) -> bool:
+        """¿Puede programar o modificar períodos?"""
+        return self.act_edicion
+
     def to_public_dict(self) -> dict[str, Any]:
         """Lo único que puede viajar al navegador."""
         return {
@@ -205,6 +240,8 @@ class User:
             "activo": self.activo,
             "company": self.company,
             "empresa": self.empresa,
+            "actEdicion": self.act_edicion,
+            "puedeEditar": self.puede_editar,
             "esTalentoHumano": self.es_talento_humano,
             "esAdmin": self.es_admin,
             "veTodaLaPlantilla": self.ve_toda_la_plantilla,
@@ -215,7 +252,8 @@ class User:
 def _fila_a_usuario(row: tuple[Any, ...]) -> User:
     """Mapea ``_SELECT_COLUMNS`` a ``User``.
 
-    El orden es ``id, nombre, correo, cargo, activo, fecha_creacion, company``.
+    El orden es ``id, nombre, correo, cargo, activo, fecha_creacion, company,
+    act_edicion``.
     """
     return User(
         id=int(row[0]),
@@ -224,6 +262,7 @@ def _fila_a_usuario(row: tuple[Any, ...]) -> User:
         cargo=str(row[3] or ""),
         activo=es_activo(row[4]),
         company=company_desde_bd(row[6]),
+        act_edicion=es_editable(row[7]),
     )
 
 
@@ -263,14 +302,14 @@ class UserRepository:
 
         Ojo con el índice: ``_SELECT_BY_EMAIL`` es
         ``id, nombre, correo, cargo, activo, fecha_creacion, company,
-        password_hash``, así que el hash va en la **posición 7**. Leerlo de otra
-        posición no falla: compara contra un valor que no es un hash y todo
-        inicio de sesión devuelve "credenciales incorrectas".
+        act_edicion, password_hash``, así que el hash va en la **posición 8**.
+        Leerlo de otra posición no falla: compara contra un valor que no es un
+        hash y todo inicio de sesión devuelve "credenciales incorrectas".
         """
         row = self._database.query_one(_SELECT_BY_EMAIL, (email,))
         if row is None:
             return None
-        return _fila_a_usuario(row), str(row[7] or "")
+        return _fila_a_usuario(row), str(row[8] or "")
 
     def find_by_id(self, user_id: int) -> User | None:
         row = self._database.query_one(_SELECT_BY_ID, (user_id,))
@@ -300,6 +339,7 @@ class UserRepository:
                 "fechaCreacion": row[5].isoformat() if row[5] else None,
                 "company": company_desde_bd(row[6]),
                 "empresa": etiqueta_empresa(row[6]),
+                "actEdicion": es_editable(row[7]),
                 "esTalentoHumano": normalizar_cargo(row[3]) == CARGO_TALENTO_HUMANO,
                 "esAdmin": normalizar_cargo(row[3]) == CARGO_ADMIN,
             }
@@ -351,7 +391,27 @@ class UserRepository:
         cargo: str,
         company: int,
         activo: bool = True,
+        act_edicion: bool | None = None,
     ) -> int:
+        if act_edicion is None:
+            # Admin y Talento Humano nacen con edición. Los demás se dejan sin
+            # valor antes del plazo (`NULL` = permitida) para que el corte del
+            # 1 de diciembre los alcance; creados después del corte, nacen en
+            # 'no'. El admin puede activarla en cualquier momento.
+            privilegiado = normalizar_cargo(cargo) in {
+                CARGO_ADMIN,
+                CARGO_TALENTO_HUMANO,
+            }
+            if privilegiado:
+                act_edicion = True
+            elif debe_aplicar_corte():
+                act_edicion = False
+
+        # `None` se guarda como NULL: antes del corte significa «edición
+        # permitida» y deja la fila lista para que el corte la resuelva.
+        valor_edicion = (
+            None if act_edicion is None else EDICION_SI if act_edicion else EDICION_NO
+        )
         with self._database.cursor(commit=True) as cursor:
             cursor.execute(
                 _INSERT,
@@ -362,6 +422,7 @@ class UserRepository:
                     cargo,
                     ACTIVO_SI if activo else ACTIVO_NO,
                     company,
+                    valor_edicion,
                 ),
             )
             row = cursor.fetchone()
@@ -379,17 +440,33 @@ class UserRepository:
             _UPDATE_ACTIVO, (ACTIVO_SI if activo else ACTIVO_NO, user_id)
         )
 
-    def desactivar_sin_privilegios(self) -> int:
-        """Corte de vacaciones colectivas: desactiva a todos menos admin y TH.
+    def actualizar_act_edicion(self, user_id: int, act_edicion: bool) -> int:
+        return self._database.execute(
+            _UPDATE_EDICION, (EDICION_SI if act_edicion else EDICION_NO, user_id)
+        )
 
-        Se aplica cuando ya pasó la fecha límite. Deja intactos los cargos que
-        administran el sistema y pone ``activo = 'no'`` al resto. Devuelve
-        cuántas filas tocó.
+    def aplicar_corte_edicion(self) -> int:
+        """Corte de vacaciones colectivas: inicializa ``act_edicion``.
+
+        Se aplica cuando ya pasó la fecha límite. Sólo toca las filas cuyo valor
+        todavía está vacío (`NULL` o cadena vacía): así el corte no deshace las
+        activaciones o desactivaciones que el administrador haya hecho después
+        desde la interfaz. `activo` **no** se modifica: las cuentas siguen
+        activas.
+
+        Devuelve cuántas filas tocó.
         """
         return self._database.execute(
-            "UPDATE dbo.Usuarios SET activo = ? "
-            "WHERE LOWER(LTRIM(RTRIM(ISNULL(cargo, '')))) NOT IN (?, ?)",
-            (ACTIVO_NO, CARGO_ADMIN, CARGO_TALENTO_HUMANO),
+            "UPDATE dbo.Usuarios SET act_edicion = CASE "
+            "WHEN LOWER(LTRIM(RTRIM(ISNULL(cargo, '')))) IN (?, ?) THEN ? "
+            "ELSE ? END "
+            "WHERE act_edicion IS NULL OR LTRIM(RTRIM(act_edicion)) = ''",
+            (
+                CARGO_ADMIN,
+                CARGO_TALENTO_HUMANO,
+                EDICION_SI,
+                EDICION_NO,
+            ),
         )
 
     def actualizar_password_hash(self, user_id: int, password_hash: str) -> int:

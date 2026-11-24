@@ -76,6 +76,7 @@ TABLAS_REQUERIDAS: dict[str, tuple[str, ...]] = {
         "activo",
         "fecha_creacion",
         "company",
+        "act_edicion",
     ),
     "dbo.asignacion_vacaciones": (
         "id",

@@ -10,13 +10,14 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 import {
-  debeDesactivarUsuarios,
+  debeAplicarCorteEdicion,
   debeMostrarAviso,
   diasHastaLimite,
   textoCuentaRegresiva,
 } from '../src/utils/vacaciones_colectivas.js'
 
 const RESUMEN = new URL('../src/pages/ResumenPage.jsx', import.meta.url)
+const SHELL = new URL('../src/layout/AppShell.jsx', import.meta.url)
 
 function fecha(anio, mes, dia) {
   return new Date(anio, mes - 1, dia, 12, 0, 0)
@@ -38,9 +39,9 @@ test('el aviso se muestra desde 6 días antes y hasta el día límite', () => {
   assert.equal(debeMostrarAviso(fecha(2026, 12, 2)), false)
 })
 
-test('el corte de cuentas empieza el día siguiente al límite', () => {
-  assert.equal(debeDesactivarUsuarios(fecha(2026, 12, 1)), false)
-  assert.equal(debeDesactivarUsuarios(fecha(2026, 12, 2)), true)
+test('el corte de edición empieza el día siguiente al límite', () => {
+  assert.equal(debeAplicarCorteEdicion(fecha(2026, 12, 1)), false)
+  assert.equal(debeAplicarCorteEdicion(fecha(2026, 12, 2)), true)
 })
 
 test('el texto de la cuenta regresiva concuerda en singular y plural', () => {
@@ -49,17 +50,23 @@ test('el texto de la cuenta regresiva concuerda en singular y plural', () => {
   assert.equal(textoCuentaRegresiva(0), 'Vence hoy')
 })
 
-test('el resumen muestra el aviso con SweetAlert2 y la cuenta regresiva', async () => {
-  const fuente = await readFile(RESUMEN, 'utf8')
+test('el aviso se muestra al iniciar sesión, no en el resumen', async () => {
+  const shell = await readFile(SHELL, 'utf8')
 
-  assert.ok(fuente.includes('Swal.fire('), 'el aviso debe usar SweetAlert2')
-  assert.ok(fuente.includes('debeMostrarAviso()'), 'debe respetar la ventana de 6 días')
+  assert.ok(shell.includes('Swal.fire('), 'el aviso debe usar SweetAlert2')
+  assert.ok(shell.includes('debeMostrarAviso()'), 'debe respetar la ventana de 6 días')
   assert.ok(
-    fuente.includes('textoCuentaRegresiva(dias)'),
+    shell.includes('textoCuentaRegresiva(dias)'),
     'el aviso debe incluir el contador de días',
   )
   assert.ok(
-    fuente.includes('1 de diciembre de 2026'),
+    shell.includes('1 de diciembre de 2026'),
     'el texto debe indicar la fecha límite',
+  )
+
+  const resumen = await readFile(RESUMEN, 'utf8')
+  assert.ok(
+    !resumen.includes('debeMostrarAviso') && !resumen.includes('Vacaciones colectivas'),
+    'el resumen ya no debe mostrar el aviso',
   )
 })

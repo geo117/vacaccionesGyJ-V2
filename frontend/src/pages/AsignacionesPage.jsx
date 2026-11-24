@@ -189,7 +189,8 @@ export default function AsignacionesPage() {
   const unesId = useId()
   const areaId = useId()
 
-  const { veTodaLaPlantilla, puedeAprobar, esAdmin, esTalentoHumano, unes } = useAuth()
+  const { veTodaLaPlantilla, puedeAprobar, puedeEditar, esAdmin, esTalentoHumano, unes } =
+    useAuth()
   const {
     filas,
     areas,
@@ -835,12 +836,24 @@ export default function AsignacionesPage() {
         </Alert>
       ) : null}
 
+      {!puedeEditar ? (
+        <Alert variant="warning" className="d-flex align-items-start gap-2" role="note">
+          <Icon name="bloqueo" size={18} />
+          <span>
+            La <strong>edición de fechas</strong> está deshabilitada para tu usuario: puedes
+            consultar la plantilla y la ficha de cada colaborador, pero no programar períodos.
+            Pídele a administración que active la edición.
+          </span>
+        </Alert>
+      ) : null}
+
       {!puedeAprobar ? (
         <Alert variant="info" className="d-flex align-items-start gap-2" role="note">
           <Icon name="info" size={18} />
           <span>
-            Tu cargo permite <strong>consultar</strong> y programar períodos. Aprobar o rechazar está
-            reservado a Talento Humano y administración.
+            Tu cargo permite <strong>consultar</strong>
+            {puedeEditar ? ' y programar períodos' : ''}. Aprobar o rechazar está reservado a
+            Talento Humano y administración.
           </span>
         </Alert>
       ) : null}
@@ -1139,10 +1152,21 @@ export default function AsignacionesPage() {
                                     Ver empleado
                                   </button>
 
+                                  {/* Sin edición habilitada, «Ver empleado» es la
+                                      única acción que cambia algo en pantalla: la
+                                      programación queda deshabilitada y el backend
+                                      también la rechaza. */}
                                   <button
                                     type="button"
                                     className="acciones__item"
+                                    disabled={!puedeEditar}
+                                    title={
+                                      puedeEditar
+                                        ? undefined
+                                        : 'La edición de fechas está deshabilitada para tu usuario'
+                                    }
                                     onClick={() => {
+                                      if (!puedeEditar) return
                                       setMenuAbierto(null)
                                       abrirFechas(fila)
                                     }}
@@ -1195,6 +1219,12 @@ export default function AsignacionesPage() {
                                         Ver motivo del rechazo
                                       </button>
                                     </>
+                                  ) : null}
+
+                                  {!puedeEditar ? (
+                                    <p className="acciones__nota">
+                                      La edición de fechas está deshabilitada para tu usuario.
+                                    </p>
                                   ) : null}
                                 </Popover.Body>
                               </Popover>
@@ -1304,8 +1334,10 @@ export default function AsignacionesPage() {
       <EmpleadoDetalleModal
         show={Boolean(empleadoAbierto)}
         asignacion={empleadoAbierto}
+        puedeEditar={puedeEditar}
         onHide={() => setEmpleadoAbierto(null)}
         onAsignar={(fila) => {
+          if (!puedeEditar) return
           setEmpleadoAbierto(null)
           abrirFechas(fila)
         }}

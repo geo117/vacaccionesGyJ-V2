@@ -119,6 +119,10 @@ export default function AuthProvider({ children }) {
   const esAdmin = Boolean(user?.esAdmin)
   const veTodaLaPlantilla = Boolean(user?.veTodaLaPlantilla)
   const puedeAprobar = Boolean(user?.puedeAprobar)
+  /* Edición de fechas. El servidor manda `actEdicion`; si la respuesta viniera
+     de una versión anterior sin el campo, no se bloquea la edición: el defecto
+     seguro en ese caso es el comportamiento que ya existía. */
+  const puedeEditar = user?.actEdicion !== false
   /* UNES digitada al entrar. No vive en la base: es un dato de la sesión y la
      usan los listados para filtrar. */
   const unes = String(user?.unes ?? '')
@@ -136,6 +140,7 @@ export default function AuthProvider({ children }) {
       esAdmin,
       veTodaLaPlantilla,
       puedeAprobar,
+      puedeEditar,
     }),
     [
       status,
@@ -149,6 +154,7 @@ export default function AuthProvider({ children }) {
       esAdmin,
       veTodaLaPlantilla,
       puedeAprobar,
+      puedeEditar,
     ],
   )
 

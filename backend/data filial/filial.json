@@ -6,7 +6,9 @@
 		{"cedula": 7709359, "empleado": "BERMEO MELGAR JOSE ONOFRE", "cargo": "AUDITOR DE INVENTARIOS", "area": "AUDITORIA SUELDOS"},
 		{"cedula": 80110648, "empleado": "RODRIGUEZ HERNANDEZ JACKSON ANDRES", "cargo": "DIRECTOR DE AUDITORIA", "area": "AUDITORIA SUELDOS"},
 		{"cedula": 80875765, "empleado": "RINCON ROJAS NELSON JAVIER", "cargo": "AUDITOR DE INVENTARIOS", "area": "AUDITORIA SUELDOS"},
-		{"cedula": 1026559446, "empleado": "TORRES  SANCHEZ  PAULA VANESSA", "cargo": "APRENDIZ SENA", "area": "AUDITORIA SUELDOS"}
+		{"cedula": 1026559446, "empleado": "TORRES  SANCHEZ  PAULA VANESSA", "cargo": "APRENDIZ SENA", "area": "AUDITORIA SUELDOS"},
+		{"cedula": 1012417121,"empleado": "HERNANDEZ CARVAJAL ANDRES CAMILO","cargo": "APRENDIZ SENA","area": "AUDITORIA SUELDOS"},
+		{"cedula": 1022386341,"empleado": "SANDOVAL VILLAMIL EDWIN MAURICIO","cargo": "AUDITOR DE INVENTARIOS","area": "AUDITORIA SUELDOS"}
 	],
 	"dir_calidad@gyj.com.co": [
 		{"cedula": 1022434079, "empleado": "VELOSA GUEVARA JUAN CARLOS", "cargo": "COORDINADOR SGI", "area": "CALIDAD SUELDOS"},
@@ -45,7 +47,9 @@
 		{"cedula": 1022357960, "empleado": "VAQUIRO MORENO DAVID SANTIAGO", "cargo": "APRENDIZ SENA", "area": "CONTABILIDAD SUELDOS"},
 		{"cedula": 1002474444, "empleado": "MANCERA  ARDILA  MARIA TERESA", "cargo": "APRENDIZ SENA", "area": "CONTABILIDAD SUELDOS"},
 		{"cedula": 1006859381, "empleado": "TORRES MORENO  ANDRES FELIPE", "cargo": "APRENDIZ SENA", "area": "CONTABILIDAD SUELDOS"},
-		{"cedula": 1010761536, "empleado": "RIVERA MARQUEZ VALENTINA SOFIA", "cargo": "APRENDIZ SENA", "area": "CONTABILIDAD SUELDOS"}
+		{"cedula": 1010761536, "empleado": "RIVERA MARQUEZ VALENTINA SOFIA", "cargo": "APRENDIZ SENA", "area": "CONTABILIDAD SUELDOS"},
+		{"cedula": 52902073,"empleado": "GONZALEZ QUINTERO SANDRA LETICIA","cargo": "APRENDIZ SENA","area": "CONTABILIDAD SUELDOS"},
+		{"cedula": 1002925513,"empleado": "MAMIAN MAMIAN EDWIN ALEJANDRO","cargo": "APRENDIZ SENA","area": "CONTABILIDAD SUELDOS"}
 	],
 	"gerencia@gyj.com.co": [
 		{"cedula": 1032498085, "empleado": "VARGAS RAMIREZ VALENTINA", "cargo": "GESTOR DE NEGOCIOS", "area": "GERENCIA COMERCIAL SUELDO"},

@@ -60,7 +60,8 @@ CREATE TABLE dbo.Usuarios (
     password_hash VARCHAR(255) NOT NULL,
     fecha_creacion DATETIME DEFAULT GETDATE(),
     cargo         VARCHAR(60) NULL,       -- 'admin' administra cuentas y opera como Talento Humano; 'talento humano' aprueba
-    activo        VARCHAR(10) NULL        -- 'si' / 'no': si no está activo, no puede entrar
+    activo        VARCHAR(10) NULL,       -- 'si' / 'no': si no está activo, no puede entrar
+    act_edicion   VARCHAR(10) NULL        -- 'si' / 'no': si es 'no', consulta pero no programa fechas
 );
 ```
 
@@ -75,6 +76,16 @@ afirmativas (`si`, `sí`, `s`, `1`, `true`, `verdadero`, `yes`, `y`, `activo`) y
 deliberado: ante la duda no se deja entrar a nadie. Al activar o desactivar se
 escribe `'si'` o `'no'`, así que esos dos valores son los que verás si lo haces
 desde la aplicación.
+
+**Sobre `act_edicion`:** es la llave de la programación de fechas, separada del
+acceso. Con `'no'` la cuenta entra y consulta, pero `POST /api/asignaciones` y
+`PUT /api/asignaciones/{id}/periodos` responden `403 EDICION_DESHABILITADA`. Un
+`NULL` o vacío significa «corte aún no aplicado» y se trata como `'si'`: antes
+del 1 de diciembre de 2026 todos programan. El corte del servidor escribe `'si'`
+a admin y Talento Humano y `'no'` al resto. Las cuentas nuevas de cargos sin
+privilegios nacen con `NULL` antes del corte y con `'no'` después, para que el
+corte también las alcance. La migración
+`migrations/20261123_act_edicion.sql` agrega la columna de forma idempotente.
 
 ```sql
 CREATE TABLE dbo.asignacion_vacaciones (
@@ -190,8 +201,8 @@ la interfaz.
 | `GET` | `/api/resumen` | Sesión | Totales de la empresa para Talento Humano y admin; los de la UNES de la sesión para el resto |
 | `GET` | `/api/asignaciones` | Sesión | Colaboradores de la UNES de la sesión; **toda la plantilla de su empresa** para Talento Humano y **la de todas las empresas** para el admin. Los correos de `data colmena/colmena.json` reciben sólo las cédulas de su equipo; la dirección, la unión de sus propias entradas en `colmena.json` y `filial.json`. Para Talento Humano y el admin incluye `areas` y el `area` de cada fila (GyJ: `data filial/areas_filial.json`; Colmena: `data colmena/areas_colmena.json`) |
 | `GET` | `/api/asignaciones/{id}` | Sesión | Una asignación |
-| `POST` | `/api/asignaciones` | Sesión | Registra una asignación nueva |
-| `PUT` | `/api/asignaciones/{id}/periodos` | Sesión | Programa los tres períodos |
+| `POST` | `/api/asignaciones` | Sesión + **edición habilitada** | Registra una asignación nueva |
+| `PUT` | `/api/asignaciones/{id}/periodos` | Sesión + **edición habilitada** | Programa los tres períodos |
 | `POST` | `/api/asignaciones/{id}/decision` | **Talento Humano o admin** | Aprueba o rechaza la asignación completa (todos los períodos) |
 | `POST` | `/api/asignaciones/{id}/periodos/{n}/decision` | **Talento Humano o admin** | Aprueba o rechaza un período concreto y recalcula el estado |
 | `GET` | `/api/reportes/planilla` | Sesión | Planilla de vacaciones en PDF (plantilla institucional). Filtra por la UNES pedida (`?unes=`) o por la de la sesión. Quien entra con UNES sólo puede generarla cuando todas las vacaciones de su UNES están aprobadas |
@@ -202,6 +213,7 @@ la interfaz.
 | `POST` | `/api/usuarios` | **Admin** | Crea un usuario |
 | `PUT` | `/api/usuarios/{id}` | **Admin** | Edita nombre, correo, cargo y/o contraseña |
 | `PATCH` | `/api/usuarios/{id}/activo` | **Admin** | Activa o desactiva la cuenta |
+| `PATCH` | `/api/usuarios/{id}/edicion` | **Admin** | Habilita o bloquea la edición de fechas (`act_edicion`) |
 | `DELETE` | `/api/usuarios/{id}` | **Admin** | Elimina y cierra sus sesiones |
 
 ## Las dos conexiones
@@ -394,14 +406,21 @@ aplica cuando el primer dígito de la UNE de la asignación es `4`, y sólo anot
 ## Plazo de vacaciones colectivas
 
 La fecha límite es el **1 de diciembre de 2026** (`plazos.py`). La interfaz
-muestra un aviso con cuenta regresiva desde seis días antes (`2026-11-25`).
+muestra un aviso con cuenta regresiva al iniciar sesión, desde seis días antes
+(`2026-11-25`).
 
 Cuando ya pasó el día límite (`2026-12-02` en adelante), el backend aplica una
-vez al día el **corte de cuentas**: en cualquier petición a la API se ejecuta
-`desactivar_sin_privilegios()`, que pone `activo = 'no'` a todos los usuarios
-cuyo `cargo` no sea `admin` ni `talento humano`. Esas cuentas quedan fuera en la
-siguiente petición, porque `authenticate` vuelve a leer el estado de la base.
-La fecha del corte se decide en el servidor; el navegador sólo muestra el aviso.
+vez al día el **corte de edición**: en cualquier petición a la API se ejecuta
+`aplicar_corte_edicion()`, que pone `act_edicion = 'no'` a los usuarios cuyo
+`cargo` no sea `admin` ni `talento humano`, y `'si'` a esos dos. **`activo` no se
+toca**: las cuentas siguen entrando y consultando. Lo único que se pierde es la
+programación de fechas, que el backend también rechaza con
+`403 EDICION_DESHABILITADA`.
+
+El corte sólo escribe en las filas cuyo `act_edicion` está vacío, así que no
+deshace las activaciones o desactivaciones que el admin haga después desde
+**Administración → Activar/Desactivar edición**. La fecha del corte se decide en
+el servidor; el navegador sólo muestra el aviso.
 
 ## Notificaciones
 
@@ -459,6 +478,10 @@ Dos protecciones más: no se puede desactivar el propio usuario
 Humano activo (`409 ULTIMO_TALENTO_HUMANO`) o sin ningún admin activo
 (`409 ULTIMO_ADMIN`). Esa última cuenta sólo los **activos**, así que degradar o
 eliminar a alguien ya desactivado no se bloquea.
+
+La **edición de fechas** se controla aparte con
+`PATCH /api/usuarios/{id}/edicion` y `{ "actEdicion": true | false }`. No cierra
+sesiones ni cambia el acceso: sólo permite o bloquea programar períodos.
 
 ### El cargo manda
 

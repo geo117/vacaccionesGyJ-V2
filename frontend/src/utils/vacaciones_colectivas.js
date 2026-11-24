@@ -1,9 +1,11 @@
 /**
  * Plazo de las vacaciones colectivas.
  *
- * La fecha límite es el **1 de diciembre de 2026**. El aviso de Resumen se
- * muestra desde seis días antes y el backend aplica el corte de cuentas cuando
- * ya pasó ese día. Este módulo es puro para poder probarlo con Node.
+ * La fecha límite es el **1 de diciembre de 2026**. El aviso se muestra al
+ * iniciar sesión desde seis días antes, y el backend aplica el corte de edición
+ * cuando ya pasó ese día: las cuentas siguen activas y sólo admin y Talento
+ * Humano conservan la programación de fechas. Este módulo es puro para poder
+ * probarlo con Node.
  */
 
 export const FECHA_LIMITE = '2026-12-01'
@@ -28,8 +30,8 @@ export function debeMostrarAviso(hoy = new Date()) {
   return dias >= 0 && dias <= DIAS_AVISO
 }
 
-/** Desde el 2 de diciembre de 2026 ya se aplica el corte de cuentas. */
-export function debeDesactivarUsuarios(hoy = new Date()) {
+/** Desde el 2 de diciembre de 2026 ya se aplica el corte de edición. */
+export function debeAplicarCorteEdicion(hoy = new Date()) {
   return diasHastaLimite(hoy) < 0
 }
 

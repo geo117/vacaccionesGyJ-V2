@@ -937,6 +937,55 @@ def main() -> int:
     check("otro cargo no puede cambiar el estado (403)", respuesta.status_code == 403, str(respuesta.status_code))
 
     # ------------------------------------------------------------------
+    print("\n================ EDICIÓN DE FECHAS ================")
+    check("el listado trae actEdicion", all("actEdicion" in u for u in listado))
+
+    respuesta = client.patch(
+        f"/api/usuarios/{otro_id}/edicion", headers=auth_admin, json={"actEdicion": False}
+    )
+    check("desactivar la edición", respuesta.status_code == 200, str(respuesta.status_code))
+    check(
+        "la respuesta confirma que la edición quedó en no",
+        ((respuesta.get_json() or {}).get("usuario") or {}).get("actEdicion") is False,
+    )
+
+    respuesta = client.get("/api/auth/session", headers=auth_otro)
+    check(
+        "desactivar la edición no cierra la sesión",
+        respuesta.status_code == 200,
+        str(respuesta.status_code),
+    )
+
+    respuesta = client.post("/api/asignaciones", headers=auth_otro, json={})
+    check(
+        "sin edición no puede programar fechas (403)",
+        respuesta.status_code == 403,
+        str(respuesta.status_code),
+    )
+    check(
+        "código EDICION_DESHABILITADA",
+        (respuesta.get_json() or {}).get("code") == "EDICION_DESHABILITADA",
+    )
+
+    respuesta = client.patch(
+        f"/api/usuarios/{otro_id}/edicion", headers=auth_admin, json={"actEdicion": True}
+    )
+    check("reactivar la edición", respuesta.status_code == 200, str(respuesta.status_code))
+    check(
+        "la respuesta confirma que la edición quedó en si",
+        ((respuesta.get_json() or {}).get("usuario") or {}).get("actEdicion") is True,
+    )
+
+    respuesta = client.patch(
+        f"/api/usuarios/{otro_id}/edicion", headers=auth_otro, json={"actEdicion": False}
+    )
+    check(
+        "otro cargo no puede cambiar la edición (403)",
+        respuesta.status_code == 403,
+        str(respuesta.status_code),
+    )
+
+    # ------------------------------------------------------------------
     print("\n================ PROTECCIONES ================")
     respuesta = client.delete(f"/api/usuarios/{admin_id}", headers=auth_admin)
     check("no puede eliminar su propio usuario", respuesta.status_code == 409, str(respuesta.status_code))

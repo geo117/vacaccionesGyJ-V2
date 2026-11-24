@@ -60,6 +60,20 @@ test('«Aprobado por» y «Rechazado por» dependen del estado', async () => {
   )
 })
 
+test('«Asignar fechas» sólo se muestra con la edición habilitada', async () => {
+  const fuente = await readFile(MODAL, 'utf8')
+
+  assert.ok(fuente.includes('puedeEditar = true'), 'la prop debe existir con valor por defecto')
+  assert.ok(
+    fuente.includes('{puedeEditar ? ('),
+    'el footer debe condicionar el botón «Asignar fechas» a la edición',
+  )
+  assert.ok(
+    !/<\/Button>\s*<Button variant="primary" onClick=\{\(\) => onAsignar/.test(fuente),
+    'el botón no puede quedar siempre visible',
+  )
+})
+
 test('el botón «Vaciar períodos» se eliminó', async () => {
   const fuente = await readFile(MODAL, 'utf8')
 

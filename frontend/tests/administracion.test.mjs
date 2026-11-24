@@ -12,6 +12,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 const ADMIN = new URL('../src/pages/AdministracionPage.jsx', import.meta.url)
+const API = new URL('../src/services/api.js', import.meta.url)
 const LOGIN = new URL('../src/pages/LoginPage.jsx', import.meta.url)
 const ASIGNACIONES = new URL('../src/pages/AsignacionesPage.jsx', import.meta.url)
 
@@ -52,6 +53,39 @@ test('el login de los jefes de Colmena no valida la UNES en el cliente', async (
   )
   assert.ok(fuente.includes('UNES_INVALIDA'), 'el error de UNES inválida debe señalar el campo')
   assert.ok(fuente.includes('jefes de Colmena'), 'el texto debe explicar que pueden entrar sin UNES')
+})
+
+test('el admin activa y desactiva la edición de fechas desde el menú', async () => {
+  const fuente = await readFile(ADMIN, 'utf8')
+
+  assert.ok(fuente.includes('handleCambiarEdicion'), 'falta la acción de cambiar la edición')
+  assert.ok(fuente.includes("'Activar edición'"), 'falta la opción «Activar edición»')
+  assert.ok(fuente.includes("'Desactivar edición'"), 'falta la opción «Desactivar edición»')
+  assert.ok(
+    fuente.includes('usuario.actEdicion !== false'),
+    'la opción debe reflejar el valor de act_edicion',
+  )
+
+  const api = await readFile(API, 'utf8')
+  assert.ok(api.includes('cambiarEdicion'), 'falta el método de la API para act_edicion')
+  assert.ok(
+    api.includes('/api/usuarios/${id}/edicion'),
+    'el endpoint debe ser el de edición, no el de activo',
+  )
+})
+
+test('sin edición sólo queda activo «Ver empleado»', async () => {
+  const fuente = await readFile(ASIGNACIONES, 'utf8')
+
+  assert.ok(fuente.includes('puedeEditar'), 'la vista debe leer el permiso de edición')
+  assert.ok(
+    fuente.includes('disabled={!puedeEditar}'),
+    'el botón de asignar/editar fechas debe quedar deshabilitado',
+  )
+  assert.ok(
+    fuente.includes('La edición de fechas está deshabilitada'),
+    'el menú debe explicar por qué la opción está apagada',
+  )
 })
 
 test('la vista de asignaciones muestra el alcance de Colmena', async () => {
