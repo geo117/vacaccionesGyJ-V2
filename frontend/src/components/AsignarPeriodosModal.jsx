@@ -209,7 +209,7 @@ export default function AsignarPeriodosModal({ show, asignacion, onHide, onGuard
                 </div>
 
                 <Form.Group controlId={`${baseId}-${clave}-inicio`}>
-                  <Form.Label>Desde</Form.Label>
+                  <Form.Label>Inicio vacaciones</Form.Label>
                   <Form.Control
                     type="date"
                     value={periodo.inicio}
@@ -219,7 +219,7 @@ export default function AsignarPeriodosModal({ show, asignacion, onHide, onGuard
                 </Form.Group>
 
                 <Form.Group controlId={`${baseId}-${clave}-fin`}>
-                  <Form.Label>Hasta</Form.Label>
+                  <Form.Label>Fin de vacaciones</Form.Label>
                   <Form.Control
                     type="date"
                     value={periodo.fin}

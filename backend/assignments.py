@@ -20,6 +20,7 @@ from colmena import EMPRESA_COLMENA, dia_31_habil, sabado_habil
 from db import Database, DatabaseUnavailable
 from dias_inhabiles import dias_habiles
 from employees import empresa_de_unes, unes_del_grupo
+from filial import normalizar_cedula
 from security import ValidationError
 from temporales import dias_temporales
 
@@ -252,7 +253,7 @@ def fila_a_dict(fila: Any) -> dict[str, Any]:
 
     return {
         "id": int(fila["id"]),
-        "identificacion": str(fila["identificacion"] or ""),
+        "identificacion": normalizar_cedula(fila["identificacion"]),
         "empleado": str(fila["empleado"] or ""),
         "cargo": str(fila["cargo"] or ""),
         "descUnes": str(fila["desc_unes"] or ""),
@@ -385,7 +386,10 @@ def validar_datos_empleado(payload: dict[str, Any]) -> dict[str, Any]:
     )
     empleado = _texto(payload.get("empleado"), "el nombre del colaborador", EMPLEADO_MAX, obligatorio=True)
     return {
-        "identificacion": identificacion,
+        # Los registros históricos guardan la cédula sin decimales; se normaliza
+        # al entrar para que un alta nueva no agregue otra variante del mismo
+        # número (`1015407464.0`) y el cruce con la vista siga encontrándola.
+        "identificacion": normalizar_cedula(identificacion) or identificacion,
         "empleado": empleado,
         "cargo": _texto(payload.get("cargo"), "el cargo", CARGO_MAX) or "",
         "desc_unes": _texto(payload.get("descUnes"), "la descripción de UNES", DESC_UNES_MAX) or "",
@@ -542,7 +546,19 @@ class AssignmentRepository:
         self._database = database
 
     def listar(self) -> list[dict[str, Any]]:
-        return [fila_a_dict(fila) for fila in self._database.query_named(_SELECT_TODAS)]
+        """Todas las asignaciones registradas, sin recortar la lista.
+
+        El tablero cruza estas filas con la plantilla por cédula: si la consulta
+        se quedara con las primeras 500 (el tope por defecto de
+        :meth:`Database.query_named`), las asignaciones más antiguas dejarían de
+        existir para la pantalla y el colaborador aparecería «sin programar»
+        aunque su registro sí esté en la base. La tabla completa es la fuente
+        para ese cruce, así que se pide sin límite.
+        """
+        return [
+            fila_a_dict(fila)
+            for fila in self._database.query_named(_SELECT_TODAS, limit=0)
+        ]
 
     def obtener(self, assignment_id: int) -> dict[str, Any] | None:
         filas = self._database.query_named(_SELECT_UNA, (assignment_id,))
@@ -872,17 +888,24 @@ class AssignmentService:
         movimientos de otra.
         """
         unes_del_tablero = unes_del_grupo(unes)
+        # La llave es la cédula normalizada, no el texto crudo: la vista puede
+        # devolverla como número (`1015407464.0`) y los registros históricos
+        # guardan sólo los dígitos. Comparar los textos tal cual hacía que una
+        # asignación existente no se encontrara y el colaborador apareciera «sin
+        # programar» aunque sus fechas sí estuvieran registradas.
         porIdentificacion: dict[str, dict[str, Any]] = {}
         for asignacion in self._repository.listar():
-            clave = str(asignacion.get("identificacion") or "").strip()
+            clave = normalizar_cedula(asignacion.get("identificacion"))
             if clave:
-                porIdentificacion[clave] = asignacion
+                # La lista llega de la más reciente a la más antigua: si hubiera
+                # más de una asignación para la misma cédula, manda la primera.
+                porIdentificacion.setdefault(clave, asignacion)
 
         tablero: list[dict[str, Any]] = []
 
         for colaborador in colaboradores:
             datos = colaborador.to_dict()
-            identificacion = str(datos["identificacion"]).strip()
+            identificacion = normalizar_cedula(datos["identificacion"])
             asignacion = porIdentificacion.pop(identificacion, None)
 
             totalAsignado = float(asignacion["totalDias"]) if asignacion else 0.0

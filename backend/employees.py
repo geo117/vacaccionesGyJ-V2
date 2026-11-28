@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from db import Database, DatabaseUnavailable
+from filial import normalizar_cedula
 from security import ValidationError
 
 logger = logging.getLogger(__name__)
@@ -251,7 +252,7 @@ def _fila_a_colaborador(fila: Any) -> Colaborador:
     return Colaborador(
         unes=_texto(fila["IDCia_CO"]),
         descUnes=_texto(fila["DescCO"]),
-        identificacion=_texto(fila["cedula"]),
+        identificacion=normalizar_cedula(fila["cedula"]),
         empleado=_texto(fila["Empleado"]),
         cargo=_texto(fila["Cargo"]),
         diasAcumulados=_decimal(fila["dias_vacaciones_acumulado"]),
@@ -363,7 +364,5 @@ class EmployeeDirectory:
             fila = self._database.query_named(f"SELECT TOP 1 cedula FROM {VISTA}", limit=1)
             return True, "ok" if fila else "vista vacía"
         except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "La vista de colaboradores no respondió: %s", exc.__class__.__name__
-            )
+            logger.warning("La vista de colaboradores no respondió: %s", exc)
             return False, "sin respuesta"

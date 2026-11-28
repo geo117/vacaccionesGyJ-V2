@@ -346,7 +346,14 @@
 			"empleado": "ROMERO COY SANTIAGO JOSE",
 			"cargo": "APRENDIZ SENA",
 			"area": "INFORMATICA SUELDOS"
-		}
+		},
+		{
+			"cedula": 1024492064,
+			"empleado": "GARCIA FORERO JOSE DAVID",
+			"cargo": "TECNICO SOPORTE DE SISTEMAS HW/SW",
+			"area": "INFORMATICA SUELDOS"
+		},
+		{"cedula": 80259467, "empleado": "GARCIA PEÑALOZA DEIVID ANDRES", "cargo": "ANALISTA DE DATOS BIM", "area": "INFORMATICA SUELDOS"}
 	],
 	"LINEA PETROLERA SUELDOS": [
 		{

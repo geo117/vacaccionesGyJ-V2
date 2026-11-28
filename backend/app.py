@@ -916,10 +916,15 @@ def create_app(settings: Settings | None = None) -> Flask:
                 )
                 filas = _solo_filial(filas, unes_objetivo)
                 return anotar_temporales(filas), "vista"
-            except DatabaseUnavailable:
+            except DatabaseUnavailable as exc:
                 # El servidor corporativo no respondió. Se degrada al listado
-                # local en lugar de dejar la pantalla en blanco.
-                logger.warning("La vista de colaboradores no respondió; se usa el listado local.")
+                # local en lugar de dejar la pantalla en blanco. La causa real
+                # (vista inexistente, columna que falta, red caída) va al log del
+                # servidor: sin ella este aviso no dice qué corregir.
+                logger.warning(
+                    "La vista de colaboradores no respondió; se usa el listado local. Causa: %s",
+                    exc.__cause__ or exc,
+                )
 
         locales = servicios().assignments.listar()
         if empresa:
@@ -960,9 +965,10 @@ def create_app(settings: Settings | None = None) -> Flask:
             return 0
         try:
             return len(directorio.listar_por_unes(unes, empresa=empresa))
-        except DatabaseUnavailable:
+        except DatabaseUnavailable as exc:
             logger.warning(
-                "La vista de colaboradores no respondió; el total de la UNES queda en cero."
+                "La vista de colaboradores no respondió; el total de la UNES queda en cero. Causa: %s",
+                exc.__cause__ or exc,
             )
             return 0
 

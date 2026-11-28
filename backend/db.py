@@ -125,7 +125,7 @@ class Database:
             logger.error(
                 "No se pudo conectar a SQL Server en %s: %s",
                 self._settings.safe_target(),
-                exc.__class__.__name__,
+                exc,
             )
             raise DatabaseUnavailable("La base de datos no está disponible.") from exc
 
@@ -159,7 +159,10 @@ class Database:
                 connection.rollback()
             except Exception:  # noqa: BLE001
                 pass
-            logger.error("Error de SQL Server: %s", exc.__class__.__name__)
+            # El mensaje del driver se registra aquí (nunca se devuelve al
+            # cliente): sin él, un nombre de vista equivocado y una caída de red
+            # terminan en el mismo "no respondió" y no hay forma de distinguirlos.
+            logger.error("Error de SQL Server: %s", exc)
             raise DatabaseUnavailable("La base de datos no respondió como se esperaba.") from exc
         except Exception:
             if commit:
